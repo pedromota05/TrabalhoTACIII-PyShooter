@@ -619,7 +619,7 @@ class World:
                     img_rect.y = y * TILE_SIZE
                     tile_data = (img, img_rect)
 
-                    if 0 <= tile <= 8:              # Obstáculo sólido
+                    if (0 <= tile <= 8) or (24 <= tile <= 29):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
                     elif 9 <= tile <= 10:            # Água
                         water = Water(img, x * TILE_SIZE, y * TILE_SIZE)
