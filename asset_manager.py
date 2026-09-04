@@ -8,7 +8,7 @@ para animações de personagens e frames de explosão.
 
 import os
 import pygame
-from config import TILE_SIZE, TILE_TYPES
+from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT
 
 
 class AssetManager:
@@ -57,6 +57,12 @@ class AssetManager:
         self.images['pine2'] = pygame.image.load('img/background/pine2.png').convert_alpha()
         self.images['mountain'] = pygame.image.load('img/background/mountain.png').convert_alpha()
         self.images['sky'] = pygame.image.load('img/background/sky_cloud.png').convert_alpha()
+        
+        # Background Level 2
+        bg2 = pygame.image.load('img/background/back.png').convert_alpha()
+        scale2 = SCREEN_HEIGHT / bg2.get_height()
+        bg2 = pygame.transform.scale(bg2, (int(bg2.get_width() * scale2), SCREEN_HEIGHT))
+        self.images['back'] = bg2
 
         # Tiles do cenário
         self.tile_images = []

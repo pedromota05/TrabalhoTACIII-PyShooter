@@ -69,7 +69,7 @@ class Game:
         # ----- Estado do jogo -----
         self.state = GameState.MENU
         self.running = True
-        self.level = 3
+        self.level = 2
         self.screen_scroll = 0
         self.bg_scroll = 0
         self.start_intro = False
@@ -170,23 +170,30 @@ class Game:
     def _draw_bg(self):
         """Desenha o background com parallax em 4 camadas."""
         self.screen.fill(BG_COLOR)
-        sky = self.assets.get_image('sky')
-        mountain = self.assets.get_image('mountain')
-        pine1 = self.assets.get_image('pine1')
-        pine2 = self.assets.get_image('pine2')
-        w = sky.get_width()
-        for x in range(5):
-            self.screen.blit(sky,
-                             ((x * w) - self.bg_scroll * 0.5, 0))
-            self.screen.blit(mountain,
-                             ((x * w) - self.bg_scroll * 0.6,
-                              SCREEN_HEIGHT - mountain.get_height() - 300))
-            self.screen.blit(pine1,
-                             ((x * w) - self.bg_scroll * 0.7,
-                              SCREEN_HEIGHT - pine1.get_height() - 150))
-            self.screen.blit(pine2,
-                             ((x * w) - self.bg_scroll * 0.8,
-                              SCREEN_HEIGHT - pine2.get_height()))
+        
+        if self.level == 2:
+            bg2 = self.assets.get_image('back')
+            w = bg2.get_width()
+            for x in range(5):
+                self.screen.blit(bg2, ((x * w) - self.bg_scroll * 0.5, 0))
+        else:
+            sky = self.assets.get_image('sky')
+            mountain = self.assets.get_image('mountain')
+            pine1 = self.assets.get_image('pine1')
+            pine2 = self.assets.get_image('pine2')
+            w = sky.get_width()
+            for x in range(5):
+                self.screen.blit(sky,
+                                 ((x * w) - self.bg_scroll * 0.5, 0))
+                self.screen.blit(mountain,
+                                 ((x * w) - self.bg_scroll * 0.6,
+                                  SCREEN_HEIGHT - mountain.get_height() - 300))
+                self.screen.blit(pine1,
+                                 ((x * w) - self.bg_scroll * 0.7,
+                                  SCREEN_HEIGHT - pine1.get_height() - 150))
+                self.screen.blit(pine2,
+                                 ((x * w) - self.bg_scroll * 0.8,
+                                  SCREEN_HEIGHT - pine2.get_height()))
 
     def _draw_text(self, text, text_col, x, y, custom_font=None):
         f = custom_font if custom_font else self.font

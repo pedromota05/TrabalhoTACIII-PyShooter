@@ -352,10 +352,9 @@ class Enemy(Character):
                 if not self.idling:
                     # Detecção de borda — inverter ANTES de cair
                     if self._is_edge_ahead(obstacle_list):
-                        if self.flip_cooldown == 0:
-                            self.direction *= -1
-                            self.move_counter = 0
-                            self.flip_cooldown = 30  # Força 30 frames antes de poder virar de novo
+                        self.direction *= -1
+                        self.move_counter = 0
+                        self.flip_cooldown = 30  # Força 30 frames antes de poder virar de novo
 
                     ai_moving_right = (self.direction == 1)
                     ai_moving_left = not ai_moving_right
@@ -554,7 +553,7 @@ class ItemBox(pygame.sprite.Sprite):
                 player.grenades += GRENADE_PICKUP
             elif self.item_type == 'Speed':
                 player.speed_boost = True
-                player.speed = player.base_speed * 1
+                player.speed = player.base_speed * 2
                 player.speed_boost_timer = 300
             self.kill()
 
@@ -685,10 +684,19 @@ class World:
                     img_rect.y = y * TILE_SIZE
                     tile_data = (img, img_rect)
 
-                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48):  # Obstáculo sólido
+                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
-                    elif 9 <= tile <= 10:            # Água
-                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [img])
+                    elif tile in (9, 51, 52, 53, 54, 55):  # Água de superfície animada (Fase 2)
+                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [
+                            assets.tile_images[51],
+                            assets.tile_images[52],
+                            assets.tile_images[53],
+                            assets.tile_images[54],
+                            assets.tile_images[55]
+                        ])
+                        water_group.add(water)
+                    elif tile in (10, 56, 57):  # Água profunda estática (Fase 2)
+                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
                     elif 11 <= tile <= 14:           # Decoração
                         decoration = Decoration(img, x * TILE_SIZE,
