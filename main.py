@@ -69,7 +69,7 @@ class Game:
         # ----- Estado do jogo -----
         self.state = GameState.MENU
         self.running = True
-        self.level = 1
+        self.level = 3
         self.screen_scroll = 0
         self.bg_scroll = 0
         self.start_intro = False
@@ -93,7 +93,7 @@ class Game:
 
         # ----- Efeitos de fade -----
         self.intro_fade = ScreenFade(1, BLACK, 4)
-        self.death_fade = ScreenFade(2, PINK, 4)
+        self.death_fade = ScreenFade(2, PINK, 12)
 
         # ----- Botões de UI -----
         self.start_button = button.Button(
@@ -401,7 +401,7 @@ class Game:
             self.state = GameState.PLAYING
         else:
             # Todas as fases concluídas → voltar ao menu
-            self.level = 1
+            self.level = 3
             self._load_level(self.level)
             self.state = GameState.MENU
 

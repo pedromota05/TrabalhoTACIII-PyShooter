@@ -9,7 +9,9 @@ espalhados pelo código.
 #  Tela
 # ---------------------------------------------------------------------------
 SCREEN_WIDTH = 1200
-SCREEN_HEIGHT = int(SCREEN_WIDTH * 0.5)  # 600
+# Define a altura da tela para 640 (múltiplo perfeito de 16 ROWS: 16 * 40 = 640) 
+# Isso evita a faixa preta (gap) na parte inferior da tela.
+SCREEN_HEIGHT = 640
 
 # ---------------------------------------------------------------------------
 #  Timing
@@ -20,9 +22,9 @@ FPS = 60
 #  Estrutura dos Níveis
 # ---------------------------------------------------------------------------
 ROWS = 16
-COLS = 150
+COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
-TILE_TYPES = 30
+TILE_TYPES = 50
 MAX_LEVELS = 3
 
 # ---------------------------------------------------------------------------
@@ -35,13 +37,13 @@ SCROLL_THRESH = 200
 # ---------------------------------------------------------------------------
 GRAVITY = 0.75
 TERMINAL_VELOCITY = 10   # FIX: clamping de velocidade de queda
-JUMP_VELOCITY = -11
+JUMP_VELOCITY = -12
 
 # ---------------------------------------------------------------------------
 #  Player
 # ---------------------------------------------------------------------------
 PLAYER_SPEED = 5
-PLAYER_SCALE = 1.65
+PLAYER_SCALE = 1.55
 PLAYER_START_AMMO = 20
 PLAYER_START_GRENADES = 5
 
@@ -49,7 +51,7 @@ PLAYER_START_GRENADES = 5
 #  Enemy
 # ---------------------------------------------------------------------------
 ENEMY_SPEED = 2
-ENEMY_SCALE = 1.65
+ENEMY_SCALE = 1.55
 ENEMY_AMMO = 20
 ENEMY_GRENADES = 0
 ENEMY_VISION_WIDTH = 150

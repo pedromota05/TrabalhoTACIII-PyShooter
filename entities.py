@@ -113,15 +113,20 @@ class Character(pygame.sprite.Sprite):
 
     def _check_tile_collisions(self, dx, dy, obstacle_list):
         """Detecta e resolve colisões AABB com tiles sólidos."""
+        # Cria uma margem de ~20% na largura para ignorar a ponta da arma/sprite solto
+        margin = int(self.width * 0.2)
+        col_width = self.width - (margin * 2)
+        
         for tile in obstacle_list:
-            # Colisão horizontal
-            if tile[1].colliderect(self.rect.x + dx, self.rect.y,
-                                   self.width, self.height):
+            # Colisão horizontal (usa hitbox mais fina)
+            if tile[1].colliderect(self.rect.x + dx + margin, self.rect.y,
+                                   col_width, self.height):
                 dx = 0
                 self._on_horizontal_collision()
-            # Colisão vertical
-            if tile[1].colliderect(self.rect.x, self.rect.y + dy,
-                                   self.width, self.height):
+                
+            # Colisão vertical (ATENÇÃO: usar 'dx' resolvido para não bugar ao cair de quinas)
+            if tile[1].colliderect(self.rect.x + dx + margin, self.rect.y + dy,
+                                   col_width, self.height):
                 if self.vel_y < 0:                  # subindo (pulo)
                     self.vel_y = 0
                     dy = tile[1].bottom - self.rect.top
@@ -129,6 +134,7 @@ class Character(pygame.sprite.Sprite):
                     self.vel_y = 0
                     self.in_air = False
                     dy = tile[1].top - self.rect.bottom
+                    
         return dx, dy
 
     def _on_horizontal_collision(self):
@@ -202,6 +208,20 @@ class Player(Character):
                  ammo=PLAYER_START_AMMO, grenades=PLAYER_START_GRENADES):
         super().__init__('player', x, y, scale, speed, ammo, grenades)
 
+    def _check_environment(self, water_group):
+        """Verifica perigos ambientais com hitbox perdoável para água.
+
+        O jogador só morre se o centro do corpo estiver abaixo da
+        superfície da água, evitando mortes injustas por encostar 1 pixel.
+        """
+        for water in water_group:
+            if (water.rect.colliderect(self.rect)
+                    and self.rect.centery > water.rect.top):
+                self.health = 0
+                break
+        if self.rect.bottom > SCREEN_HEIGHT:
+            self.health = 0
+
     def move(self, moving_left, moving_right, obstacle_list,
              water_group, exit_group, bg_scroll, level_length):
         """Processa movimento, colisão, scroll e retorna
@@ -262,11 +282,31 @@ class Enemy(Character):
         self.vision = pygame.Rect(0, 0, ENEMY_VISION_WIDTH, ENEMY_VISION_HEIGHT)
         self.idling = False
         self.idling_counter = 0
+        self.flip_cooldown = 0
 
     def _on_horizontal_collision(self):
         """Inverte a direção ao colidir com uma parede."""
-        self.direction *= -1
-        self.move_counter = 0
+        if self.flip_cooldown == 0:
+            self.direction *= -1
+            self.move_counter = 0
+            self.flip_cooldown = 30  # Força 30 frames antes de poder virar de novo
+
+    def _is_edge_ahead(self, obstacle_list):
+        """Detecta se não há chão sólido à frente dos pés do inimigo."""
+        if self.in_air:
+            return False  # Ignorar detecção de borda se já estiver no ar
+        # Ponto de teste: logo além da borda dianteira, abaixo dos pés
+        if self.direction == 1:
+            check_x = self.rect.right + 2
+        else:
+            check_x = self.rect.left - 2
+        # Rect estreito abaixo dos pés na direção do movimento
+        test_rect = pygame.Rect(check_x - 1, self.rect.bottom + 1,
+                                2, TILE_SIZE)
+        for tile in obstacle_list:
+            if tile[1].colliderect(test_rect):
+                return False   # Chão encontrado — sem borda
+        return True            # Sem chão à frente — borda detectada!
 
     def move(self, moving_left, moving_right, obstacle_list, water_group):
         """Movimento simplificado (sem scroll nem saída)."""
@@ -285,6 +325,9 @@ class Enemy(Character):
     def ai(self, player, screen_scroll, obstacle_list, water_group,
            bullet_group):
         """Lógica de IA: patrulha, detecção e ataque."""
+        if self.flip_cooldown > 0:
+            self.flip_cooldown -= 1
+
         if self.alive and player.alive:
             # Chance aleatória de parar (idling)
             if not self.idling and random.randint(1, 200) == 1:
@@ -307,6 +350,13 @@ class Enemy(Character):
                 # NOTA: self.move() NÃO é chamado aqui, evitando conflito!
             else:
                 if not self.idling:
+                    # Detecção de borda — inverter ANTES de cair
+                    if self._is_edge_ahead(obstacle_list):
+                        if self.flip_cooldown == 0:
+                            self.direction *= -1
+                            self.move_counter = 0
+                            self.flip_cooldown = 30  # Força 30 frames antes de poder virar de novo
+
                     ai_moving_right = (self.direction == 1)
                     ai_moving_left = not ai_moving_right
                     
@@ -316,9 +366,12 @@ class Enemy(Character):
                     self.update_action(1)       # Run
                     self.move_counter += 1
                     
-                    if self.move_counter > TILE_SIZE:
-                        self.direction *= -1
-                        self.move_counter *= -1
+                    # Inverter ao fim do percurso de patrulha
+                    if self.move_counter > TILE_SIZE * 3:
+                        if self.flip_cooldown == 0:
+                            self.direction *= -1
+                            self.move_counter = 0
+                            self.flip_cooldown = 30  # Força 30 frames antes de poder virar de novo
                 else:
                     self.idling_counter -= 1
                     if self.idling_counter <= 0:
@@ -501,7 +554,7 @@ class ItemBox(pygame.sprite.Sprite):
                 player.grenades += GRENADE_PICKUP
             elif self.item_type == 'Speed':
                 player.speed_boost = True
-                player.speed = player.base_speed * 2
+                player.speed = player.base_speed * 1
                 player.speed_boost_timer = 300
             self.kill()
 
@@ -520,15 +573,28 @@ class Decoration(pygame.sprite.Sprite):
         self.rect.x += screen_scroll
 
 class Water(pygame.sprite.Sprite):
-    def __init__(self, img, x, y):
+    def __init__(self, x, y, images_list):
         pygame.sprite.Sprite.__init__(self)
-        self.image = img
+        self.animation_list = images_list
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+        self.image = self.animation_list[self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.midtop = (x + TILE_SIZE // 2,
                             y + (TILE_SIZE - self.image.get_height()))
 
     def update(self, screen_scroll):
+        # Mover com a tela
         self.rect.x += screen_scroll
+        
+        # Animação (apenas se houver mais de 1 frame)
+        if len(self.animation_list) > 1:
+            if pygame.time.get_ticks() - self.update_time > 150:
+                self.update_time = pygame.time.get_ticks()
+                self.frame_index += 1
+                if self.frame_index >= len(self.animation_list):
+                    self.frame_index = 0
+                self.image = self.animation_list[self.frame_index]
 
 class Exit(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
@@ -619,10 +685,10 @@ class World:
                     img_rect.y = y * TILE_SIZE
                     tile_data = (img, img_rect)
 
-                    if (0 <= tile <= 8) or (24 <= tile <= 29):  # Obstáculo sólido
+                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
                     elif 9 <= tile <= 10:            # Água
-                        water = Water(img, x * TILE_SIZE, y * TILE_SIZE)
+                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [img])
                         water_group.add(water)
                     elif 11 <= tile <= 14:           # Decoração
                         decoration = Decoration(img, x * TILE_SIZE,
@@ -647,10 +713,10 @@ class World:
                         item_box = ItemBox('Health', x * TILE_SIZE,
                                            y * TILE_SIZE)
                         item_box_group.add(item_box)
-                    elif tile == 20:                 # Saída da fase
-                        exit_tile = Exit(img, x * TILE_SIZE, y * TILE_SIZE)
-                        exit_group.add(exit_tile)
-                    elif tile == 21:                 # Spawn do Sniper
+                    elif tile in (20, 41):                 # Saída da fase (Fase 1/2 e Fase 3)
+                        exit_obj = Exit(img, x * TILE_SIZE, y * TILE_SIZE)
+                        exit_group.add(exit_obj)
+                    elif tile == 21:                 # Sniper (Fase 3)
                         sniper = Sniper(x * TILE_SIZE, y * TILE_SIZE)
                         enemy_group.add(sniper)
                     elif tile == 22:                 # Caixa de Speed Boost
@@ -659,6 +725,20 @@ class World:
                     elif tile == 23:                 # Placa de Aviso (Warning Sign)
                         decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
+                    elif tile in (36, 40, 42, 49):  # Decorações de neve (boneco, placa, árvores)
+                        decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
+                        decoration_group.add(decoration)
+                    elif tile in (37, 38, 43, 44, 45):  # Água gelada de superfície
+                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [
+                            assets.tile_images[37],
+                            assets.tile_images[43],
+                            assets.tile_images[44],
+                            assets.tile_images[45]
+                        ])
+                        water_group.add(water)
+                    elif tile in (39, 46):            # Água gelada profunda
+                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
+                        water_group.add(water)
 
         return player, health_bar
 
