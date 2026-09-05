@@ -225,7 +225,7 @@ class Game:
             self._draw_text('SPEED BOOST!', YELLOW, 10, 85, self.font_bold)
 
         # Jogador
-        self.player.update()
+        self.player.update(self.enemy_group)
         self.player.draw(self.screen)
 
         # Inimigos

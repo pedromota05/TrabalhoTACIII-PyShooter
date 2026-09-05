@@ -207,6 +207,26 @@ class Player(Character):
     def __init__(self, x, y, scale=PLAYER_SCALE, speed=PLAYER_SPEED,
                  ammo=PLAYER_START_AMMO, grenades=PLAYER_START_GRENADES):
         super().__init__('player', x, y, scale, speed, ammo, grenades)
+        self.invincible = 0
+
+    def update(self, enemy_group=None):
+        super().update()
+        
+        # Lógica de I-Frames
+        if self.invincible > 0:
+            self.invincible -= 1
+            
+        # Dano de Contato
+        if enemy_group and self.invincible == 0:
+            if pygame.sprite.spritecollide(self, enemy_group, False):
+                self.health -= 10
+                self.invincible = 60
+
+    def draw(self, screen):
+        # Efeito visual de piscar durante a invencibilidade
+        if self.invincible > 0 and (self.invincible // 5) % 2 == 0:
+            return  # Pula o frame, fazendo o personagem sumir
+        super().draw(screen)
 
     def _check_environment(self, water_group):
         """Verifica perigos ambientais com hitbox perdoável para água.
@@ -686,7 +706,7 @@ class World:
 
                     if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59, 60, 61, 65, 66):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
-                    elif tile in (9, 51, 52, 53, 54, 55):  # Água de superfície animada (Fase 2)
+                    elif tile in (51, 52, 53, 54, 55):  # Água de superfície animada (Fase 2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [
                             assets.tile_images[51],
                             assets.tile_images[52],
@@ -695,8 +715,9 @@ class World:
                             assets.tile_images[55]
                         ])
                         water_group.add(water)
-                    elif tile in (62, 63, 64, 67):  # Água de superfície animada (Fase 1/Pântano)
+                    elif tile in (9, 62, 63, 64, 67):  # Água de superfície animada (Fase 1/Pântano)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [
+                            assets.tile_images[9],
                             assets.tile_images[62],
                             assets.tile_images[63],
                             assets.tile_images[64],
