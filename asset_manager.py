@@ -56,6 +56,9 @@ class AssetManager:
         for i in range(1, 5):
             self.images[f'gamepad{i}'] = pygame.image.load(f'img/icons/gamepad{i}.png').convert_alpha()
 
+        # Botão Pause
+        self.images['pause_btn'] = pygame.image.load('img/icons/pause_button.png').convert_alpha()
+
         # Background (parallax)
         self.images['pine1'] = pygame.image.load('img/background/pine1.png').convert_alpha()
         self.images['pine2'] = pygame.image.load('img/background/pine2.png').convert_alpha()

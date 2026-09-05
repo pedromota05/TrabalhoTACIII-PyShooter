@@ -42,6 +42,7 @@ class GameState(Enum):
     INSTRUCTIONS = "instructions"
     LEVEL_SELECT = "level_select"
     PLAYING = "playing"
+    PAUSE = "pause"
     GAME_OVER = "game_over"
     LEVEL_TRANSITION = "level_transition"
 
@@ -129,6 +130,22 @@ class Game:
                 self.assets.get_image(f'gamepad{i}'), 1,
             )
             self.level_buttons.append(btn)
+            
+        # Botão de Pause no Gameplay
+        # Redimensiona para 40x40 se a imagem original for diferente
+        pause_img = self.assets.get_image('pause_btn')
+        pause_img = pygame.transform.scale(pause_img, (40, 40))
+        self.pause_button = button.Button(SCREEN_WIDTH - 60, 10, pause_img, 1)
+
+        # Botões do Menu de Pause (vamos usar textos clicáveis gerando imagens de botão)
+        # Vamos criar text surfaces e transformá-las em instâncias de Button
+        resume_surf = self.font_bold.render('RESUME', True, WHITE)
+        options_surf = self.font_bold.render('OPTIONS', True, WHITE)
+        exit_surf = self.font_bold.render('EXIT', True, WHITE)
+        
+        self.pause_resume_btn = button.Button(SCREEN_WIDTH // 2 - resume_surf.get_width() // 2, SCREEN_HEIGHT // 2 - 60, resume_surf, 1)
+        self.pause_options_btn = button.Button(SCREEN_WIDTH // 2 - options_surf.get_width() // 2, SCREEN_HEIGHT // 2, options_surf, 1)
+        self.pause_exit_btn = button.Button(SCREEN_WIDTH // 2 - exit_surf.get_width() // 2, SCREEN_HEIGHT // 2 + 60, exit_surf, 1)
 
         # ----- Objetos do jogo -----
         self.player = None
@@ -216,6 +233,17 @@ class Game:
         f = custom_font if custom_font else self.font
         img = f.render(text, True, text_col)
         self.screen.blit(img, (x, y))
+
+    def _draw_text_with_shadow(self, text, custom_font, text_color, x, y):
+        # Desenha a sombra preta deslocada
+        shadow_surf = custom_font.render(text, True, (0, 0, 0))
+        shadow_rect = shadow_surf.get_rect(centerx=x + 3, top=y + 3)
+        self.screen.blit(shadow_surf, shadow_rect)
+
+        # Desenha o texto principal por cima
+        text_surf = custom_font.render(text, True, text_color)
+        text_rect = text_surf.get_rect(centerx=x, top=y)
+        self.screen.blit(text_surf, text_rect)
 
     def _render_game_scene(self):
         """Desenha e atualiza TODAS as entidades do jogo.
@@ -307,6 +335,11 @@ class Game:
                                       GameState.LEVEL_SELECT):
                         self.state = GameState.MENU
                         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                    elif self.state == GameState.PLAYING:
+                        self.state = GameState.PAUSE
+                    elif self.state == GameState.PAUSE:
+                        self.state = GameState.PLAYING
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                     else:
                         self.running = False
 
@@ -327,7 +360,7 @@ class Game:
     # ==================================================================
     def _update_menu(self):
         """Estado MENU: tela inicial com botões."""
-        self.screen.fill(BG_COLOR)
+        self._draw_bg()
         if self.start_button.draw(self.screen):
             self.state = GameState.LEVEL_SELECT
         if self.instructions_button.draw(self.screen):
@@ -337,7 +370,7 @@ class Game:
 
     def _update_instructions(self):
         """Estado INSTRUCTIONS: exibe os controles do jogo."""
-        self.screen.fill(BG_COLOR)
+        self._draw_bg()
         
         # Criar fundo semi-transparente para as instruções
         overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
@@ -365,21 +398,17 @@ class Game:
 
     def _update_level_select(self):
         """Estado LEVEL_SELECT: exibe os botões de seleção de fase."""
-        self.screen.fill(BG_COLOR)
+        self._draw_bg()
         
         hovering_button = False
 
         # Título centralizado
-        titulo_surface = self.font_bold.render('SELECIONE A FASE', True, WHITE)
-        titulo_rect = titulo_surface.get_rect(centerx=SCREEN_WIDTH // 2, top=80)
-        self.screen.blit(titulo_surface, titulo_rect)
+        self._draw_text_with_shadow('SELECIONE A FASE', self.font_bold, WHITE, SCREEN_WIDTH // 2, 80)
 
         # Rótulos das fases acima de cada botão
         for i, btn in enumerate(self.level_buttons):
             label = f'Fase {i + 1}'
-            label_x = btn.rect.centerx - self.font.size(label)[0] // 2
-            label_y = btn.rect.top - 35
-            self._draw_text(label, WHITE, label_x, label_y)
+            self._draw_text_with_shadow(label, self.font, WHITE, btn.rect.centerx, btn.rect.top - 35)
 
         # Desenhar botões e checar cliques e hover
         for i, btn in enumerate(self.level_buttons):
@@ -395,9 +424,7 @@ class Game:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
         # Dica de voltar centralizada
-        dica_surface = self.font_bold.render('Pressione ESC para voltar ao menu', True, PINK)
-        dica_rect = dica_surface.get_rect(centerx=SCREEN_WIDTH // 2, top=SCREEN_HEIGHT - 60)
-        self.screen.blit(dica_surface, dica_rect)
+        self._draw_text_with_shadow('Pressione ESC para voltar ao menu', self.font_bold, PINK, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60)
         
         # Atualizar cursor do mouse
         if self.state == GameState.LEVEL_SELECT:
@@ -458,6 +485,52 @@ class Game:
             self.screen_scroll = 0
             self.state = GameState.GAME_OVER
 
+        # Botão de Pause
+        if self.pause_button.draw(self.screen):
+            self.state = GameState.PAUSE
+
+    def _update_pause(self):
+        """Estado PAUSE: congela o jogo e exibe o menu de opções."""
+        # 1. Continua desenhando a tela congelada do jogo
+        self._render_game_scene()
+
+        # 2. Desenha o fundo escurecido
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill(BLACK)
+        self.screen.blit(overlay, (0, 0))
+
+        # 3. Título centralizado
+        self._draw_text_with_shadow('PAUSED', self.font_bold, WHITE, SCREEN_WIDTH // 2, 80)
+
+        # 4. Botões do Menu
+        hovering_button = False
+        if self.pause_resume_btn.rect.collidepoint(pygame.mouse.get_pos()) or \
+           self.pause_options_btn.rect.collidepoint(pygame.mouse.get_pos()) or \
+           self.pause_exit_btn.rect.collidepoint(pygame.mouse.get_pos()):
+            hovering_button = True
+
+        if self.pause_resume_btn.draw(self.screen):
+            self.state = GameState.PLAYING
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+            
+        if self.pause_options_btn.draw(self.screen):
+            print('Menu de opções em desenvolvimento')
+            
+        if self.pause_exit_btn.draw(self.screen):
+            self.state = GameState.LEVEL_SELECT
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+            # Reset de fase para não continuar de onde parou depois
+            self.bg_scroll = 0
+            self.start_intro = True
+            self._load_level(self.level)
+
+        if self.state == GameState.PAUSE:
+            if hovering_button:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            else:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
     def _update_level_transition(self):
         """Estado LEVEL_TRANSITION: carrega a próxima fase."""
         self.screen.fill(BLACK)
@@ -503,6 +576,8 @@ class Game:
                 self._update_level_select()
             elif self.state == GameState.PLAYING:
                 self._update_playing()
+            elif self.state == GameState.PAUSE:
+                self._update_pause()
             elif self.state == GameState.LEVEL_TRANSITION:
                 self._update_level_transition()
             elif self.state == GameState.GAME_OVER:
