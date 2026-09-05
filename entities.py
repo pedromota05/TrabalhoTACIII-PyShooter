@@ -219,8 +219,11 @@ class Player(Character):
         # Dano de Contato
         if enemy_group and self.invincible == 0:
             for enemy in enemy_group:
-                # Encolhe a hitbox do inimigo em 20 pixels na largura e altura apenas para essa checagem
-                hitbox_inimigo = enemy.rect.inflate(-20, -20)
+                if type(enemy).__name__ == 'SkeletonEnemy':
+                    continue  # Ignora o dano de contato para o esqueleto
+
+                # Reduz drasticamente a largura do retângulo invisível para ignorar a transparência
+                hitbox_inimigo = enemy.rect.inflate(-50, -10)
                 if enemy.alive and self.rect.colliderect(hitbox_inimigo):
                     self.health -= 10
                     self.invincible = 60
@@ -710,6 +713,9 @@ class World:
 
                     if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59, 60, 61, 65, 66):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
+                    elif tile == 70:                 # Skeleton Enemy
+                        skeleton = SkeletonEnemy(x * TILE_SIZE, y * TILE_SIZE)
+                        enemy_group.add(skeleton)
                     elif tile in (51, 52, 53, 54, 55):  # Água de superfície animada (Fase 2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [
                             assets.tile_images[51],
@@ -928,6 +934,206 @@ class RobotEnemy(Character):
                 
                 self.update_action(2)  # Attack animation (action 2)
                 self.shoot(bullet_group)
+            else:
+                if not self.idling and random.randint(1, 200) == 1:
+                    self.update_action(0)  # Idle
+                    self.idling = True
+                    self.idling_counter = 50
+                    self.turn_after_idle = False
+
+                if not self.idling:
+                    if self.direction == 1:
+                        moving_right = True
+                        moving_left = False
+                    else:
+                        moving_right = False
+                        moving_left = True
+
+                    self.update_action(1)  # Walk animation (action 1)
+                    self.move(moving_left, moving_right, obstacle_list, water_group)
+                    self.move_counter += 1
+                    
+                    if self._is_edge_ahead(obstacle_list):
+                        if self.flip_cooldown == 0:
+                            self.idling = True
+                            self.idling_counter = 60
+                            self.turn_after_idle = True
+                            self.move_counter = 0
+                            self.flip_cooldown = 60
+
+                else:
+                    self.update_action(0)  # Garante que continua em animação de idle
+                    self.idling_counter -= 1
+                    if self.idling_counter <= 0:
+                        self.idling = False
+                        if self.turn_after_idle:
+                            self.direction *= -1
+                            self.turn_after_idle = False
+
+        self.rect.x += screen_scroll
+        self.vision.center = (self.rect.centerx + 75 * self.direction, self.rect.centery)
+
+# ======================================================================
+#  SKELETON ARROW
+# ======================================================================
+class Arrow(pygame.sprite.Sprite):
+    def __init__(self, x, y, dir_x, dir_y):
+        pygame.sprite.Sprite.__init__(self)
+        self.speed = int(BULLET_SPEED * 0.75)  # 25% mais lento para balancear
+        self.image = pygame.image.load('img/skeleton/Arrow.png').convert_alpha()
+        # Aumentar a escala da flecha para melhorar a legibilidade visual (dobro do tamanho)
+        self.image = pygame.transform.scale(self.image, (60, 30))
+        
+        self.dir_x = dir_x
+        self.dir_y = dir_y
+        
+        if dir_y == -1:
+            self.image = pygame.transform.rotate(self.image, 90)
+        elif dir_x == -1:
+            self.image = pygame.transform.flip(self.image, True, False)
+            
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+
+    def update(self, screen_scroll, obstacle_list, player,
+               bullet_group, enemy_group):
+        # Mover - multidirecional
+        self.rect.x += (self.dir_x * self.speed) + screen_scroll
+        self.rect.y += (self.dir_y * self.speed)
+        
+        # Fora da tela
+        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT:
+            self.kill()
+        # Colisão com tiles
+        for tile in obstacle_list:
+            if tile[1].colliderect(self.rect):
+                self.kill()
+        # Colisão com jogador
+        if pygame.sprite.collide_rect(player, self):
+            if player.alive and player.invincible == 0:
+                player.health -= BULLET_DAMAGE_TO_PLAYER
+                player.invincible = 60
+                self.kill()
+
+# ======================================================================
+#  SKELETON ENEMY
+# ======================================================================
+class SkeletonEnemy(Character):
+    # Ajuste fino: scale 0.8 parece o ideal para bater com o tamanho do player
+    def __init__(self, x, y, scale=0.8, speed=1,
+                 ammo=9999, grenades=ENEMY_GRENADES):
+        super().__init__('enemy', x, y, scale, speed, ammo, grenades)
+        self.move_counter = 0
+        self.vision = pygame.Rect(0, 0, ENEMY_VISION_WIDTH, ENEMY_VISION_HEIGHT)
+        self.idling = False
+        self.idling_counter = 0
+        self.flip_cooldown = 0
+        self.turn_after_idle = False
+        
+        # Override animation list com o extrator de sprite strips do esqueleto
+        self.animation_list = []
+        animations = [
+            'Idle',     # action 0
+            'Walk',     # action 1
+            'Shot_1',   # action 2
+            'Dead',     # action 3
+            'Hurt'      # action 4
+        ]
+        
+        for anim in animations:
+            img = pygame.image.load(f'img/skeleton/{anim}.png').convert_alpha()
+            # Lógica de fatiamento dinâmico baseada em quadrados perfeitos
+            frame_height = img.get_height()
+            frame_width = frame_height
+            num_frames = img.get_width() // frame_width
+            
+            temp_list = []
+            for i in range(num_frames):
+                frame = img.subsurface((i * frame_width, 0, frame_width, frame_height))
+                # Correção de escala durante a extração
+                frame = pygame.transform.scale(
+                    frame,
+                    (int(frame_width * scale), int(frame_height * scale))
+                )
+                temp_list.append(frame)
+            self.animation_list.append(temp_list)
+            
+        self.action = 0
+        self.frame_index = 0
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        
+        # Correção de Posicionamento - alinhar os pés ao chão
+        self.rect.midbottom = (x + TILE_SIZE // 2, y + TILE_SIZE)
+        
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
+
+    def update(self):
+        super().update()
+        # Atualizar variável de flip baseada na direção a cada frame
+        self.flip = True if self.direction == -1 else False
+
+    def _is_edge_ahead(self, obstacle_list):
+        if self.in_air:
+            return False
+        if self.direction == 1:
+            check_x = self.rect.right + 2
+        else:
+            check_x = self.rect.left - 2
+        test_rect = pygame.Rect(check_x - 1, self.rect.bottom + 1, 2, TILE_SIZE)
+        for tile in obstacle_list:
+            if tile[1].colliderect(test_rect):
+                return False
+        return True
+
+    def _on_horizontal_collision(self):
+        if self.flip_cooldown == 0:
+            self.idling = True
+            self.idling_counter = 60
+            self.turn_after_idle = True
+            self.move_counter = 0
+            self.flip_cooldown = 60
+
+    def move(self, moving_left, moving_right, obstacle_list, water_group):
+        dx = self._calculate_movement(moving_left, moving_right)
+        dy = 0
+        self._apply_gravity()
+        dy += self.vel_y
+        dx, dy = self._check_tile_collisions(dx, dy, obstacle_list)
+        self._check_environment(water_group)
+        self.rect.x += dx
+        self.rect.y += dy
+
+    def shoot(self, bullet_group):
+        """Dispara a flecha APENAS quando a animação de ataque atingir um frame avançado."""
+        if self.shoot_cooldown == 0 and self.ammo > 0 and self.action == 2 and self.frame_index >= 9:
+            self.shoot_cooldown = SHOOT_COOLDOWN
+            bullet = Arrow(
+                self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
+                self.rect.centery,
+                self.direction,
+            )
+            bullet_group.add(bullet)
+            self.ammo -= 1
+
+    def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
+        if self.flip_cooldown > 0:
+            self.flip_cooldown -= 1
+
+        if self.alive and player.alive:
+            # Jogador dentro do campo de visão -> atirar
+            if self.vision.colliderect(player.rect):
+                if player.rect.centerx < self.rect.centerx:
+                    self.direction = -1
+                else:
+                    self.direction = 1
+                
+                if self.ammo > 0:
+                    self.update_action(2)  # Attack animation (action 2 -> Shot_1)
+                    self.shoot(bullet_group)
+                else:
+                    self.update_action(0)  # Fica parado olhando sem atirar
             else:
                 if not self.idling and random.randint(1, 200) == 1:
                     self.update_action(0)  # Idle
