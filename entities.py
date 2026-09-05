@@ -15,6 +15,7 @@ Hierarquia principal:
 Utilitários (sem herança de Sprite):
     HealthBar, ScreenFade, World
 """
+import math
 import random
 import pygame
 from config import (
@@ -977,29 +978,35 @@ class RobotEnemy(Character):
 #  SKELETON ARROW
 # ======================================================================
 class Arrow(pygame.sprite.Sprite):
-    def __init__(self, x, y, dir_x, dir_y):
+    def __init__(self, x, y, target_x, target_y):
         pygame.sprite.Sprite.__init__(self)
         self.speed = int(BULLET_SPEED * 0.75)  # 25% mais lento para balancear
-        self.image = pygame.image.load('img/skeleton/Arrow.png').convert_alpha()
-        # Aumentar a escala da flecha para melhorar a legibilidade visual (dobro do tamanho)
-        self.image = pygame.transform.scale(self.image, (60, 30))
         
-        self.dir_x = dir_x
-        self.dir_y = dir_y
+        self.original_image = pygame.image.load('img/skeleton/Arrow.png').convert_alpha()
+        self.original_image = pygame.transform.scale(self.original_image, (60, 30))
         
-        if dir_y == -1:
-            self.image = pygame.transform.rotate(self.image, 90)
-        elif dir_x == -1:
-            self.image = pygame.transform.flip(self.image, True, False)
-            
-        self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
+        # Calcular ângulo
+        dx = target_x - x
+        dy = target_y - y
+        angle = math.atan2(dy, dx)
+        self.dx = math.cos(angle) * self.speed
+        self.dy = math.sin(angle) * self.speed
+        
+        # Guardar posição real em float
+        self.x = float(x)
+        self.y = float(y)
+        
+        # Rotacionar a imagem
+        self.image = pygame.transform.rotate(self.original_image, math.degrees(-angle))
+        self.rect = self.image.get_rect(center=(x, y))
 
     def update(self, screen_scroll, obstacle_list, player,
                bullet_group, enemy_group):
-        # Mover - multidirecional
-        self.rect.x += (self.dir_x * self.speed) + screen_scroll
-        self.rect.y += (self.dir_y * self.speed)
+        # Mover - multidirecional com float
+        self.x += self.dx + screen_scroll
+        self.y += self.dy
+        self.rect.centerx = int(self.x)
+        self.rect.centery = int(self.y)
         
         # Fora da tela
         if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT:
@@ -1008,6 +1015,7 @@ class Arrow(pygame.sprite.Sprite):
         for tile in obstacle_list:
             if tile[1].colliderect(self.rect):
                 self.kill()
+                break
         # Colisão com jogador
         if pygame.sprite.collide_rect(player, self):
             if player.alive and player.invincible == 0:
@@ -1024,7 +1032,7 @@ class SkeletonEnemy(Character):
                  ammo=9999, grenades=ENEMY_GRENADES):
         super().__init__('enemy', x, y, scale, speed, ammo, grenades)
         self.move_counter = 0
-        self.vision = pygame.Rect(0, 0, ENEMY_VISION_WIDTH, ENEMY_VISION_HEIGHT)
+        self.vision_radius = 400
         self.idling = False
         self.idling_counter = 0
         self.flip_cooldown = 0
@@ -1105,15 +1113,15 @@ class SkeletonEnemy(Character):
         self.rect.x += dx
         self.rect.y += dy
 
-    def shoot(self, bullet_group):
+    def shoot(self, bullet_group, target_x, target_y):
         """Dispara a flecha APENAS quando a animação de ataque atingir um frame avançado."""
         if self.shoot_cooldown == 0 and self.ammo > 0 and self.action == 2 and self.frame_index >= 9:
             self.shoot_cooldown = SHOOT_COOLDOWN
-            bullet = Arrow(
-                self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
-                self.rect.centery,
-                self.direction,
-            )
+            
+            spawn_x = self.rect.centerx
+            spawn_y = self.rect.centery - 10  # Elevação do arco
+                
+            bullet = Arrow(spawn_x, spawn_y, target_x, target_y)
             bullet_group.add(bullet)
             self.ammo -= 1
 
@@ -1122,8 +1130,24 @@ class SkeletonEnemy(Character):
             self.flip_cooldown -= 1
 
         if self.alive and player.alive:
-            # Jogador dentro do campo de visão -> atirar
-            if self.vision.colliderect(player.rect):
+            dist_x = player.rect.centerx - self.rect.centerx
+            dist_y = player.rect.centery - self.rect.centery
+            dist = math.hypot(dist_x, dist_y)
+            
+            # Verifica raio e linha de visão
+            line_of_sight = False
+            if dist < self.vision_radius:
+                line_of_sight = True
+                p1 = self.rect.center
+                p2 = player.rect.center
+                # Itera sobre os tiles sólidos (obstacle_list)
+                for tile in obstacle_list:
+                    if tile[1].clipline(p1, p2):
+                        line_of_sight = False
+                        break
+            
+            # Jogador dentro do raio de visão E sem paredes bloqueando
+            if line_of_sight:
                 if player.rect.centerx < self.rect.centerx:
                     self.direction = -1
                 else:
@@ -1131,7 +1155,7 @@ class SkeletonEnemy(Character):
                 
                 if self.ammo > 0:
                     self.update_action(2)  # Attack animation (action 2 -> Shot_1)
-                    self.shoot(bullet_group)
+                    self.shoot(bullet_group, player.rect.centerx, player.rect.centery)
                 else:
                     self.update_action(0)  # Fica parado olhando sem atirar
             else:
@@ -1171,4 +1195,3 @@ class SkeletonEnemy(Character):
                             self.turn_after_idle = False
 
         self.rect.x += screen_scroll
-        self.vision.center = (self.rect.centerx + 75 * self.direction, self.rect.centery)

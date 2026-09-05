@@ -52,6 +52,10 @@ class AssetManager:
         self.images['exit_btn'] = pygame.image.load('img/exit_btn.png').convert_alpha()
         self.images['restart_btn'] = pygame.image.load('img/restart_btn.png').convert_alpha()
 
+        # Botões de seleção de fase (gamepads)
+        for i in range(1, 5):
+            self.images[f'gamepad{i}'] = pygame.image.load(f'img/icons/gamepad{i}.png').convert_alpha()
+
         # Background (parallax)
         self.images['pine1'] = pygame.image.load('img/background/pine1.png').convert_alpha()
         self.images['pine2'] = pygame.image.load('img/background/pine2.png').convert_alpha()

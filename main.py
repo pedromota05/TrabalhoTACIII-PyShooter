@@ -40,6 +40,7 @@ class GameState(Enum):
     """Estados possíveis do jogo."""
     MENU = "menu"
     INSTRUCTIONS = "instructions"
+    LEVEL_SELECT = "level_select"
     PLAYING = "playing"
     GAME_OVER = "game_over"
     LEVEL_TRANSITION = "level_transition"
@@ -112,6 +113,22 @@ class Game:
             SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50,
             self.assets.get_image('restart_btn'), 2,
         )
+
+        # Botões de seleção de fase (gamepads alinhados no centro)
+        self.level_buttons: list[button.Button] = []
+        gamepad_spacing = 20  # espaço entre botões
+        # Calcular largura total para centralizar
+        sample_img = self.assets.get_image('gamepad1')
+        total_width = (sample_img.get_width() * 4) + (gamepad_spacing * 3)
+        start_x = (SCREEN_WIDTH - total_width) // 2
+        btn_y = SCREEN_HEIGHT // 2 - sample_img.get_height() // 2
+        for i in range(1, 5):
+            btn_x = start_x + (i - 1) * (sample_img.get_width() + gamepad_spacing)
+            btn = button.Button(
+                btn_x, btn_y,
+                self.assets.get_image(f'gamepad{i}'), 1,
+            )
+            self.level_buttons.append(btn)
 
         # ----- Objetos do jogo -----
         self.player = None
@@ -286,8 +303,10 @@ class Game:
                     self.player.jump = True
                     self.assets.get_sound('jump').play()
                 if event.key == pygame.K_ESCAPE:
-                    if self.state == GameState.INSTRUCTIONS:
+                    if self.state in (GameState.INSTRUCTIONS,
+                                      GameState.LEVEL_SELECT):
                         self.state = GameState.MENU
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                     else:
                         self.running = False
 
@@ -310,8 +329,7 @@ class Game:
         """Estado MENU: tela inicial com botões."""
         self.screen.fill(BG_COLOR)
         if self.start_button.draw(self.screen):
-            self.state = GameState.PLAYING
-            self.start_intro = True
+            self.state = GameState.LEVEL_SELECT
         if self.instructions_button.draw(self.screen):
             self.state = GameState.INSTRUCTIONS
         if self.exit_button.draw(self.screen):
@@ -344,6 +362,49 @@ class Game:
             self._draw_text(cmd, WHITE, SCREEN_WIDTH // 2 - 250, 200 + (i * 40))
             
         self._draw_text('Pressione ESC para voltar', PINK, SCREEN_WIDTH // 2 - 200, 500, self.font_bold)
+
+    def _update_level_select(self):
+        """Estado LEVEL_SELECT: exibe os botões de seleção de fase."""
+        self.screen.fill(BG_COLOR)
+        
+        hovering_button = False
+
+        # Título centralizado
+        titulo_surface = self.font_bold.render('SELECIONE A FASE', True, WHITE)
+        titulo_rect = titulo_surface.get_rect(centerx=SCREEN_WIDTH // 2, top=80)
+        self.screen.blit(titulo_surface, titulo_rect)
+
+        # Rótulos das fases acima de cada botão
+        for i, btn in enumerate(self.level_buttons):
+            label = f'Fase {i + 1}'
+            label_x = btn.rect.centerx - self.font.size(label)[0] // 2
+            label_y = btn.rect.top - 35
+            self._draw_text(label, WHITE, label_x, label_y)
+
+        # Desenhar botões e checar cliques e hover
+        for i, btn in enumerate(self.level_buttons):
+            if btn.rect.collidepoint(pygame.mouse.get_pos()):
+                hovering_button = True
+                
+            if btn.draw(self.screen):
+                self.level = i + 1
+                self.bg_scroll = 0
+                self.start_intro = True
+                self._load_level(self.level)
+                self.state = GameState.PLAYING
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+        # Dica de voltar centralizada
+        dica_surface = self.font_bold.render('Pressione ESC para voltar ao menu', True, PINK)
+        dica_rect = dica_surface.get_rect(centerx=SCREEN_WIDTH // 2, top=SCREEN_HEIGHT - 60)
+        self.screen.blit(dica_surface, dica_rect)
+        
+        # Atualizar cursor do mouse
+        if self.state == GameState.LEVEL_SELECT:
+            if hovering_button:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            else:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
     def _update_playing(self):
         """Estado PLAYING: gameplay principal."""
@@ -438,6 +499,8 @@ class Game:
                 self._update_menu()
             elif self.state == GameState.INSTRUCTIONS:
                 self._update_instructions()
+            elif self.state == GameState.LEVEL_SELECT:
+                self._update_level_select()
             elif self.state == GameState.PLAYING:
                 self._update_playing()
             elif self.state == GameState.LEVEL_TRANSITION:
