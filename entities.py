@@ -218,9 +218,13 @@ class Player(Character):
             
         # Dano de Contato
         if enemy_group and self.invincible == 0:
-            if pygame.sprite.spritecollide(self, enemy_group, False):
-                self.health -= 10
-                self.invincible = 60
+            for enemy in enemy_group:
+                # Encolhe a hitbox do inimigo em 20 pixels na largura e altura apenas para essa checagem
+                hitbox_inimigo = enemy.rect.inflate(-20, -20)
+                if enemy.alive and self.rect.colliderect(hitbox_inimigo):
+                    self.health -= 10
+                    self.invincible = 60
+                    break
 
     def draw(self, screen):
         # Efeito visual de piscar durante a invencibilidade
@@ -756,6 +760,9 @@ class World:
                     elif tile == 21:                 # Sniper (Fase 3)
                         sniper = Sniper(x * TILE_SIZE, y * TILE_SIZE)
                         enemy_group.add(sniper)
+                    elif tile == 69:                 # Inimigo Robô
+                        robot = RobotEnemy(x * TILE_SIZE, y * TILE_SIZE)
+                        enemy_group.add(robot)
                     elif tile == 22:                 # Caixa de Speed Boost
                         item_box = ItemBox('Speed', x * TILE_SIZE, y * TILE_SIZE)
                         item_box_group.add(item_box)
@@ -783,3 +790,179 @@ class World:
         for tile in self.obstacle_list:
             tile[1][0] += screen_scroll
             screen.blit(tile[0], tile[1])
+
+# ======================================================================
+#  ROBOT BULLET
+# ======================================================================
+class RobotBullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, direction):
+        pygame.sprite.Sprite.__init__(self)
+        self.speed = BULLET_SPEED
+        self.image = pygame.image.load('img/robot/Ball1.png').convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.direction = direction
+
+    def update(self, screen_scroll, obstacle_list, player,
+               bullet_group, enemy_group):
+        # Mover
+        self.rect.x += (self.direction * self.speed) + screen_scroll
+        # Fora da tela
+        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
+            self.kill()
+        # Colisão com tiles
+        for tile in obstacle_list:
+            if tile[1].colliderect(self.rect):
+                self.kill()
+        # Colisão com jogador
+        if pygame.sprite.collide_rect(player, self):
+            if player.alive and player.invincible == 0:
+                player.health -= BULLET_DAMAGE_TO_PLAYER
+                player.invincible = 60
+                self.kill()
+
+# ======================================================================
+#  ROBOT ENEMY
+# ======================================================================
+class RobotEnemy(Character):
+    def __init__(self, x, y, scale=ENEMY_SCALE, speed=1,
+                 ammo=ENEMY_AMMO, grenades=ENEMY_GRENADES):
+        super().__init__('enemy', x, y, scale, speed, ammo, grenades)
+        self.move_counter = 0
+        self.vision = pygame.Rect(0, 0, ENEMY_VISION_WIDTH, ENEMY_VISION_HEIGHT)
+        self.idling = False
+        self.idling_counter = 0
+        self.flip_cooldown = 0
+        self.turn_after_idle = False
+        
+        # Override animation list com o extrator de sprite strips do robô
+        self.animation_list = []
+        animations = [
+            ('Idle', 4),    # action 0
+            ('Walk', 4),    # action 1
+            ('Attack', 4),  # action 2
+            ('Death', 4),   # action 3
+            ('Hurt', 2)     # action 4
+        ]
+        
+        for anim, num_frames in animations:
+            img = pygame.image.load(f'img/robot/{anim}.png').convert_alpha()
+            frame_width = img.get_width() // num_frames
+            frame_height = img.get_height()
+            
+            temp_list = []
+            for i in range(num_frames):
+                # Extrai cada frame usando subsurface
+                frame = img.subsurface((i * frame_width, 0, frame_width, frame_height))
+                frame = pygame.transform.scale(
+                    frame,
+                    (int(frame_width * scale), int(frame_height * scale))
+                )
+                temp_list.append(frame)
+            self.animation_list.append(temp_list)
+            
+        self.action = 0
+        self.frame_index = 0
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
+
+    def _is_edge_ahead(self, obstacle_list):
+        if self.in_air:
+            return False
+        if self.direction == 1:
+            check_x = self.rect.right + 2
+        else:
+            check_x = self.rect.left - 2
+        test_rect = pygame.Rect(check_x - 1, self.rect.bottom + 1, 2, TILE_SIZE)
+        for tile in obstacle_list:
+            if tile[1].colliderect(test_rect):
+                return False
+        return True
+
+    def _on_horizontal_collision(self):
+        if self.flip_cooldown == 0:
+            self.idling = True
+            self.idling_counter = 60
+            self.turn_after_idle = True
+            self.move_counter = 0
+            self.flip_cooldown = 60
+
+    def move(self, moving_left, moving_right, obstacle_list, water_group):
+        dx = self._calculate_movement(moving_left, moving_right)
+        dy = 0
+        self._apply_gravity()
+        dy += self.vel_y
+        dx, dy = self._check_tile_collisions(dx, dy, obstacle_list)
+        self._check_environment(water_group)
+        self.rect.x += dx
+        self.rect.y += dy
+
+    def shoot(self, bullet_group):
+        """Sobrescreve tiro para usar RobotBullet."""
+        if self.shoot_cooldown == 0 and self.ammo > 0:
+            self.shoot_cooldown = SHOOT_COOLDOWN
+            bullet = RobotBullet(
+                self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
+                self.rect.centery,
+                self.direction,
+            )
+            bullet_group.add(bullet)
+            self.ammo -= 1
+
+    def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
+        if self.flip_cooldown > 0:
+            self.flip_cooldown -= 1
+
+        if self.alive and player.alive:
+            # Jogador dentro do campo de visão -> atirar
+            if self.vision.colliderect(player.rect):
+                if player.rect.centerx < self.rect.centerx:
+                    self.direction = -1
+                    self.flip = True
+                else:
+                    self.direction = 1
+                    self.flip = False
+                
+                self.update_action(2)  # Attack animation (action 2)
+                self.shoot(bullet_group)
+            else:
+                if not self.idling and random.randint(1, 200) == 1:
+                    self.update_action(0)  # Idle
+                    self.idling = True
+                    self.idling_counter = 50
+                    self.turn_after_idle = False
+
+                if not self.idling:
+                    if self.direction == 1:
+                        moving_right = True
+                        moving_left = False
+                    else:
+                        moving_right = False
+                        moving_left = True
+
+                    self.update_action(1)  # Walk animation (action 1)
+                    self.move(moving_left, moving_right, obstacle_list, water_group)
+                    self.move_counter += 1
+                    
+                    if self._is_edge_ahead(obstacle_list):
+                        if self.flip_cooldown == 0:
+                            self.idling = True
+                            self.idling_counter = 60
+                            self.turn_after_idle = True
+                            self.move_counter = 0
+                            self.flip_cooldown = 60
+
+                else:
+                    self.update_action(0)  # Garante que continua em animação de idle
+                    self.idling_counter -= 1
+                    if self.idling_counter <= 0:
+                        self.idling = False
+                        if self.turn_after_idle:
+                            self.direction *= -1
+                            self.turn_after_idle = False
+
+        self.rect.x += screen_scroll
+        self.vision.center = (self.rect.centerx + 75 * self.direction, self.rect.centery)
