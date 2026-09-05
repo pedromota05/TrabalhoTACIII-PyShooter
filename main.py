@@ -69,7 +69,7 @@ class Game:
         # ----- Estado do jogo -----
         self.state = GameState.MENU
         self.running = True
-        self.level = 2
+        self.level = 1
         self.screen_scroll = 0
         self.bg_scroll = 0
         self.start_intro = False

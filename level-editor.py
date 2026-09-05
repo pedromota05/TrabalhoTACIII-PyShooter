@@ -21,7 +21,7 @@ pygame.display.set_caption('Level Editor')
 ROWS = 16
 MAX_COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS
-TILE_TYPES = 60
+TILE_TYPES = 69
 level = 0
 current_tile = 0
 scroll_left = False
@@ -101,10 +101,10 @@ button_list = []
 button_col = 0
 button_row = 0
 for i in range(len(img_list)):
-	tile_button = button.Button(SCREEN_WIDTH + (55 * button_col) + 20, 55 * button_row + 30, img_list[i], 1)
+	tile_button = button.Button(SCREEN_WIDTH + (45 * button_col) + 15, 45 * button_row + 20, img_list[i], 1)
 	button_list.append(tile_button)
 	button_col += 1
-	if button_col == 5:
+	if button_col == 6:
 		button_row += 1
 		button_col = 0
 

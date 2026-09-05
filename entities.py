@@ -684,7 +684,7 @@ class World:
                     img_rect.y = y * TILE_SIZE
                     tile_data = (img, img_rect)
 
-                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59):  # Obstáculo sólido
+                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59, 60, 61, 65, 66):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
                     elif tile in (9, 51, 52, 53, 54, 55):  # Água de superfície animada (Fase 2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [
@@ -695,7 +695,15 @@ class World:
                             assets.tile_images[55]
                         ])
                         water_group.add(water)
-                    elif tile in (10, 56, 57):  # Água profunda estática (Fase 2)
+                    elif tile in (62, 63, 64, 67):  # Água de superfície animada (Fase 1/Pântano)
+                        water = Water(x * TILE_SIZE, y * TILE_SIZE, [
+                            assets.tile_images[62],
+                            assets.tile_images[63],
+                            assets.tile_images[64],
+                            assets.tile_images[67]
+                        ])
+                        water_group.add(water)
+                    elif tile in (10, 56, 57, 68):  # Água profunda estática (Fase 1/2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
                     elif 11 <= tile <= 14:           # Decoração
