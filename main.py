@@ -168,8 +168,13 @@ class Game:
         self.settings_button = button.Button(SCREEN_WIDTH - 80, 20, self.assets.get_image('settings_btn'), 1)
         
         # Variáveis globais de volume e estado anterior
-        self.music_vol = 12
-        self.sfx_vol = 12
+        # Sincroniza a UI com o volume real atual do Pygame na inicialização
+        self.music_vol = round(pygame.mixer.music.get_volume() * 12)
+        
+        # Usa um dos efeitos sonoros como base para a leitura da UI
+        sample_sfx = self.assets.get_sound('shot')
+        self.sfx_vol = round(sample_sfx.get_volume() * 12)
+        
         self.previous_state = None
 
         # Botões do Menu de Pause
