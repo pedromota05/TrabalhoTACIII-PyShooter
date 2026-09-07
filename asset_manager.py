@@ -54,6 +54,27 @@ class AssetManager:
         self.images['options_btn'] = pygame.transform.scale(pygame.image.load('img/options_button.png').convert_alpha(), (280, 80))
         
         self.images['restart_btn'] = pygame.image.load('img/restart_btn.png').convert_alpha()
+        
+        # Assets da tela Options
+        opt_bg = pygame.image.load('img/icons/LargeBoxMenuBanner.png').convert_alpha()
+        self.images['opt_bg'] = pygame.transform.scale(opt_bg, (600, 400))
+        
+        bar_base = pygame.image.load('img/icons/Dotted12_Base.png').convert_alpha()
+        self.images['bar_base'] = pygame.transform.scale(bar_base, (400, 40))
+        
+        bar_fill = pygame.image.load('img/icons/Dotted12_Contents.png').convert_alpha()
+        self.images['bar_fill'] = pygame.transform.scale(bar_fill, (400, 40))
+        
+        slider_knob = pygame.image.load('img/icons/slider_knob.png').convert_alpha()
+        self.images['slider_knob'] = pygame.transform.scale(slider_knob, (30, 60))
+        
+        self.images['settings_btn'] = pygame.transform.scale(pygame.image.load('img/icons/settings_square_button.png').convert_alpha(), (60, 60))
+
+        # Ícones de Áudio
+        self.images['music_on'] = pygame.transform.scale(pygame.image.load('img/icons/music_on.png').convert_alpha(), (40, 40))
+        self.images['music_off'] = pygame.transform.scale(pygame.image.load('img/icons/music_off.png').convert_alpha(), (40, 40))
+        self.images['sound_on'] = pygame.transform.scale(pygame.image.load('img/icons/sound_on.png').convert_alpha(), (40, 40))
+        self.images['sound_off'] = pygame.transform.scale(pygame.image.load('img/icons/sound_off.png').convert_alpha(), (40, 40))
 
         # Botões de seleção de fase (gamepads)
         for i in range(1, 5):
@@ -145,6 +166,11 @@ class AssetManager:
     def get_sound(self, key: str) -> pygame.mixer.Sound:
         """Retorna um efeito sonoro previamente carregado."""
         return self.sounds[key]
+
+    def set_sfx_volume(self, volume: float) -> None:
+        """Atualiza o volume de todos os efeitos sonoros."""
+        for sound in self.sounds.values():
+            sound.set_volume(volume)
 
     # ------------------------------------------------------------------
     #  Animações de personagens (cache por char_type + scale)

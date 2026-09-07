@@ -43,9 +43,30 @@ class GameState(Enum):
     LEVEL_SELECT = "level_select"
     PLAYING = "playing"
     PAUSE = "pause"
+    OPTIONS = "options"
     GAME_OVER = "game_over"
     LEVEL_TRANSITION = "level_transition"
 
+
+# ======================================================================
+#  UTILITÁRIOS
+# ======================================================================
+def render_text_with_spacing(text, font, color, spacing):
+    """Renderiza texto adicionando um espaçamento customizado entre as letras (letter spacing)."""
+    # Calcula a largura total da superfície necessária
+    total_width = sum([font.size(char)[0] for char in text]) + spacing * (len(text) - 1)
+    height = font.size(text)[1]
+
+    # Cria uma superfície transparente
+    surface = pygame.Surface((total_width, height), pygame.SRCALPHA)
+
+    current_x = 0
+    for char in text:
+        char_surface = font.render(char, True, color)
+        surface.blit(char_surface, (current_x, 0))
+        current_x += char_surface.get_width() + spacing
+
+    return surface
 
 # ======================================================================
 #  GAME  — classe principal que gerencia tudo
@@ -63,6 +84,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(FONT_NAME, FONT_SIZE)
         self.font_bold = pygame.font.SysFont(FONT_NAME, FONT_SIZE, bold=True)
+        self.title_font = pygame.font.SysFont(FONT_NAME, 50, bold=True)
 
         # ----- Assets -----
         self.assets = AssetManager()
@@ -98,19 +120,21 @@ class Game:
         self.death_fade = ScreenFade(2, PINK, 12)
 
         # ----- Botões de UI -----
-        btn_width = 200
+        # A largura verdadeira dos botões escalados no AssetManager é 280
+        btn_width = 280
         center_x = SCREEN_WIDTH // 2 - btn_width // 2
+        center_y = SCREEN_HEIGHT // 2
         
         self.start_button = button.Button(
-            center_x, 200,
+            center_x, center_y - 120,
             self.assets.get_image('start_btn'), 1,
         )
         self.instructions_button = button.Button(
-            center_x, 340,
+            center_x, center_y,
             self.assets.get_image('instructions_btn'), 1,
         )
         self.exit_button = button.Button(
-            center_x, 480,
+            center_x, center_y + 120,
             self.assets.get_image('exit_btn'), 1,
         )
         self.restart_button = button.Button(
@@ -140,10 +164,18 @@ class Game:
         pause_img = pygame.transform.scale(pause_img, (40, 40))
         self.pause_button = button.Button(SCREEN_WIDTH - 60, 10, pause_img, 1)
 
+        # Botão de Settings para o Menu (canto superior direito)
+        self.settings_button = button.Button(SCREEN_WIDTH - 80, 20, self.assets.get_image('settings_btn'), 1)
+        
+        # Variáveis globais de volume e estado anterior
+        self.music_vol = 12
+        self.sfx_vol = 12
+        self.previous_state = None
+
         # Botões do Menu de Pause
-        self.pause_resume_btn = button.Button(center_x, 200, self.assets.get_image('resume_btn'), 1)
-        self.pause_options_btn = button.Button(center_x, 300, self.assets.get_image('options_btn'), 1)
-        self.pause_exit_btn = button.Button(center_x, 400, self.assets.get_image('exit_btn'), 1)
+        self.pause_resume_btn = button.Button(center_x, center_y - 120, self.assets.get_image('resume_btn'), 1)
+        self.pause_options_btn = button.Button(center_x, center_y, self.assets.get_image('options_btn'), 1)
+        self.pause_exit_btn = button.Button(center_x, center_y + 120, self.assets.get_image('exit_btn'), 1)
 
         # ----- Objetos do jogo -----
         self.player = None
@@ -243,6 +275,22 @@ class Game:
         text_rect = text_surf.get_rect(centerx=x, top=y)
         self.screen.blit(text_surf, text_rect)
 
+    def _draw_volume_bar(self, x, y, current_vol, max_vol, base_img, fill_img, knob_img):
+        # Desenha a base vazia
+        self.screen.blit(base_img, (x, y)) 
+
+        # Desenha o preenchimento com clipping
+        fill_width = int((current_vol / max_vol) * fill_img.get_width())
+        crop_rect = pygame.Rect(0, 0, fill_width, fill_img.get_height())
+        self.screen.blit(fill_img, (x, y), crop_rect) 
+
+        # Calcula a posição do Knob (centralizado verticalmente e na ponta da barra cheia)
+        knob_x = x + fill_width - (knob_img.get_width() // 2)
+        knob_y = y + (base_img.get_height() // 2) - (knob_img.get_height() // 2)
+        self.screen.blit(knob_img, (knob_x, knob_y))
+
+        return pygame.Rect(x, y, base_img.get_width(), base_img.get_height())
+
     def _update_game_entities(self):
         """Atualiza a lógica e a física de todas as entidades do jogo (Usado apenas no estado PLAYING)."""
         # Jogador
@@ -334,6 +382,8 @@ class Game:
                     if self.state in (GameState.INSTRUCTIONS,
                                       GameState.LEVEL_SELECT):
                         self.state = GameState.MENU
+                    elif self.state == GameState.OPTIONS:
+                        self.state = self.previous_state if self.previous_state else GameState.MENU
                     elif self.state == GameState.PLAYING:
                         self.state = GameState.PAUSE
                     elif self.state == GameState.PAUSE:
@@ -365,6 +415,80 @@ class Game:
             self.state = GameState.INSTRUCTIONS
         if self.exit_button.draw(self.screen):
             self.running = False
+        if self.settings_button.draw(self.screen):
+            self.previous_state = self.state
+            self.state = GameState.OPTIONS
+
+    def _update_options(self):
+        """Estado OPTIONS: exibe o menu de opções."""
+        self._draw_bg()
+        
+        # Fundo do Options centralizado
+        opt_bg = self.assets.get_image('opt_bg')
+        center_x = SCREEN_WIDTH // 2
+        center_y = SCREEN_HEIGHT // 2
+        
+        bg_x = center_x - (opt_bg.get_width() // 2)
+        bg_y = center_y - (opt_bg.get_height() // 2)
+        self.screen.blit(opt_bg, (bg_x, bg_y))
+
+        # Título na Aba com Letter Spacing
+        options_surf = render_text_with_spacing('OPTIONS', self.font_bold, WHITE, 5)
+        options_text_rect = options_surf.get_rect(topleft=(bg_x + 30, bg_y + 20))
+        self.screen.blit(options_surf, options_text_rect)
+        
+        bar_base = self.assets.get_image('bar_base')
+        bar_fill = self.assets.get_image('bar_fill')
+        slider_knob = self.assets.get_image('slider_knob')
+        
+        bar_x = center_x - (bar_base.get_width() // 2) + 20
+        
+        # MUSIC
+        music_y = bg_y + 140
+        music_rect = self._draw_volume_bar(
+            bar_x, music_y, self.music_vol, 12, bar_base, bar_fill, slider_knob
+        )
+        music_icon = self.assets.get_image('music_on') if self.music_vol > 0 else self.assets.get_image('music_off')
+        music_icon_rect = music_icon.get_rect(center=(bar_x - 50, music_y + 20))
+        self.screen.blit(music_icon, music_icon_rect)
+        
+        # SOUNDS
+        sfx_y = bg_y + 260
+        sfx_rect = self._draw_volume_bar(
+            bar_x, sfx_y, self.sfx_vol, 12, bar_base, bar_fill, slider_knob
+        )
+        sfx_icon = self.assets.get_image('sound_on') if self.sfx_vol > 0 else self.assets.get_image('sound_off')
+        sfx_icon_rect = sfx_icon.get_rect(center=(bar_x - 50, sfx_y + 20))
+        self.screen.blit(sfx_icon, sfx_icon_rect)
+        
+        # Lógica de interação com o mouse
+        pos = pygame.mouse.get_pos()
+        left_click = pygame.mouse.get_pressed()[0]
+        
+        if left_click:
+            # Lógica de arrastar a barra (permite chegar a zero real tirando o + 1)
+            if music_rect.collidepoint(pos):
+                self.music_vol = int(((pos[0] - music_rect.left) / music_rect.width) * 12)
+                self.music_vol = max(0, min(self.music_vol, 12))
+                pygame.mixer.music.set_volume(self.music_vol / 12.0)
+            elif sfx_rect.collidepoint(pos):
+                self.sfx_vol = int(((pos[0] - sfx_rect.left) / sfx_rect.width) * 12)
+                self.sfx_vol = max(0, min(self.sfx_vol, 12))
+                self.assets.set_sfx_volume(self.sfx_vol / 12.0)
+            
+            # Lógica de clique único nos ícones (Mute/Unmute)
+            if not getattr(self, '_options_click_lock', False):
+                self._options_click_lock = True
+                if music_icon_rect.collidepoint(pos):
+                    self.music_vol = 0 if self.music_vol > 0 else 12
+                    pygame.mixer.music.set_volume(self.music_vol / 12.0)
+                elif sfx_icon_rect.collidepoint(pos):
+                    self.sfx_vol = 0 if self.sfx_vol > 0 else 12
+                    self.assets.set_sfx_volume(self.sfx_vol / 12.0)
+        else:
+            self._options_click_lock = False
+        
+        self._draw_text_with_shadow('Pressione ESC para voltar', self.font_bold, PINK, center_x, bg_y + opt_bg.get_height() + 20)
 
     def _update_instructions(self):
         """Estado INSTRUCTIONS: exibe os controles do jogo."""
@@ -559,15 +683,24 @@ class Game:
         overlay.fill(BLACK)
         self.screen.blit(overlay, (0, 0))
 
-        # 3. Título centralizado
-        self._draw_text_with_shadow('PAUSED', self.font_bold, WHITE, SCREEN_WIDTH // 2, 80)
+        # 3. Título grande centralizado
+        center_y = SCREEN_HEIGHT // 2
+        paused_surf = self.title_font.render('PAUSED', True, WHITE)
+        paused_rect = paused_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=center_y - 220)
+        
+        # Sombra deslocada manualmente (já que a função de sombra customizada usava centerx)
+        shadow_surf = self.title_font.render('PAUSED', True, BLACK)
+        shadow_rect = shadow_surf.get_rect(centerx=SCREEN_WIDTH // 2 + 4, top=center_y - 216)
+        self.screen.blit(shadow_surf, shadow_rect)
+        self.screen.blit(paused_surf, paused_rect)
 
         # 4. Botões do Menu
         if self.pause_resume_btn.draw(self.screen):
             self.state = GameState.PLAYING
             
         if self.pause_options_btn.draw(self.screen):
-            print('Menu de opções em desenvolvimento')
+            self.previous_state = self.state
+            self.state = GameState.OPTIONS
             
         if self.pause_exit_btn.draw(self.screen):
             self.state = GameState.LEVEL_SELECT
@@ -619,6 +752,8 @@ class Game:
                 self._update_menu()
             elif self.state == GameState.INSTRUCTIONS:
                 self._update_instructions()
+            elif self.state == GameState.OPTIONS:
+                self._update_options()
             elif self.state == GameState.LEVEL_SELECT:
                 self._update_level_select()
             elif self.state == GameState.PLAYING:
