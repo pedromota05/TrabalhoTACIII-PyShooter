@@ -98,16 +98,19 @@ class Game:
         self.death_fade = ScreenFade(2, PINK, 12)
 
         # ----- Botões de UI -----
+        btn_width = 200
+        center_x = SCREEN_WIDTH // 2 - btn_width // 2
+        
         self.start_button = button.Button(
-            SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 200,
+            center_x, 200,
             self.assets.get_image('start_btn'), 1,
         )
         self.instructions_button = button.Button(
-            SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 50,
+            center_x, 340,
             self.assets.get_image('instructions_btn'), 1,
         )
         self.exit_button = button.Button(
-            SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 100,
+            center_x, 480,
             self.assets.get_image('exit_btn'), 1,
         )
         self.restart_button = button.Button(
@@ -137,15 +140,10 @@ class Game:
         pause_img = pygame.transform.scale(pause_img, (40, 40))
         self.pause_button = button.Button(SCREEN_WIDTH - 60, 10, pause_img, 1)
 
-        # Botões do Menu de Pause (vamos usar textos clicáveis gerando imagens de botão)
-        # Vamos criar text surfaces e transformá-las em instâncias de Button
-        resume_surf = self.font_bold.render('RESUME', True, WHITE)
-        options_surf = self.font_bold.render('OPTIONS', True, WHITE)
-        exit_surf = self.font_bold.render('EXIT', True, WHITE)
-        
-        self.pause_resume_btn = button.Button(SCREEN_WIDTH // 2 - resume_surf.get_width() // 2, SCREEN_HEIGHT // 2 - 60, resume_surf, 1)
-        self.pause_options_btn = button.Button(SCREEN_WIDTH // 2 - options_surf.get_width() // 2, SCREEN_HEIGHT // 2, options_surf, 1)
-        self.pause_exit_btn = button.Button(SCREEN_WIDTH // 2 - exit_surf.get_width() // 2, SCREEN_HEIGHT // 2 + 60, exit_surf, 1)
+        # Botões do Menu de Pause
+        self.pause_resume_btn = button.Button(center_x, 200, self.assets.get_image('resume_btn'), 1)
+        self.pause_options_btn = button.Button(center_x, 300, self.assets.get_image('options_btn'), 1)
+        self.pause_exit_btn = button.Button(center_x, 400, self.assets.get_image('exit_btn'), 1)
 
         # ----- Objetos do jogo -----
         self.player = None
@@ -245,33 +243,10 @@ class Game:
         text_rect = text_surf.get_rect(centerx=x, top=y)
         self.screen.blit(text_surf, text_rect)
 
-    def _render_game_scene(self):
-        """Desenha e atualiza TODAS as entidades do jogo.
-
-        Chamado tanto no estado PLAYING quanto no GAME_OVER para manter
-        a cena visível atrás dos efeitos de fade.
-        """
-        # Background + Mundo
-        self._draw_bg()
-        self.world.draw(self.screen, self.screen_scroll)
-
-        # HUD
-        self.health_bar.draw(self.screen, self.player.health)
-        self._draw_text('MUNIÇÃO: ', WHITE, 10, 35)
-        bullet_img = self.assets.get_image('bullet')
-        for x in range(self.player.ammo):
-            self.screen.blit(bullet_img, (125 + (x * 10), 40))
-        self._draw_text('GRANADA: ', WHITE, 10, 60)
-        grenade_img = self.assets.get_image('grenade')
-        for x in range(self.player.grenades):
-            self.screen.blit(grenade_img, (135 + (x * 15), 60))
-            
-        if self.player.speed_boost:
-            self._draw_text('SPEED BOOST!', YELLOW, 10, 85, self.font_bold)
-
+    def _update_game_entities(self):
+        """Atualiza a lógica e a física de todas as entidades do jogo (Usado apenas no estado PLAYING)."""
         # Jogador
         self.player.update(self.enemy_group)
-        self.player.draw(self.screen)
 
         # Inimigos
         for enemy in self.enemy_group:
@@ -281,7 +256,6 @@ class Game:
                 self.bullet_group,
             )
             enemy.update()
-            enemy.draw(self.screen)
 
         # Atualizar grupos de sprites
         self.bullet_group.update(
@@ -298,6 +272,17 @@ class Game:
         self.water_group.update(self.screen_scroll)
         self.exit_group.update(self.screen_scroll)
 
+    def _draw_game_entities(self):
+        """Apenas desenha as entidades e o cenário na tela (Usado no PLAYING e no PAUSE)."""
+        # Background + Mundo
+        self._draw_bg()
+        self.world.draw(self.screen, self.screen_scroll)
+
+        # Jogador e Inimigos (Desenho)
+        self.player.draw(self.screen)
+        for enemy in self.enemy_group:
+            enemy.draw(self.screen)
+
         # Desenhar grupos de sprites
         self.bullet_group.draw(self.screen)
         self.grenade_group.draw(self.screen)
@@ -306,6 +291,21 @@ class Game:
         self.decoration_group.draw(self.screen)
         self.water_group.draw(self.screen)
         self.exit_group.draw(self.screen)
+
+        # HUD (Por cima de tudo)
+        self.health_bar.draw(self.screen, self.player.health)
+        self._draw_text('MUNIÇÃO: ', WHITE, 10, 35)
+        bullet_img = self.assets.get_image('bullet')
+        for x in range(self.player.ammo):
+            self.screen.blit(bullet_img, (125 + (x * 10), 40))
+        self._draw_text('GRANADA: ', WHITE, 10, 60)
+        grenade_img = self.assets.get_image('grenade')
+        for x in range(self.player.grenades):
+            self.screen.blit(grenade_img, (135 + (x * 15), 60))
+            
+        if self.player.speed_boost:
+            self._draw_text('SPEED BOOST!', YELLOW, 10, 85, self.font_bold)
+
 
     # ==================================================================
     #  Tratamento de eventos
@@ -334,12 +334,10 @@ class Game:
                     if self.state in (GameState.INSTRUCTIONS,
                                       GameState.LEVEL_SELECT):
                         self.state = GameState.MENU
-                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                     elif self.state == GameState.PLAYING:
                         self.state = GameState.PAUSE
                     elif self.state == GameState.PAUSE:
                         self.state = GameState.PLAYING
-                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                     else:
                         self.running = False
 
@@ -379,22 +377,93 @@ class Game:
         self.screen.blit(overlay, (0, 0))
         
         # Título
-        self._draw_text('CONTROLES DO JOGO', WHITE, SCREEN_WIDTH // 2 - 180, 100, self.font_bold)
+        self._draw_text_with_shadow('CONTROLES DO JOGO', self.font_bold, WHITE, SCREEN_WIDTH // 2, 100)
         
-        # Comandos
-        comandos = [
-            'A ou ESQUERDA : Mover para a esquerda',
-            'D ou DIREITA : Mover para a direita',
-            'W ou CIMA : Pular',
-            'ESPAÇO : Atirar',
-            'Q ou G : Lançar granada',
-            'ESC : Fechar o jogo / Voltar ao menu'
-        ]
-        
-        for i, cmd in enumerate(comandos):
-            self._draw_text(cmd, WHITE, SCREEN_WIDTH // 2 - 250, 200 + (i * 40))
-            
-        self._draw_text('Pressione ESC para voltar', PINK, SCREEN_WIDTH // 2 - 200, 500, self.font_bold)
+        center_x = SCREEN_WIDTH // 2
+        keys_ui = self.assets.keys_ui
+        font = self.font
+
+        # --- A ou ESQUERDA : Mover para a esquerda ---
+        y_pos = 200
+        desc_surf = font.render(": Mover para a esquerda", True, WHITE)
+        desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
+        self.screen.blit(desc_surf, desc_rect)
+
+        key2_rect = keys_ui['LEFT'].get_rect(midright=(center_x - 10, y_pos))
+        self.screen.blit(keys_ui['LEFT'], key2_rect)
+
+        ou_surf = font.render("ou", True, WHITE)
+        ou_rect = ou_surf.get_rect(midright=(key2_rect.left - 15, y_pos))
+        self.screen.blit(ou_surf, ou_rect)
+
+        key1_rect = keys_ui['A'].get_rect(midright=(ou_rect.left - 15, y_pos))
+        self.screen.blit(keys_ui['A'], key1_rect)
+
+        # --- D ou DIREITA : Mover para a direita ---
+        y_pos = 270
+        desc_surf = font.render(": Mover para a direita", True, WHITE)
+        desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
+        self.screen.blit(desc_surf, desc_rect)
+
+        key2_rect = keys_ui['RIGHT'].get_rect(midright=(center_x - 10, y_pos))
+        self.screen.blit(keys_ui['RIGHT'], key2_rect)
+
+        ou_surf = font.render("ou", True, WHITE)
+        ou_rect = ou_surf.get_rect(midright=(key2_rect.left - 15, y_pos))
+        self.screen.blit(ou_surf, ou_rect)
+
+        key1_rect = keys_ui['D'].get_rect(midright=(ou_rect.left - 15, y_pos))
+        self.screen.blit(keys_ui['D'], key1_rect)
+
+        # --- W ou CIMA : Pular ---
+        y_pos = 340
+        desc_surf = font.render(": Pular", True, WHITE)
+        desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
+        self.screen.blit(desc_surf, desc_rect)
+
+        key2_rect = keys_ui['UP'].get_rect(midright=(center_x - 10, y_pos))
+        self.screen.blit(keys_ui['UP'], key2_rect)
+
+        ou_surf = font.render("ou", True, WHITE)
+        ou_rect = ou_surf.get_rect(midright=(key2_rect.left - 15, y_pos))
+        self.screen.blit(ou_surf, ou_rect)
+
+        key1_rect = keys_ui['W'].get_rect(midright=(ou_rect.left - 15, y_pos))
+        self.screen.blit(keys_ui['W'], key1_rect)
+
+        # --- ESPAÇO : Atirar ---
+        y_pos = 410
+        desc_surf = font.render(": Atirar", True, WHITE)
+        desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
+        self.screen.blit(desc_surf, desc_rect)
+
+        key_rect = keys_ui['SPACE'].get_rect(midright=(center_x - 10, y_pos))
+        self.screen.blit(keys_ui['SPACE'], key_rect)
+
+        # --- Q ou G : Lançar granada ---
+        y_pos = 480
+        desc_surf = font.render(": Lançar granada", True, WHITE)
+        desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
+        self.screen.blit(desc_surf, desc_rect)
+
+        key2_rect = keys_ui['G'].get_rect(midright=(center_x - 10, y_pos))
+        self.screen.blit(keys_ui['G'], key2_rect)
+
+        ou_surf = font.render("ou", True, WHITE)
+        ou_rect = ou_surf.get_rect(midright=(key2_rect.left - 15, y_pos))
+        self.screen.blit(ou_surf, ou_rect)
+
+        key1_rect = keys_ui['Q'].get_rect(midright=(ou_rect.left - 15, y_pos))
+        self.screen.blit(keys_ui['Q'], key1_rect)
+
+        # --- ESC : Voltar ao menu ---
+        y_pos = 550
+        desc_surf = font.render(": Voltar ao menu", True, WHITE)
+        desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
+        self.screen.blit(desc_surf, desc_rect)
+
+        key_rect = keys_ui['ESC'].get_rect(midright=(center_x - 10, y_pos))
+        self.screen.blit(keys_ui['ESC'], key_rect)
 
     def _update_level_select(self):
         """Estado LEVEL_SELECT: exibe os botões de seleção de fase."""
@@ -412,30 +481,20 @@ class Game:
 
         # Desenhar botões e checar cliques e hover
         for i, btn in enumerate(self.level_buttons):
-            if btn.rect.collidepoint(pygame.mouse.get_pos()):
-                hovering_button = True
-                
             if btn.draw(self.screen):
                 self.level = i + 1
                 self.bg_scroll = 0
                 self.start_intro = True
                 self._load_level(self.level)
                 self.state = GameState.PLAYING
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
         # Dica de voltar centralizada
         self._draw_text_with_shadow('Pressione ESC para voltar ao menu', self.font_bold, PINK, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60)
-        
-        # Atualizar cursor do mouse
-        if self.state == GameState.LEVEL_SELECT:
-            if hovering_button:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-            else:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
     def _update_playing(self):
         """Estado PLAYING: gameplay principal."""
-        self._render_game_scene()
+        self._update_game_entities()
+        self._draw_game_entities()
 
         # Efeito de abertura de fase
         if self.start_intro:
@@ -491,8 +550,8 @@ class Game:
 
     def _update_pause(self):
         """Estado PAUSE: congela o jogo e exibe o menu de opções."""
-        # 1. Continua desenhando a tela congelada do jogo
-        self._render_game_scene()
+        # 1. Continua desenhando a tela congelada do jogo SEM rodar a física/updates
+        self._draw_game_entities()
 
         # 2. Desenha o fundo escurecido
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -504,32 +563,18 @@ class Game:
         self._draw_text_with_shadow('PAUSED', self.font_bold, WHITE, SCREEN_WIDTH // 2, 80)
 
         # 4. Botões do Menu
-        hovering_button = False
-        if self.pause_resume_btn.rect.collidepoint(pygame.mouse.get_pos()) or \
-           self.pause_options_btn.rect.collidepoint(pygame.mouse.get_pos()) or \
-           self.pause_exit_btn.rect.collidepoint(pygame.mouse.get_pos()):
-            hovering_button = True
-
         if self.pause_resume_btn.draw(self.screen):
             self.state = GameState.PLAYING
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
             
         if self.pause_options_btn.draw(self.screen):
             print('Menu de opções em desenvolvimento')
             
         if self.pause_exit_btn.draw(self.screen):
             self.state = GameState.LEVEL_SELECT
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
             # Reset de fase para não continuar de onde parou depois
             self.bg_scroll = 0
             self.start_intro = True
             self._load_level(self.level)
-
-        if self.state == GameState.PAUSE:
-            if hovering_button:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-            else:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
     def _update_level_transition(self):
         """Estado LEVEL_TRANSITION: carrega a próxima fase."""
@@ -549,7 +594,8 @@ class Game:
     def _update_game_over(self):
         """Estado GAME_OVER: fade de morte + botão de restart."""
         self.screen_scroll = 0
-        self._render_game_scene()
+        self._update_game_entities()
+        self._draw_game_entities()
 
         if self.death_fade.fade(self.screen):
             if self.restart_button.draw(self.screen):
@@ -566,6 +612,7 @@ class Game:
         """Loop principal do jogo."""
         while self.running:
             self.clock.tick(FPS)
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
             # Despachar para o estado atual
             if self.state == GameState.MENU:

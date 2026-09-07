@@ -419,13 +419,52 @@ class Enemy(Character):
 class Sniper(Enemy):
     """Atirador de elite com visão ampliada, tiro mais rápido e cooldown maior."""
     
-    def __init__(self, x, y, scale=1.65, speed=1, ammo=50, grenades=0):
+    def __init__(self, x, y, scale=1.2, speed=1, ammo=9999, grenades=0):
         super().__init__(x, y, scale, speed, ammo, grenades)
         self.vision = pygame.Rect(0, 0, 300, 20)
+        
+        # Override animation list com o extrator de sprite strips do sniper
+        self.animation_list = []
+        animations = [
+            'Idle',     # action 0
+            'Walk',     # action 1
+            'Shot_1',   # action 2
+            'Dead',     # action 3
+            'Hurt'      # action 4
+        ]
+        
+        for anim in animations:
+            img = pygame.image.load(f'img/sniper/{anim}.png').convert_alpha()
+            frame_height = img.get_height()
+            frame_width = frame_height # Lógica de fatiamento: frames quadrados
+            num_frames = img.get_width() // frame_width
+            
+            temp_list = []
+            for i in range(num_frames):
+                frame = img.subsurface((i * frame_width, 0, frame_width, frame_height))
+                
+                # Correção de escala durante a extração para altura equivalente ao Player
+                frame = pygame.transform.scale(
+                    frame,
+                    (int(frame_width * scale), int(frame_height * scale))
+                )
+                temp_list.append(frame)
+            self.animation_list.append(temp_list)
+            
+        self.action = 0
+        self.frame_index = 0
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        
+        # Alinhamento perfeito ao chão
+        self.rect.midbottom = (x + TILE_SIZE // 2, y + TILE_SIZE)
+        
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
 
     def shoot(self, bullet_group):
-        """Sobrescreve o tiro para ter maior cooldown e projétil mais rápido."""
-        if self.shoot_cooldown == 0 and self.ammo > 0:
+        """Dispara exatamente no frame 2 da animação de tiro (Shot_1)."""
+        if self.shoot_cooldown == 0 and self.ammo > 0 and self.action == 2 and self.frame_index == 2:
             self.shoot_cooldown = 60
             bullet = Bullet(
                 self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
@@ -436,6 +475,62 @@ class Sniper(Enemy):
             bullet_group.add(bullet)
             self.ammo -= 1
             AssetManager().get_sound('shot').play()
+
+    def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
+        if self.flip_cooldown > 0:
+            self.flip_cooldown -= 1
+
+        if self.alive and player.alive:
+            if not self.idling and random.randint(1, 200) == 1:
+                self.update_action(0)           # Idle
+                self.idling = True
+                self.idling_counter = 50
+
+            if self.vision.colliderect(player.rect):
+                if player.rect.centerx < self.rect.centerx:
+                    self.direction = -1
+                    self.flip = True
+                else:
+                    self.direction = 1
+                    self.flip = False
+                
+                self.update_action(2)           # Attack (Shot_1)
+                self.shoot(bullet_group)
+            else:
+                if not self.idling:
+                    # Proteção contra Jittering na detecção de borda
+                    if self._is_edge_ahead(obstacle_list):
+                        if self.flip_cooldown == 0:
+                            self.direction *= -1
+                            self.move_counter = 0
+                            self.flip_cooldown = 30
+                            self.flip = not self.flip
+
+                    ai_moving_right = (self.direction == 1)
+                    ai_moving_left = not ai_moving_right
+                    
+                    self.move(ai_moving_left, ai_moving_right, obstacle_list, water_group)
+                    self.update_action(1)       # Walk
+                    self.move_counter += 1
+                    
+                    if self.move_counter > TILE_SIZE * 3:
+                        if self.flip_cooldown == 0:
+                            self.direction *= -1
+                            self.move_counter = 0
+                            self.flip_cooldown = 30
+                            self.flip = not self.flip
+                else:
+                    self.idling_counter -= 1
+                    if self.idling_counter <= 0:
+                        self.idling = False
+
+        self.rect.x += screen_scroll
+        self.vision.center = (
+            self.rect.centerx + 75 * self.direction,
+            self.rect.centery,
+        )
+
+
 
 # ======================================================================
 #  BULLET
@@ -1037,6 +1132,7 @@ class SkeletonEnemy(Character):
         self.idling_counter = 0
         self.flip_cooldown = 0
         self.turn_after_idle = False
+        self.shot_fired = False
         
         # Override animation list com o extrator de sprite strips do esqueleto
         self.animation_list = []
@@ -1113,10 +1209,17 @@ class SkeletonEnemy(Character):
         self.rect.x += dx
         self.rect.y += dy
 
+    def update_animation(self):
+        super().update_animation()
+        # Reset da trava no início de cada ciclo de animação
+        if self.frame_index == 0:
+            self.shot_fired = False
+
     def shoot(self, bullet_group, target_x, target_y):
-        """Dispara a flecha APENAS quando a animação de ataque atingir um frame avançado."""
-        if self.shoot_cooldown == 0 and self.ammo > 0 and self.action == 2 and self.frame_index >= 9:
-            self.shoot_cooldown = SHOOT_COOLDOWN
+        """Dispara a flecha APENAS quando a animação atingir o frame correto."""
+        # Trava Blindada: Frame exato e flag False
+        if self.action == 2 and self.frame_index == 9 and not self.shot_fired:
+            self.shot_fired = True # Bloqueia imediatamente
             
             spawn_x = self.rect.centerx
             spawn_y = self.rect.centery - 10  # Elevação do arco

@@ -47,14 +47,39 @@ class AssetManager:
     # ------------------------------------------------------------------
     def _load_images(self) -> None:
         # Botões
-        self.images['start_btn'] = pygame.image.load('img/start_btn.png').convert_alpha()
-        self.images['instructions_btn'] = pygame.image.load('img/instructions_btn.png').convert_alpha()
-        self.images['exit_btn'] = pygame.image.load('img/exit_btn.png').convert_alpha()
+        self.images['start_btn'] = pygame.transform.scale(pygame.image.load('img/start_button.png').convert_alpha(), (280, 80))
+        self.images['instructions_btn'] = pygame.transform.scale(pygame.image.load('img/controls_button.png').convert_alpha(), (280, 80))
+        self.images['exit_btn'] = pygame.transform.scale(pygame.image.load('img/exit_button.png').convert_alpha(), (280, 80))
+        self.images['resume_btn'] = pygame.transform.scale(pygame.image.load('img/resume_button.png').convert_alpha(), (280, 80))
+        self.images['options_btn'] = pygame.transform.scale(pygame.image.load('img/options_button.png').convert_alpha(), (280, 80))
+        
         self.images['restart_btn'] = pygame.image.load('img/restart_btn.png').convert_alpha()
 
         # Botões de seleção de fase (gamepads)
         for i in range(1, 5):
             self.images[f'gamepad{i}'] = pygame.image.load(f'img/icons/gamepad{i}.png').convert_alpha()
+
+        # Spritesheets do teclado
+        letters_sheet = pygame.image.load('img/icons/keyboard_letters.png').convert_alpha()
+        extras_sheet = pygame.image.load('img/icons/keyboard_extras.png').convert_alpha()
+
+        def get_key_image(sheet, x, y, width, height, scale):
+            image = pygame.Surface((width, height), pygame.SRCALPHA)
+            image.blit(sheet, (0, 0), (x, y, width, height))
+            return pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+
+        self.keys_ui = {
+            'A': get_key_image(letters_sheet, 0, 32, 16, 16, 3.5),
+            'D': get_key_image(letters_sheet, 48, 32, 16, 16, 3.5),
+            'W': get_key_image(letters_sheet, 96, 64, 16, 16, 3.5),
+            'Q': get_key_image(letters_sheet, 0, 64, 16, 16, 3.5),
+            'G': get_key_image(letters_sheet, 96, 32, 16, 16, 3.5),
+            'LEFT': get_key_image(letters_sheet, 32, 0, 16, 16, 3.5),
+            'RIGHT': get_key_image(letters_sheet, 48, 0, 16, 16, 3.5),
+            'UP': get_key_image(letters_sheet, 0, 0, 16, 16, 3.5),
+            'SPACE': get_key_image(extras_sheet, 64, 32, 32, 16, 3.5),
+            'ESC': get_key_image(extras_sheet, 32, 0, 32, 16, 3.5)
+        }
 
         # Botão Pause
         self.images['pause_btn'] = pygame.image.load('img/icons/pause_button.png').convert_alpha()
