@@ -117,11 +117,16 @@ class AssetManager:
         bg2 = pygame.transform.scale(bg2, (int(bg2.get_width() * scale2), SCREEN_HEIGHT))
         self.images['back'] = bg2
 
+
         # Tiles do cenário
         self.tile_images = []
         for x in range(TILE_TYPES):
-            img = pygame.image.load(f'img/tile/{x}.png')
-            img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+            img = pygame.image.load(f'img/tile/{x}.png').convert_alpha()
+            if x in (71, 72):
+                scale_factor = 1.5
+                img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
+            else:
+                img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
             self.tile_images.append(img)
 
         # Ícones

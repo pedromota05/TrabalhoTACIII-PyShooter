@@ -21,7 +21,7 @@ pygame.display.set_caption('Level Editor')
 ROWS = 16
 MAX_COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS
-TILE_TYPES = 71
+TILE_TYPES = 73
 level = 0
 current_tile = 0
 scroll_left = False
@@ -38,7 +38,11 @@ sky_img = pygame.image.load('img/Background/sky_cloud.png').convert_alpha()
 img_list = []
 for x in range(TILE_TYPES):
 	img = pygame.image.load(f'img/tile/{x}.png').convert_alpha()
-	img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+	if x in (71, 72):
+		scale_factor = 1.5
+		img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
+	else:
+		img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
 	img_list.append(img)
 
 save_img = pygame.image.load('img/save_btn.png').convert_alpha()
@@ -91,7 +95,11 @@ def draw_world():
 	for y, row in enumerate(world_data):
 		for x, tile in enumerate(row):
 			if tile >= 0:
-				screen.blit(img_list[tile], (x * TILE_SIZE - scroll, y * TILE_SIZE))
+				img = img_list[tile]
+				y_pos = y * TILE_SIZE + (TILE_SIZE - img.get_height())
+				# Centraliza a imagem horizontalmente no bloco (igual à classe Decoration no jogo)
+				x_pos = (x * TILE_SIZE + TILE_SIZE // 2) - (img.get_width() // 2) - scroll
+				screen.blit(img, (x_pos, y_pos))
 
 #create buttons
 save_button = button.Button(SCREEN_WIDTH // 2, SCREEN_HEIGHT + LOWER_MARGIN - 50, save_img, 1)
@@ -101,7 +109,12 @@ button_list = []
 button_col = 0
 button_row = 0
 for i in range(len(img_list)):
-	tile_button = button.Button(SCREEN_WIDTH + (45 * button_col) + 15, 45 * button_row + 20, img_list[i], 1)
+	btn_img = img_list[i]
+	if i in (71, 72):
+		scale = min(40 / btn_img.get_width(), 40 / btn_img.get_height())
+		btn_img = pygame.transform.scale(btn_img, (int(btn_img.get_width() * scale), int(btn_img.get_height() * scale)))
+	
+	tile_button = button.Button(SCREEN_WIDTH + (45 * button_col) + 15, 45 * button_row + 20, btn_img, 1)
 	button_list.append(tile_button)
 	button_col += 1
 	if button_col == 6:

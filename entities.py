@@ -804,7 +804,8 @@ class World:
                     img = assets.tile_images[tile]
                     img_rect = img.get_rect()
                     img_rect.x = x * TILE_SIZE
-                    img_rect.y = y * TILE_SIZE
+                    # A imagem 'cresce' para cima se for maior que o TILE_SIZE
+                    img_rect.y = y * TILE_SIZE + (TILE_SIZE - img.get_height())
                     tile_data = (img, img_rect)
 
                     if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59, 60, 61, 65, 66):  # Obstáculo sólido
@@ -833,9 +834,8 @@ class World:
                     elif tile in (10, 56, 57, 68):  # Água profunda estática (Fase 1/2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
-                    elif 11 <= tile <= 14:           # Decoração
-                        decoration = Decoration(img, x * TILE_SIZE,
-                                                y * TILE_SIZE)
+                    elif 11 <= tile <= 14 or tile in (71, 72): # Decoração
+                        decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
                     elif tile == 15:                 # Spawn do jogador
                         player = Player(x * TILE_SIZE, y * TILE_SIZE)

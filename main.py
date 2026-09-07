@@ -409,6 +409,7 @@ class Game:
     def _update_menu(self):
         """Estado MENU: tela inicial com botões."""
         self._draw_bg()
+        
         if self.start_button.draw(self.screen):
             self.state = GameState.LEVEL_SELECT
         if self.instructions_button.draw(self.screen):

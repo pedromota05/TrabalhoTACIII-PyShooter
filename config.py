@@ -24,7 +24,7 @@ FPS = 60
 ROWS = 16
 COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
-TILE_TYPES = 71
+TILE_TYPES = 73
 MAX_LEVELS = 4
 
 # ---------------------------------------------------------------------------
