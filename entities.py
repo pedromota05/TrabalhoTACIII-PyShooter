@@ -1087,6 +1087,7 @@ class RobotEnemy(Character):
             )
             bullet_group.add(bullet)
             self.ammo -= 1
+            AssetManager().get_sound('robot_shoot').play()
 
     def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
         if self.flip_cooldown > 0:
@@ -1316,6 +1317,7 @@ class SkeletonEnemy(Character):
             bullet = Arrow(spawn_x, spawn_y, target_x, target_y)
             bullet_group.add(bullet)
             self.ammo -= 1
+            AssetManager().get_sound('skeleton_bow').play()
 
     def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
         if self.flip_cooldown > 0:

@@ -167,6 +167,12 @@ class AssetManager:
         self.sounds['shot'].set_volume(0.05)
         self.sounds['grenade'] = pygame.mixer.Sound('audio/grenade.wav')
         self.sounds['grenade'].set_volume(0.05)
+        
+        self.sounds['robot_shoot'] = pygame.mixer.Sound('audio/robot_shoot.wav')
+        self.sounds['robot_shoot'].set_volume(0.05)
+        
+        self.sounds['skeleton_bow'] = pygame.mixer.Sound('audio/skeleton_bow.wav')
+        self.sounds['skeleton_bow'].set_volume(0.05)
 
     def _load_music(self) -> None:
         pygame.mixer.music.load('audio/music2.mp3')

@@ -138,9 +138,17 @@ class Game:
             self.assets.get_image('exit_btn'), 1,
         )
         self.restart_button = button.Button(
-            SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50,
+            SCREEN_WIDTH // 2 - 100, (SCREEN_HEIGHT // 2) + 50,
             self.assets.get_image('restart_btn'), 2,
         )
+
+        # Game Over Image
+        self.game_over_img = pygame.image.load('img/icons/game_over.png').convert_alpha()
+        if self.game_over_img.get_width() > SCREEN_WIDTH * 0.8:
+            ratio = (SCREEN_WIDTH * 0.8) / self.game_over_img.get_width()
+            new_w = int(self.game_over_img.get_width() * ratio)
+            new_h = int(self.game_over_img.get_height() * ratio)
+            self.game_over_img = pygame.transform.scale(self.game_over_img, (new_w, new_h))
 
         # Botões de seleção de fase (gamepads alinhados no centro)
         self.level_buttons: list[button.Button] = []
@@ -743,6 +751,11 @@ class Game:
         self._draw_game_entities()
 
         if self.death_fade.fade(self.screen):
+            go_rect = self.game_over_img.get_rect()
+            go_rect.centerx = SCREEN_WIDTH // 2
+            go_rect.centery = (SCREEN_HEIGHT // 2) - 100 # Empurra 100 pixeis para cima do centro
+            self.screen.blit(self.game_over_img, go_rect)
+            
             if self.restart_button.draw(self.screen):
                 self.death_fade.fade_counter = 0
                 self.start_intro = True
