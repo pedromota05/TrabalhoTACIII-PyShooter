@@ -1,0 +1,117 @@
+@startuml
+title Diagrama de Dependências Estruturais para Entidades (Classes)
+
+' Base Externa
+class "pygame.sprite.Sprite" as Sprite <<External>>
+
+' Entidades Principais (entities.py)
+class Character {
+  + move()
+  + draw()
+  + update()
+}
+class Player {
+  + jump()
+  + update_action()
+}
+class Enemy {
+  + ai()
+}
+class Sniper {
+}
+class RobotEnemy {
+}
+class SkeletonEnemy {
+}
+
+' Projéteis e Efeitos
+class Bullet {
+}
+class RobotBullet {
+}
+class Arrow {
+}
+class Grenade {
+}
+class Explosion {
+}
+
+' Interativos do Cenário
+class ItemBox {
+}
+class Decoration {
+}
+class Water {
+}
+class Exit {
+}
+
+' UI e Cenário (entities.py)
+class HealthBar {
+}
+class ScreenFade {
+}
+class World {
+  + process_data()
+  + draw()
+}
+
+' Gestão do Jogo (main.py e outos)
+class Game {
+  + run()
+  + draw()
+}
+enum GameState {
+  MENU
+  PLAYING
+  GAME_OVER
+  LEVEL_COMPLETE
+}
+class Button {
+}
+class AssetManager {
+  + load_all()
+  + get_image()
+}
+
+' === Relações de Herança ===
+Sprite <|-- Character
+Sprite <|-- Bullet
+Sprite <|-- RobotBullet
+Sprite <|-- Arrow
+Sprite <|-- Grenade
+Sprite <|-- Explosion
+Sprite <|-- ItemBox
+Sprite <|-- Decoration
+Sprite <|-- Water
+Sprite <|-- Exit
+
+Character <|-- Player
+Character <|-- Enemy
+Character <|-- RobotEnemy
+Character <|-- SkeletonEnemy
+
+Enemy <|-- Sniper
+
+' === Relações de Composição e Uso ===
+Game "1" *-- "1" AssetManager : contém
+Game "1" *-- "1" GameState : gerencia estado
+Game "1" *-- "1" Player : controla
+Game "1" *-- "1" World : processa
+Game "1" *-- "2" ScreenFade : efeitos de tela
+Game "1" *-- "many" Button : UI principal
+
+World "1" *-- "many" Enemy : contém
+World "1" *-- "many" ItemBox : contém
+World "1" *-- "many" Decoration : contém
+World "1" *-- "many" Water : contém
+World "1" *-- "1" Exit : saída de nível
+World "1" ..> Player : cria através do process_data
+
+Player --> Bullet : dispara
+Player --> Grenade : lança
+Enemy --> Bullet : dispara
+RobotEnemy --> RobotBullet : dispara
+SkeletonEnemy --> Arrow : dispara
+
+@enduml

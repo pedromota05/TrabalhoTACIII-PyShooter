@@ -1,0 +1,29 @@
+@startuml
+title Diagrama de Estrutura de Módulos (Pacotes)
+
+package "PyShooter - TACIII" {
+    [main]
+    [entities]
+    [config]
+    [asset_manager]
+    [button]
+    [level-editor]
+    [fix_map]
+}
+
+' Dependências do main.py
+[main] --> [entities] : importa classes e objetos
+[main] --> [config] : importa configurações
+[main] --> [asset_manager] : importa AssetManager
+[main] --> [button] : importa botões de UI
+
+' Dependências do entities.py
+[entities] --> [config] : importa configurações
+[entities] --> [asset_manager] : utiliza assets para renderização
+
+' Dependências do asset_manager.py
+[asset_manager] --> [config] : utiliza constantes e tamanhos
+
+' Dependências das ferramentas
+[level-editor] --> [button] : utiliza UI
+@enduml
