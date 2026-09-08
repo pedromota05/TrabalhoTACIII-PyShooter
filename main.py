@@ -668,6 +668,7 @@ class Game:
                 self.moving_left, self.moving_right,
                 self.world.obstacle_list, self.water_group,
                 self.exit_group, self.bg_scroll, self.world.level_length,
+                self.world.ramp_list,
             )
             self.bg_scroll -= self.screen_scroll
 

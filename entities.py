@@ -112,7 +112,8 @@ class Character(pygame.sprite.Sprite):
         if self.vel_y > TERMINAL_VELOCITY:
             self.vel_y = TERMINAL_VELOCITY          # ← FIX do bug original
 
-    def _check_tile_collisions(self, dx, dy, obstacle_list):
+    def _check_tile_collisions(self, dx, dy, obstacle_list, ramp_list=None):
+        if ramp_list is None: ramp_list = []
         """Detecta e resolve colisões AABB com tiles sólidos."""
         # Cria uma margem de ~20% na largura para ignorar a ponta da arma/sprite solto
         margin = int(self.width * 0.2)
@@ -135,6 +136,25 @@ class Character(pygame.sprite.Sprite):
                     self.vel_y = 0
                     self.in_air = False
                     dy = tile[1].top - self.rect.bottom
+
+        # Nova Colisão com Rampas
+        for tile in ramp_list:
+            ramp = tile[1]
+            # Verifica se o centro do jogador está dentro da largura da rampa (considerando o dx)
+            future_centerx = self.rect.centerx + dx
+            if ramp.left <= future_centerx <= ramp.right:
+                # Calcula quão longe o jogador está da borda esquerda da rampa
+                local_x = future_centerx - ramp.left
+                
+                # Numa rampa de 45 graus (Tile 85) que sobe da esquerda para a direita:
+                # Y diminui (sobe) consoante o X aumenta.
+                chao_y = ramp.bottom - local_x
+                
+                # Se o jogador estiver a cair ou a andar e o seu pé passar por esse chão calculado:
+                if self.rect.bottom + dy >= chao_y:
+                    dy = chao_y - self.rect.bottom
+                    self.vel_y = 0
+                    self.in_air = False
                     
         return dx, dy
 
@@ -254,7 +274,9 @@ class Player(Character):
             self.health = 0
 
     def move(self, moving_left, moving_right, obstacle_list,
-             water_group, exit_group, bg_scroll, level_length):
+             water_group, exit_group, bg_scroll, level_length, ramp_list=None):
+        if ramp_list is None: ramp_list = []
+        
         """Processa movimento, colisão, scroll e retorna
         (screen_scroll, level_complete)."""
         screen_scroll = 0
@@ -272,7 +294,7 @@ class Player(Character):
         dy += self.vel_y
 
         # Colisão com tiles
-        dx, dy = self._check_tile_collisions(dx, dy, obstacle_list)
+        dx, dy = self._check_tile_collisions(dx, dy, obstacle_list, ramp_list)
 
         # Perigos ambientais
         self._check_environment(water_group)
@@ -815,6 +837,7 @@ class ScreenFade:
 class World:
     def __init__(self):
         self.obstacle_list = []
+        self.ramp_list = []
         self.level_length = 0
 
     def process_data(self, data, enemy_group, item_box_group,
@@ -838,8 +861,11 @@ class World:
                     img_rect.y = y * TILE_SIZE + (TILE_SIZE - img.get_height())
                     tile_data = (img, img_rect)
 
-                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77):  # Obstáculo sólido
+                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
+                    elif tile == 85:
+                        # Guarda a rampa numa lista separada para não usar a colisão quadrada normal
+                        self.ramp_list.append(tile_data)
                     elif tile == 70:                 # Skeleton Enemy
                         skeleton = SkeletonEnemy(x * TILE_SIZE, y * TILE_SIZE)
                         enemy_group.add(skeleton)
@@ -864,7 +890,7 @@ class World:
                     elif tile in (10, 56, 57, 68):  # Água profunda estática (Fase 1/2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
-                    elif tile in (11, 13, 14, 71, 72, 78, 79, 80, 81, 82, 83, 84): # Decoração
+                    elif tile in (11, 13, 14, 71, 72, 78, 79, 80, 81, 82): # Decoração
                         decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
                     elif tile == 15:                 # Spawn do jogador
@@ -920,6 +946,9 @@ class World:
 
     def draw(self, screen, screen_scroll):
         for tile in self.obstacle_list:
+            tile[1][0] += screen_scroll
+            screen.blit(tile[0], tile[1])
+        for tile in self.ramp_list:
             tile[1][0] += screen_scroll
             screen.blit(tile[0], tile[1])
 
