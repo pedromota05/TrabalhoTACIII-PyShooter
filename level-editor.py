@@ -21,7 +21,7 @@ pygame.display.set_caption('Level Editor')
 ROWS = 16
 MAX_COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS
-TILE_TYPES = 73
+TILE_TYPES = 85
 level = 0
 current_tile = 0
 scroll_left = False
@@ -38,9 +38,15 @@ sky_img = pygame.image.load('img/Background/sky_cloud.png').convert_alpha()
 img_list = []
 for x in range(TILE_TYPES):
 	img = pygame.image.load(f'img/tile/{x}.png').convert_alpha()
-	if x in (71, 72):
+	if x == 82:
+		scale_factor = 1.0
+		img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
+	elif x in (71, 72):
 		scale_factor = 1.5
 		img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
+	elif x in (78, 79, 80, 81):
+		tamanho_decor = int(TILE_SIZE * 0.6)
+		img = pygame.transform.scale(img, (tamanho_decor, tamanho_decor))
 	else:
 		img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
 	img_list.append(img)
@@ -110,7 +116,7 @@ button_col = 0
 button_row = 0
 for i in range(len(img_list)):
 	btn_img = img_list[i]
-	if i in (71, 72):
+	if i in (71, 72, 82):
 		scale = min(40 / btn_img.get_width(), 40 / btn_img.get_height())
 		btn_img = pygame.transform.scale(btn_img, (int(btn_img.get_width() * scale), int(btn_img.get_height() * scale)))
 	

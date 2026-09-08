@@ -8,7 +8,7 @@ para animações de personagens e frames de explosão.
 
 import os
 import pygame
-from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT
+from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT, SCREEN_WIDTH
 
 
 class AssetManager:
@@ -116,15 +116,27 @@ class AssetManager:
         scale2 = SCREEN_HEIGHT / bg2.get_height()
         bg2 = pygame.transform.scale(bg2, (int(bg2.get_width() * scale2), SCREEN_HEIGHT))
         self.images['back'] = bg2
+        
+        # Background Level 4
+        bg_swamp = pygame.image.load('img/background/background4.png').convert_alpha()
+        scale_ratio = SCREEN_HEIGHT / bg_swamp.get_height()
+        new_width = int(bg_swamp.get_width() * scale_ratio)
+        self.images['bg_swamp'] = pygame.transform.scale(bg_swamp, (new_width, SCREEN_HEIGHT))
 
 
         # Tiles do cenário
         self.tile_images = []
         for x in range(TILE_TYPES):
             img = pygame.image.load(f'img/tile/{x}.png').convert_alpha()
-            if x in (71, 72):
+            if x == 82:
+                scale_factor = 1.0
+                img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
+            elif x in (71, 72):
                 scale_factor = 1.5
                 img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
+            elif x in (78, 79, 80, 81):
+                tamanho_decor = int(TILE_SIZE * 0.6)
+                img = pygame.transform.scale(img, (tamanho_decor, tamanho_decor))
             else:
                 img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
             self.tile_images.append(img)

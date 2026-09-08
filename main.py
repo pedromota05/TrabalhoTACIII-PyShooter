@@ -240,7 +240,12 @@ class Game:
         """Desenha o background com parallax em 4 camadas."""
         self.screen.fill(BG_COLOR)
         
-        if self.level == 2:
+        if self.level == 4:
+            bg_swamp = self.assets.get_image('bg_swamp')
+            swamp_width = bg_swamp.get_width()
+            for i in range(5):
+                self.screen.blit(bg_swamp, ((i * swamp_width) - self.bg_scroll * 0.5, 0))
+        elif self.level == 2:
             bg2 = self.assets.get_image('back')
             w = bg2.get_width()
             for x in range(5):

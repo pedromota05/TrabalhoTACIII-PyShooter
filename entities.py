@@ -156,9 +156,12 @@ class Character(pygame.sprite.Sprite):
         """Dispara um projétil se houver munição e o cooldown permitir."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
+            spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
+            spawn_y = self.rect.centery - 5 
+            
             bullet = Bullet(
-                self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
-                self.rect.centery,
+                spawn_x,
+                spawn_y,
                 self.direction,
             )
             bullet_group.add(bullet)
@@ -466,9 +469,12 @@ class Sniper(Enemy):
         """Dispara exatamente no frame 2 da animação de tiro (Shot_1)."""
         if self.shoot_cooldown == 0 and self.ammo > 0 and self.action == 2 and self.frame_index == 2:
             self.shoot_cooldown = 60
+            spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
+            spawn_y = self.rect.centery - 5
+            
             bullet = Bullet(
-                self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
-                self.rect.centery,
+                spawn_x,
+                spawn_y,
                 self.direction,
             )
             bullet.speed = 15
@@ -543,29 +549,53 @@ class Bullet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.direction = direction
+        self.has_hit = False
+        self.hit_timer = 0
 
     def update(self, screen_scroll, obstacle_list, player,
                bullet_group, enemy_group):
-        # Mover
+        
+        # Lógica de Atraso de Destruição (Kill Delay)
+        if self.has_hit:
+            self.hit_timer += 1
+            if self.hit_timer > 2:
+                self.kill()
+            # A bala acompanha o scroll da tela enquanto congela para o feedback
+            self.rect.x += screen_scroll
+            return
+
+        # Movimento normal
         self.rect.x += (self.direction * self.speed) + screen_scroll
+        
         # Fora da tela
         if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
             self.kill()
+            return
+            
         # Colisão com tiles
         for tile in obstacle_list:
             if tile[1].colliderect(self.rect):
-                self.kill()
+                self.has_hit = True
+                break
+                
         # Colisão com jogador
-        if pygame.sprite.spritecollide(player, bullet_group, False):
-            if player.alive:
+        if not self.has_hit and pygame.sprite.collide_rect(self, player):
+            if player.alive and player.invincible == 0:
                 player.health -= BULLET_DAMAGE_TO_PLAYER
-                self.kill()
+                player.invincible = 60 # Garante frame de invencibilidade para o player
+                self.has_hit = True
+                
         # Colisão com inimigos
-        for enemy in enemy_group:
-            if pygame.sprite.spritecollide(enemy, bullet_group, False):
-                if enemy.alive:
-                    enemy.health -= BULLET_DAMAGE_TO_ENEMY
-                    self.kill()
+        if not self.has_hit:
+            for enemy in enemy_group:
+                if pygame.sprite.collide_rect(self, enemy):
+                    if enemy.alive:
+                        enemy.health -= BULLET_DAMAGE_TO_ENEMY
+                        # Feedback visual de hit (se a animação 4 "Hurt" existir)
+                        if hasattr(enemy, 'animation_list') and len(enemy.animation_list) > 4:
+                            enemy.update_action(4)
+                        self.has_hit = True
+                        break
 
 # ======================================================================
 #  GRENADE
@@ -808,7 +838,7 @@ class World:
                     img_rect.y = y * TILE_SIZE + (TILE_SIZE - img.get_height())
                     tile_data = (img, img_rect)
 
-                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (47, 48, 50, 58, 59, 60, 61, 65, 66):  # Obstáculo sólido
+                    if (0 <= tile <= 8) or (24 <= tile <= 35) or tile in (12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77):  # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
                     elif tile == 70:                 # Skeleton Enemy
                         skeleton = SkeletonEnemy(x * TILE_SIZE, y * TILE_SIZE)
@@ -834,7 +864,7 @@ class World:
                     elif tile in (10, 56, 57, 68):  # Água profunda estática (Fase 1/2)
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
-                    elif 11 <= tile <= 14 or tile in (71, 72): # Decoração
+                    elif tile in (11, 13, 14, 71, 72, 78, 79, 80, 81, 82, 83, 84): # Decoração
                         decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
                     elif tile == 15:                 # Spawn do jogador
@@ -904,24 +934,36 @@ class RobotBullet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.direction = direction
+        self.has_hit = False
+        self.hit_timer = 0
 
     def update(self, screen_scroll, obstacle_list, player,
                bullet_group, enemy_group):
+        
+        if self.has_hit:
+            self.hit_timer += 1
+            if self.hit_timer > 2:
+                self.kill()
+            self.rect.x += screen_scroll
+            return
+
         # Mover
         self.rect.x += (self.direction * self.speed) + screen_scroll
         # Fora da tela
         if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
             self.kill()
+            return
         # Colisão com tiles
         for tile in obstacle_list:
             if tile[1].colliderect(self.rect):
-                self.kill()
+                self.has_hit = True
+                break
         # Colisão com jogador
-        if pygame.sprite.collide_rect(player, self):
+        if not self.has_hit and pygame.sprite.collide_rect(player, self):
             if player.alive and player.invincible == 0:
                 player.health -= BULLET_DAMAGE_TO_PLAYER
                 player.invincible = 60
-                self.kill()
+                self.has_hit = True
 
 # ======================================================================
 #  ROBOT ENEMY
@@ -1006,9 +1048,12 @@ class RobotEnemy(Character):
         """Sobrescreve tiro para usar RobotBullet."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
+            spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
+            spawn_y = self.rect.centery - 5
+            
             bullet = RobotBullet(
-                self.rect.centerx + (0.75 * self.rect.size[0] * self.direction),
-                self.rect.centery,
+                spawn_x,
+                spawn_y,
                 self.direction,
             )
             bullet_group.add(bullet)
@@ -1095,8 +1140,20 @@ class Arrow(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.original_image, math.degrees(-angle))
         self.rect = self.image.get_rect(center=(x, y))
 
+        self.has_hit = False
+        self.hit_timer = 0
+
     def update(self, screen_scroll, obstacle_list, player,
                bullet_group, enemy_group):
+        
+        if self.has_hit:
+            self.hit_timer += 1
+            if self.hit_timer > 2:
+                self.kill()
+            self.x += screen_scroll
+            self.rect.centerx = int(self.x)
+            return
+
         # Mover - multidirecional com float
         self.x += self.dx + screen_scroll
         self.y += self.dy
@@ -1106,17 +1163,20 @@ class Arrow(pygame.sprite.Sprite):
         # Fora da tela
         if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT:
             self.kill()
+            return
+            
         # Colisão com tiles
         for tile in obstacle_list:
             if tile[1].colliderect(self.rect):
-                self.kill()
+                self.has_hit = True
                 break
+                
         # Colisão com jogador
-        if pygame.sprite.collide_rect(player, self):
+        if not self.has_hit and pygame.sprite.collide_rect(player, self):
             if player.alive and player.invincible == 0:
                 player.health -= BULLET_DAMAGE_TO_PLAYER
                 player.invincible = 60
-                self.kill()
+                self.has_hit = True
 
 # ======================================================================
 #  SKELETON ENEMY
@@ -1221,8 +1281,8 @@ class SkeletonEnemy(Character):
         if self.action == 2 and self.frame_index == 9 and not self.shot_fired:
             self.shot_fired = True # Bloqueia imediatamente
             
-            spawn_x = self.rect.centerx
-            spawn_y = self.rect.centery - 10  # Elevação do arco
+            spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
+            spawn_y = self.rect.centery - 15  # Elevação do arco um pouco mais alta para evitar chão imediato
                 
             bullet = Arrow(spawn_x, spawn_y, target_x, target_y)
             bullet_group.add(bullet)
