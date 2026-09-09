@@ -1042,27 +1042,35 @@ class DragonBoss(pygame.sprite.Sprite):
             self.update_animation(player, bullet_group)
             return
 
-        horizontal_distance = player.rect.centerx - self.rect.centerx
-        desired_bottom = player.rect.centery - 150
-        vertical_distance = desired_bottom - self.rect.bottom
+        distance_x = abs(player.rect.centerx - self.rect.centerx)
 
-        if abs(horizontal_distance) > 250:
+        if distance_x > 250:
             self.update_action(1)
-            move_x = self.speed if horizontal_distance > 0 else -self.speed
+
+            target_y = player.rect.centery - 150
+            if self.rect.bottom < target_y:
+                self.rect.y += 2
+            elif self.rect.bottom > target_y:
+                self.rect.y -= 2
+
+            if player.rect.centerx > self.rect.centerx:
+                self.rect.x += self.speed
+                self.flip = False
+                self.direction = 1
+            else:
+                self.rect.x -= self.speed
+                self.flip = True
+                self.direction = -1
         else:
             self.update_action(2)
-            move_x = 0
 
-        move_y = 0
-        if abs(vertical_distance) > self.speed:
-            move_y = self.speed if vertical_distance > 0 else -self.speed
+            target_y = player.rect.centery
+            if self.rect.centery < target_y:
+                self.rect.y += 4
+            elif self.rect.centery > target_y:
+                self.rect.y -= 2
 
-        if horizontal_distance != 0:
-            self.direction = 1 if horizontal_distance > 0 else -1
-            self.flip = self.direction < 0
-
-        self.rect.x += move_x + screen_scroll
-        self.rect.y += move_y
+        self.rect.x += screen_scroll
         self.update_animation(player, bullet_group)
 
     def update_animation(self, player, bullet_group=None):
