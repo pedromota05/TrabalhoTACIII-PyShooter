@@ -30,7 +30,7 @@ from config import (
 from asset_manager import AssetManager
 from entities import (
     Player, Enemy, Grenade,
-    HealthBar, ScreenFade, World,
+    DragonBoss, HealthBar, ScreenFade, World,
 )
 
 
@@ -345,10 +345,15 @@ class Game:
             
         # Bosses
         for boss in self.boss_group:
-            # We need to pass screen_scroll too, wait, our Boss class doesn\'t take screen_scroll!
-            # It just moves. In PyShooter, scroll is applied to rect.x!
             boss.rect.x += self.screen_scroll
-            boss.update(self.player, self.world.obstacle_list, 0.75)
+            if isinstance(boss, DragonBoss):
+                boss.update(
+                    self.player,
+                    self.world.obstacle_list,
+                    bullet_group=self.bullet_group,
+                )
+            else:
+                boss.update(self.player, self.world.obstacle_list, 0.75)
 
         # Atualizar grupos de sprites
         self.bullet_group.update(
@@ -379,7 +384,9 @@ class Game:
         # Desenhar grupos de sprites
         for boss in self.boss_group:
             boss.draw(self.screen)
-            boss.draw_health_bar(self.screen)
+        for enemy in self.boss_group:
+            if hasattr(enemy, 'draw_health_bar'):
+                enemy.draw_health_bar(self.screen)
         self.bullet_group.draw(self.screen)
         self.grenade_group.draw(self.screen)
         self.explosion_group.draw(self.screen)

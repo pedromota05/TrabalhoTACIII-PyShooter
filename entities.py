@@ -887,6 +887,11 @@ class World:
 
         for y, row in enumerate(data):
             for x, tile in enumerate(row):
+                if tile == 87:
+                    mid_x = x * TILE_SIZE + (TILE_SIZE // 2)
+                    bottom_y = y * TILE_SIZE + TILE_SIZE
+                    boss_group.add(DragonBoss(mid_x, bottom_y))
+                    continue
                 if tile >= 0 and tile < len(assets.tile_images):
                     img = assets.tile_images[tile]
                     img_rect = img.get_rect()
@@ -990,6 +995,136 @@ class World:
         for tile in self.ramp_list:
             tile[1][0] += screen_scroll
             screen.blit(tile[0], tile[1])
+
+# ======================================================================
+#  DRAGON BOSS - boss voador
+# ======================================================================
+class DragonBoss(pygame.sprite.Sprite):
+    def __init__(self, x, y, scale=1.5):
+        super().__init__()
+        self.speed = 2
+        self.action = 0
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+        self.flip = False
+        self.direction = 1
+        self.max_health = 150
+        self.health = self.max_health
+        self.alive = True
+        self.last_shot_time = 0
+        self.shot_frame_fired = False
+
+        self.animation_list = []
+        for prefix in ('Idle', 'Walk', 'Attack', 'Death'):
+            frames = []
+            for frame_number in range(1, 15):
+                try:
+                    image = pygame.image.load(
+                        f'img/enemy/Dragon/{prefix}{frame_number}.png'
+                    ).convert_alpha()
+                except FileNotFoundError:
+                    break
+                image = image.subsurface(image.get_bounding_rect())
+                image = pygame.transform.scale(
+                    image,
+                    (int(image.get_width() * scale),
+                     int(image.get_height() * scale))
+                )
+                frames.append(image)
+            self.animation_list.append(frames)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect(midbottom=(x, y))
+
+    def update(self, player, obstacle_list=None, gravity=None,
+               bullet_group=None, screen_scroll=0):
+        if not self.alive:
+            self.update_animation(player, bullet_group)
+            return
+
+        horizontal_distance = player.rect.centerx - self.rect.centerx
+        desired_bottom = player.rect.centery - 150
+        vertical_distance = desired_bottom - self.rect.bottom
+
+        if abs(horizontal_distance) > 250:
+            self.update_action(1)
+            move_x = self.speed if horizontal_distance > 0 else -self.speed
+        else:
+            self.update_action(2)
+            move_x = 0
+
+        move_y = 0
+        if abs(vertical_distance) > self.speed:
+            move_y = self.speed if vertical_distance > 0 else -self.speed
+
+        if horizontal_distance != 0:
+            self.direction = 1 if horizontal_distance > 0 else -1
+            self.flip = self.direction < 0
+
+        self.rect.x += move_x + screen_scroll
+        self.rect.y += move_y
+        self.update_animation(player, bullet_group)
+
+    def update_animation(self, player, bullet_group=None):
+        animation_cooldown = 100
+        old_bottom = self.rect.bottom
+        old_centerx = self.rect.centerx
+
+        frame = self.animation_list[self.action][self.frame_index]
+        self.image = pygame.transform.flip(frame, self.flip, False)
+        self.rect = self.image.get_rect()
+        self.rect.bottom = old_bottom
+        self.rect.centerx = old_centerx
+
+        now = pygame.time.get_ticks()
+        if self.action == 2 and self.frame_index == 2:
+            if (not self.shot_frame_fired and bullet_group is not None and
+                    now - self.last_shot_time > 2000):
+                bullet_group.add(DragonFire(
+                    self.rect.centerx,
+                    self.rect.centery,
+                    player.rect.centerx,
+                    player.rect.centery,
+                ))
+                self.last_shot_time = now
+                self.shot_frame_fired = True
+        elif self.action != 2 or self.frame_index != 2:
+            self.shot_frame_fired = False
+
+        if now - self.update_time > animation_cooldown:
+            self.update_time = now
+            self.frame_index += 1
+            if self.frame_index >= len(self.animation_list[self.action]):
+                if self.action == 3:
+                    self.frame_index = len(self.animation_list[self.action]) - 1
+                else:
+                    if self.action == 2:
+                        self.update_action(0)
+                    self.frame_index = 0
+
+    def update_action(self, new_action):
+        if new_action != self.action:
+            self.action = new_action
+            self.frame_index = 0
+            self.update_time = pygame.time.get_ticks()
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
+    def draw_health_bar(self, surface):
+        if self.health > 0:
+            bar_width = 80
+            bar_height = 8
+            x = self.rect.centerx - (bar_width // 2)
+            y = self.rect.top - 15
+            ratio = max(0, self.health) / self.max_health
+            pygame.draw.rect(surface, (255, 0, 0),
+                             (x, y, bar_width, bar_height))
+            pygame.draw.rect(surface, (0, 255, 0),
+                             (x, y, bar_width * ratio, bar_height))
+            pygame.draw.rect(surface, (0, 0, 0),
+                             (x, y, bar_width, bar_height), 1)
+
 
 # ======================================================================
 #  ROBOT BULLET
@@ -1467,6 +1602,72 @@ class SkeletonEnemy(Character):
 
 
 # ======================================================================
+#  DRAGON FIRE - projétil animado do boss Dragão
+# ======================================================================
+class DragonFire(pygame.sprite.Sprite):
+    def __init__(self, x, y, target_x, target_y, scale=1.5):
+        super().__init__()
+
+        self.animation_list = []
+        for frame_number in range(1, 7):
+            image = pygame.image.load(
+                f'img/enemy/Dragon/Fire_Attack{frame_number}.png'
+            ).convert_alpha()
+            image = image.subsurface(image.get_bounding_rect())
+            image = pygame.transform.scale(
+                image,
+                (int(image.get_width() * scale),
+                 int(image.get_height() * scale))
+            )
+            self.animation_list.append(image)
+
+        self.frame_index = 0
+        self.animation_timer = pygame.time.get_ticks()
+        self.animation_cooldown = 80
+        self.image = self.animation_list[self.frame_index]
+        self.rect = self.image.get_rect(center=(x, y))
+
+        self.x = float(x)
+        self.y = float(y)
+        distance = math.hypot(target_x - x, target_y - y)
+        if distance == 0:
+            self.vel_x = 0
+            self.vel_y = 0
+        else:
+            self.vel_x = (target_x - x) / distance * 6
+            self.vel_y = (target_y - y) / distance * 6
+
+    def update(self, screen_scroll, obstacle_list, player,
+               bullet_group, enemy_group, boss_group=None):
+        self.x += self.vel_x + screen_scroll
+        self.y += self.vel_y
+        self.rect.center = (int(self.x), int(self.y))
+
+        if pygame.time.get_ticks() - self.animation_timer > self.animation_cooldown:
+            self.animation_timer = pygame.time.get_ticks()
+            self.frame_index = (self.frame_index + 1) % len(self.animation_list)
+            center = self.rect.center
+            self.image = self.animation_list[self.frame_index]
+            self.rect = self.image.get_rect(center=center)
+
+        if (self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or
+                self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT):
+            self.kill()
+            return
+
+        for tile in obstacle_list:
+            if tile[1].colliderect(self.rect):
+                self.kill()
+                return
+
+        if pygame.sprite.collide_rect(self, player):
+            if player.alive and player.invincible == 0:
+                player.health -= BULLET_DAMAGE_TO_PLAYER
+                player.invincible = 60
+            self.kill()
+
+
+# ======================================================================
 #  BOSS (DEMON)
 # ======================================================================
 class Boss(pygame.sprite.Sprite):
@@ -1496,6 +1697,8 @@ class Boss(pygame.sprite.Sprite):
             for i in range(1, 15):
                 try:
                     img = pygame.image.load(f'img/enemy/Demon/{prefix}{i}.png').convert_alpha()
+                    bounding_box = img.get_bounding_rect()
+                    img = img.subsurface(bounding_box)
                     img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
                     temp_list.append(img)
                 except FileNotFoundError:
@@ -1538,7 +1741,7 @@ class Boss(pygame.sprite.Sprite):
             if tile[1].colliderect(self.rect.x, self.rect.y + self.dy, self.rect.width, self.rect.height):
                 if self.dy >= 0:
                     self.dy = 0
-                    self.rect.bottom = tile[1].top + 105
+                    self.rect.bottom = tile[1].top
 
         self.rect.y += self.dy
         self.update_animation(player)
@@ -1598,10 +1801,10 @@ class Boss(pygame.sprite.Sprite):
             bar_height = 8
 
             x = self.rect.centerx - (bar_width // 2)
-            y = self.rect.top + 60
+            y = self.rect.top - 15
 
-            current_health = max(0, self.health)
-            ratio = current_health / self.max_health
+            vida_atual = max(0, self.health)
+            ratio = vida_atual / self.max_health
 
             pygame.draw.rect(surface, (255, 0, 0), (x, y, bar_width, bar_height))
             pygame.draw.rect(surface, (0, 255, 0), (x, y, bar_width * ratio, bar_height))

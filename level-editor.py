@@ -51,6 +51,15 @@ for x in range(TILE_TYPES):
 		img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
 	img_list.append(img)
 
+# Spawn do Dragão (ID 87), que não possui um tile de cenário próprio.
+dragon_img = pygame.image.load('img/enemy/Dragon/Idle1.png').convert_alpha()
+dragon_img = dragon_img.subsurface(dragon_img.get_bounding_rect())
+dragon_img = pygame.transform.scale(
+	dragon_img,
+	(int(dragon_img.get_width() * 1.5), int(dragon_img.get_height() * 1.5))
+)
+img_list.append(dragon_img)
+
 save_img = pygame.image.load('img/save_btn.png').convert_alpha()
 load_img = pygame.image.load('img/load_btn.png').convert_alpha()
 
@@ -101,15 +110,12 @@ def draw_world():
 	for y, row in enumerate(world_data):
 		for x, tile in enumerate(row):
 			if tile >= 0:
-				if tile < TILE_TYPES:
+				if tile < len(img_list):
 					img = img_list[tile]
 					y_pos = y * TILE_SIZE + (TILE_SIZE - img.get_height())
 					# Centraliza a imagem horizontalmente no bloco (igual à classe Decoration no jogo)
 					x_pos = (x * TILE_SIZE + TILE_SIZE // 2) - (img.get_width() // 2) - scroll
 					screen.blit(img, (x_pos, y_pos))
-				else:
-					# Remove o boss fantasma do mapa se ele já estiver salvo
-					world_data[y][x] = -1
 
 #create buttons
 save_button = button.Button(SCREEN_WIDTH // 2, SCREEN_HEIGHT + LOWER_MARGIN - 50, save_img, 1)
@@ -120,7 +126,7 @@ button_col = 0
 button_row = 0
 for i in range(len(img_list)):
 	btn_img = img_list[i]
-	if i in (71, 72, 82, 86):
+	if i in (71, 72, 82, 86, 87):
 		scale = min(40 / btn_img.get_width(), 40 / btn_img.get_height())
 		btn_img = pygame.transform.scale(btn_img, (int(btn_img.get_width() * scale), int(btn_img.get_height() * scale)))
 	
