@@ -21,7 +21,7 @@ pygame.display.set_caption('Level Editor')
 ROWS = 16
 MAX_COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS
-TILE_TYPES = 86
+TILE_TYPES = 87
 level = 0
 current_tile = 0
 scroll_left = False
@@ -120,7 +120,7 @@ button_col = 0
 button_row = 0
 for i in range(len(img_list)):
 	btn_img = img_list[i]
-	if i in (71, 72, 82):
+	if i in (71, 72, 82, 86):
 		scale = min(40 / btn_img.get_width(), 40 / btn_img.get_height())
 		btn_img = pygame.transform.scale(btn_img, (int(btn_img.get_width() * scale), int(btn_img.get_height() * scale)))
 	

@@ -594,7 +594,9 @@ class Bullet(pygame.sprite.Sprite):
         self.hit_timer = 0
 
     def update(self, screen_scroll, obstacle_list, player,
-               bullet_group, enemy_group):
+               bullet_group, enemy_group, boss_group=None):
+        # We also need boss_group here, but wait, main.py passes bullet_group.update(...)
+        pass
         
         # Lógica de Atraso de Destruição (Kill Delay)
         if self.has_hit:
@@ -637,6 +639,20 @@ class Bullet(pygame.sprite.Sprite):
                             enemy.update_action(4)
                         self.has_hit = True
                         break
+                        
+        # Colisão com Bosses
+        if not self.has_hit and boss_group:
+            boss_hit_list = pygame.sprite.spritecollide(self, boss_group, False)
+            for boss in boss_hit_list:
+                if boss.alive:
+                    self.kill() # Bala some
+                    boss.health -= 25
+                    # Verifica se o boss morreu
+                    if boss.health <= 0:
+                        boss.alive = False
+                        boss.update_action(3) # Troca para o estado 'Death'
+                    self.has_hit = True
+                    break
 # ======================================================================
 #  GRENADE
 # ======================================================================
@@ -859,7 +875,7 @@ class World:
         self.level_length = 0
 
     def process_data(self, data, enemy_group, item_box_group,
-                     decoration_group, water_group, exit_group, level=1):
+                     decoration_group, water_group, exit_group, boss_group, level=1):
         """Lê a matriz de tiles e cria todas as entidades do nível.
 
         Retorna (player, health_bar).
@@ -959,6 +975,11 @@ class World:
                     elif tile in (39, 46):            # Água gelada profunda
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
+                    elif tile == 86:                  # Boss Demon
+                        mid_x = x * TILE_SIZE + (TILE_SIZE // 2)
+                        bottom_y = y * TILE_SIZE + TILE_SIZE
+                        boss = Boss(mid_x, bottom_y)
+                        boss_group.add(boss)
                 
         return player, health_bar
 
@@ -990,7 +1011,9 @@ class RobotBullet(pygame.sprite.Sprite):
         self.hit_timer = 0
 
     def update(self, screen_scroll, obstacle_list, player,
-               bullet_group, enemy_group):
+               bullet_group, enemy_group, boss_group=None):
+        # We also need boss_group here, but wait, main.py passes bullet_group.update(...)
+        pass
         
         if self.has_hit:
             self.hit_timer += 1
@@ -1215,7 +1238,9 @@ class Arrow(pygame.sprite.Sprite):
         self.hit_timer = 0
 
     def update(self, screen_scroll, obstacle_list, player,
-               bullet_group, enemy_group):
+               bullet_group, enemy_group, boss_group=None):
+        # We also need boss_group here, but wait, main.py passes bullet_group.update(...)
+        pass
         
         if self.has_hit:
             self.hit_timer += 1
@@ -1438,3 +1463,146 @@ class SkeletonEnemy(Character):
         self.rect.x += screen_scroll
 
 
+
+
+
+# ======================================================================
+#  BOSS (DEMON)
+# ======================================================================
+class Boss(pygame.sprite.Sprite):
+    def __init__(self, x, y, scale=1.5):
+        super().__init__()
+        self.speed = 2
+        self.dy = 0
+        
+        # Máquina de Estados: 0='Idle', 1='Walk', 2='Attack', 3='Death'
+        self.action = 0 
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+        
+        self.flip = False
+        self.direction = 1
+        
+        self.max_health = 100
+        self.health = self.max_health
+        self.alive = True
+        self.last_hit_time = 0
+
+        # Carregamento Dinâmico de Sprites
+        self.animation_list = []
+        prefixes = ['Idle', 'Walk', 'Attack', 'Death']
+        for prefix in prefixes:
+            temp_list = []
+            for i in range(1, 15):
+                try:
+                    img = pygame.image.load(f'img/enemy/Demon/{prefix}{i}.png').convert_alpha()
+                    img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+                    temp_list.append(img)
+                except FileNotFoundError:
+                    break
+            self.animation_list.append(temp_list)
+            
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.midbottom = (x, y)
+
+    def update(self, player, obstacle_list, GRAVITY):
+        if not self.alive:
+            self.update_animation(player)
+            return
+
+        dx = 0
+        dist_x = player.rect.centerx - self.rect.centerx
+        abs_dist_x = abs(dist_x)
+
+        if abs_dist_x <= 100:
+            self.update_action(2)
+        elif abs_dist_x < 450:
+            self.update_action(1)
+            dx = self.speed * self.direction
+        else:
+            self.update_action(0)
+
+        if self.action != 2:
+            if dist_x > 0:
+                self.direction = 1
+                self.flip = False
+            elif dist_x < 0:
+                self.direction = -1
+                self.flip = True
+
+        self.rect.x += dx
+        self.dy += GRAVITY
+        
+        for tile in obstacle_list:
+            if tile[1].colliderect(self.rect.x, self.rect.y + self.dy, self.rect.width, self.rect.height):
+                if self.dy >= 0:
+                    self.dy = 0
+                    self.rect.bottom = tile[1].top + 105
+
+        self.rect.y += self.dy
+        self.update_animation(player)
+
+    def update_animation(self, player):
+        ANIMATION_COOLDOWN = 100
+        old_bottom = self.rect.bottom
+        old_centerx = self.rect.centerx
+        
+        self.image = pygame.transform.flip(self.animation_list[self.action][self.frame_index], self.flip, False)
+        self.rect = self.image.get_rect()
+        
+        self.rect.bottom = old_bottom
+        self.rect.centerx = old_centerx
+
+        if pygame.time.get_ticks() - self.update_time > ANIMATION_COOLDOWN:
+            self.update_time = pygame.time.get_ticks()
+            self.frame_index += 1
+            
+            if self.action == 2 and self.frame_index in [2, 3]:
+                if pygame.time.get_ticks() - self.last_hit_time > 1500:
+                    dist_x_hit = abs(player.rect.centerx - self.rect.centerx)
+                    if dist_x_hit <= 130:
+                        olhando_direita = (not self.flip and player.rect.centerx >= self.rect.centerx)
+                        olhando_esquerda = (self.flip and player.rect.centerx <= self.rect.centerx)
+                        if olhando_direita or olhando_esquerda:
+                            player.health -= 35
+                            self.last_hit_time = pygame.time.get_ticks()
+
+            if self.frame_index >= len(self.animation_list[self.action]):
+                if self.action == 3:
+                    self.frame_index = len(self.animation_list[self.action]) - 1
+                else:
+                    if self.action == 2:
+                        self.update_action(0)
+                    self.frame_index = 0
+
+    def update_action(self, new_action):
+        if new_action != self.action:
+            self.action = new_action
+            self.frame_index = 0
+            self.update_time = pygame.time.get_ticks()
+
+    def draw(self, screen, scroll=0):
+        # Apply scroll to the rect before drawing if needed, 
+        # or we just let it be handled by a scrolling update
+        pass
+        
+    # In PyShooter, usually scrolling is handled by moving the rect.x 
+    # Or in _draw_game_entities. Let\'s add a simple draw function
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
+    def draw_health_bar(self, surface):
+        if self.health > 0:
+            bar_width = 80
+            bar_height = 8
+
+            x = self.rect.centerx - (bar_width // 2)
+            y = self.rect.top + 60
+
+            current_health = max(0, self.health)
+            ratio = current_health / self.max_health
+
+            pygame.draw.rect(surface, (255, 0, 0), (x, y, bar_width, bar_height))
+            pygame.draw.rect(surface, (0, 255, 0), (x, y, bar_width * ratio, bar_height))
+            pygame.draw.rect(surface, (0, 0, 0), (x, y, bar_width, bar_height), 1)

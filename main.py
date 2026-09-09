@@ -125,6 +125,7 @@ class Game:
 
         # ----- Grupos de sprites -----
         self.enemy_group = pygame.sprite.Group()
+        self.boss_group = pygame.sprite.Group()
         self.bullet_group = pygame.sprite.Group()
         self.grenade_group = pygame.sprite.Group()
         self.explosion_group = pygame.sprite.Group()
@@ -218,6 +219,7 @@ class Game:
     def _reset_groups(self):
         """Esvazia todos os grupos de sprites."""
         self.enemy_group.empty()
+        self.boss_group.empty()
         self.bullet_group.empty()
         self.grenade_group.empty()
         self.explosion_group.empty()
@@ -255,6 +257,7 @@ class Game:
             self.decoration_group,
             self.water_group,
             self.exit_group,
+            self.boss_group,
             level_number
         )
 
@@ -339,11 +342,18 @@ class Game:
                 self.bullet_group,
             )
             enemy.update()
+            
+        # Bosses
+        for boss in self.boss_group:
+            # We need to pass screen_scroll too, wait, our Boss class doesn\'t take screen_scroll!
+            # It just moves. In PyShooter, scroll is applied to rect.x!
+            boss.rect.x += self.screen_scroll
+            boss.update(self.player, self.world.obstacle_list, 0.75)
 
         # Atualizar grupos de sprites
         self.bullet_group.update(
             self.screen_scroll, self.world.obstacle_list,
-            self.player, self.bullet_group, self.enemy_group
+            self.player, self.bullet_group, self.enemy_group, self.boss_group
         )
         self.grenade_group.update(
             self.screen_scroll, self.world.obstacle_list,
@@ -367,6 +377,9 @@ class Game:
             enemy.draw(self.screen)
 
         # Desenhar grupos de sprites
+        for boss in self.boss_group:
+            boss.draw(self.screen)
+            boss.draw_health_bar(self.screen)
         self.bullet_group.draw(self.screen)
         self.grenade_group.draw(self.screen)
         self.explosion_group.draw(self.screen)
