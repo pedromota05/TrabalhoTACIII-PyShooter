@@ -17,6 +17,7 @@ Utilitários (sem herança de Sprite):
 """
 import math
 import random
+import os
 import pygame
 from config import (
     GRAVITY, TERMINAL_VELOCITY, JUMP_VELOCITY,
@@ -244,7 +245,7 @@ class Player(Character):
         if enemy_group and self.invincible == 0:
             for enemy in enemy_group:
                 if type(enemy).__name__ == 'SkeletonEnemy':
-                    continue  # Ignora o dano de contato para o esqueleto
+                    continue  # Ignora o dano de contato passivo
 
                 # Reduz drasticamente a largura do retângulo invisível para ignorar a transparência
                 hitbox_inimigo = enemy.rect.inflate(-50, -10)
@@ -280,8 +281,23 @@ class Player(Character):
         """Processa movimento, colisão, scroll e retorna
         (screen_scroll, level_complete)."""
         screen_scroll = 0
-        dx = self._calculate_movement(moving_left, moving_right)
+        
+        dx = 0
         dy = 0
+
+        # Movimento horizontal constante (base)
+        if moving_left:
+            dx = -self.speed
+            self.flip = True
+            self.direction = -1
+        if moving_right:
+            dx = self.speed
+            self.flip = False
+            self.direction = 1
+
+        # Aplica o modificador de controle no ar (Air Control)
+        if self.in_air:
+            dx = int(dx * 0.7) # Reduz o ganho horizontal no ar para manter a precisão das plataformas
 
         # Pulo
         if self.jump and not self.in_air:
@@ -475,6 +491,11 @@ class Sniper(Enemy):
                 )
                 temp_list.append(frame)
             self.animation_list.append(temp_list)
+
+        # Atualiza o self.image e self.rect após a customização
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.midbottom = (x + (37 // 2), y + 37) # 37 é TILE_SIZE
             
         self.action = 0
         self.frame_index = 0
@@ -561,8 +582,6 @@ class Sniper(Enemy):
 
 
 # ======================================================================
-#  BULLET
-# ======================================================================
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
         pygame.sprite.Sprite.__init__(self)
@@ -618,7 +637,6 @@ class Bullet(pygame.sprite.Sprite):
                             enemy.update_action(4)
                         self.has_hit = True
                         break
-
 # ======================================================================
 #  GRENADE
 # ======================================================================
@@ -841,7 +859,7 @@ class World:
         self.level_length = 0
 
     def process_data(self, data, enemy_group, item_box_group,
-                     decoration_group, water_group, exit_group):
+                     decoration_group, water_group, exit_group, level=1):
         """Lê a matriz de tiles e cria todas as entidades do nível.
 
         Retorna (player, health_bar).
@@ -853,7 +871,7 @@ class World:
 
         for y, row in enumerate(data):
             for x, tile in enumerate(row):
-                if tile >= 0:
+                if tile >= 0 and tile < len(assets.tile_images):
                     img = assets.tile_images[tile]
                     img_rect = img.get_rect()
                     img_rect.x = x * TILE_SIZE
@@ -941,7 +959,7 @@ class World:
                     elif tile in (39, 46):            # Água gelada profunda
                         water = Water(x * TILE_SIZE, y * TILE_SIZE, [assets.tile_images[tile]])
                         water_group.add(water)
-
+                
         return player, health_bar
 
     def draw(self, screen, screen_scroll):
@@ -956,13 +974,18 @@ class World:
 #  ROBOT BULLET
 # ======================================================================
 class RobotBullet(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction):
+    def __init__(self, x, y, vel_x, vel_y):
         pygame.sprite.Sprite.__init__(self)
-        self.speed = BULLET_SPEED
         self.image = pygame.image.load('img/robot/Ball1.png').convert_alpha()
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
-        self.direction = direction
+        
+        self.vel_x = vel_x
+        self.vel_y = vel_y
+        
+        self.x = float(x)
+        self.y = float(y)
+        
         self.has_hit = False
         self.hit_timer = 0
 
@@ -973,13 +996,18 @@ class RobotBullet(pygame.sprite.Sprite):
             self.hit_timer += 1
             if self.hit_timer > 2:
                 self.kill()
-            self.rect.x += screen_scroll
+            self.x += screen_scroll
+            self.rect.centerx = int(self.x)
             return
 
-        # Mover
-        self.rect.x += (self.direction * self.speed) + screen_scroll
+        # Mover (teleguiado/vetores)
+        self.x += self.vel_x + screen_scroll
+        self.y += self.vel_y
+        self.rect.centerx = int(self.x)
+        self.rect.centery = int(self.y)
+        
         # Fora da tela
-        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
+        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT:
             self.kill()
             return
         # Colisão com tiles
@@ -1033,6 +1061,11 @@ class RobotEnemy(Character):
                 )
                 temp_list.append(frame)
             self.animation_list.append(temp_list)
+
+        # Atualiza o self.image e self.rect após a customização
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.midbottom = (x + (37 // 2), y + 37) # 37 é TILE_SIZE
             
         self.action = 0
         self.frame_index = 0
@@ -1073,20 +1106,28 @@ class RobotEnemy(Character):
         self.rect.x += dx
         self.rect.y += dy
 
-    def shoot(self, bullet_group):
-        """Sobrescreve tiro para usar RobotBullet."""
+    def shoot(self, bullet_group, target_x, target_y):
+        """Sobrescreve tiro para usar RobotBullet e mira vetorial."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
             spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
             spawn_y = self.rect.centery - 5
             
-            bullet = RobotBullet(
-                spawn_x,
-                spawn_y,
-                self.direction,
-            )
+            dx = target_x - spawn_x
+            dy = target_y - spawn_y
+            distancia = math.hypot(dx, dy)
+            
+            if distancia > 0:
+                vel_x = (dx / distancia) * BULLET_SPEED
+                vel_y = (dy / distancia) * BULLET_SPEED
+            else:
+                vel_x = self.direction * BULLET_SPEED
+                vel_y = 0
+            
+            bullet = RobotBullet(spawn_x, spawn_y, vel_x, vel_y)
             bullet_group.add(bullet)
             self.ammo -= 1
+            AssetManager().get_sound('robot_shoot').play()
             AssetManager().get_sound('robot_shoot').play()
 
     def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
@@ -1104,7 +1145,7 @@ class RobotEnemy(Character):
                     self.flip = False
                 
                 self.update_action(2)  # Attack animation (action 2)
-                self.shoot(bullet_group)
+                self.shoot(bullet_group, player.rect.centerx, player.rect.centery)
             else:
                 if not self.idling and random.randint(1, 200) == 1:
                     self.update_action(0)  # Idle
@@ -1251,6 +1292,11 @@ class SkeletonEnemy(Character):
                 )
                 temp_list.append(frame)
             self.animation_list.append(temp_list)
+
+        # Atualiza o self.image e self.rect após a customização
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.midbottom = (x + (37 // 2), y + 37) # 37 é TILE_SIZE
             
         self.action = 0
         self.frame_index = 0
@@ -1317,6 +1363,7 @@ class SkeletonEnemy(Character):
             bullet = Arrow(spawn_x, spawn_y, target_x, target_y)
             bullet_group.add(bullet)
             self.ammo -= 1
+            AssetManager().get_sound('skeleton_bow').play()
             AssetManager().get_sound('skeleton_bow').play()
 
     def ai(self, player, screen_scroll, obstacle_list, water_group, bullet_group):
@@ -1389,3 +1436,5 @@ class SkeletonEnemy(Character):
                             self.turn_after_idle = False
 
         self.rect.x += screen_scroll
+
+

@@ -101,11 +101,15 @@ def draw_world():
 	for y, row in enumerate(world_data):
 		for x, tile in enumerate(row):
 			if tile >= 0:
-				img = img_list[tile]
-				y_pos = y * TILE_SIZE + (TILE_SIZE - img.get_height())
-				# Centraliza a imagem horizontalmente no bloco (igual à classe Decoration no jogo)
-				x_pos = (x * TILE_SIZE + TILE_SIZE // 2) - (img.get_width() // 2) - scroll
-				screen.blit(img, (x_pos, y_pos))
+				if tile < TILE_TYPES:
+					img = img_list[tile]
+					y_pos = y * TILE_SIZE + (TILE_SIZE - img.get_height())
+					# Centraliza a imagem horizontalmente no bloco (igual à classe Decoration no jogo)
+					x_pos = (x * TILE_SIZE + TILE_SIZE // 2) - (img.get_width() // 2) - scroll
+					screen.blit(img, (x_pos, y_pos))
+				else:
+					# Remove o boss fantasma do mapa se ele já estiver salvo
+					world_data[y][x] = -1
 
 #create buttons
 save_button = button.Button(SCREEN_WIDTH // 2, SCREEN_HEIGHT + LOWER_MARGIN - 50, save_img, 1)

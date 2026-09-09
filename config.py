@@ -37,7 +37,7 @@ SCROLL_THRESH = 200
 # ---------------------------------------------------------------------------
 GRAVITY = 0.75
 TERMINAL_VELOCITY = 10   # FIX: clamping de velocidade de queda
-JUMP_VELOCITY = -12
+JUMP_VELOCITY = -14
 
 # ---------------------------------------------------------------------------
 #  Player

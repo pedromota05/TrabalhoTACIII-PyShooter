@@ -15,6 +15,7 @@ Controles:
 
 import csv
 from enum import Enum
+from PIL import Image, ImageSequence
 
 import pygame
 from pygame import mixer
@@ -31,6 +32,23 @@ from entities import (
     Player, Enemy, Grenade,
     HealthBar, ScreenFade, World,
 )
+
+
+def load_gif_frames(filename, max_width=None):
+    pil_image = Image.open(filename)
+    frames = []
+    for frame in ImageSequence.Iterator(pil_image):
+        frame_rgba = frame.convert('RGBA')
+        pygame_image = pygame.image.fromstring(frame_rgba.tobytes(), frame_rgba.size, frame_rgba.mode)
+        
+        if max_width and pygame_image.get_width() > max_width:
+            ratio = max_width / pygame_image.get_width()
+            new_w = int(pygame_image.get_width() * ratio)
+            new_h = int(pygame_image.get_height() * ratio)
+            pygame_image = pygame.transform.scale(pygame_image, (new_w, new_h))
+            
+        frames.append(pygame_image)
+    return frames
 
 
 # ======================================================================
@@ -117,7 +135,7 @@ class Game:
 
         # ----- Efeitos de fade -----
         self.intro_fade = ScreenFade(1, BLACK, 4)
-        self.death_fade = ScreenFade(2, PINK, 12)
+        self.death_fade = ScreenFade(2, PINK, 35) # Acelerado para transição quase instantânea
 
         # ----- Botões de UI -----
         # A largura verdadeira dos botões escalados no AssetManager é 280
@@ -142,13 +160,11 @@ class Game:
             self.assets.get_image('restart_btn'), 2,
         )
 
-        # Game Over Image
-        self.game_over_img = pygame.image.load('img/icons/game_over.png').convert_alpha()
-        if self.game_over_img.get_width() > SCREEN_WIDTH * 0.8:
-            ratio = (SCREEN_WIDTH * 0.8) / self.game_over_img.get_width()
-            new_w = int(self.game_over_img.get_width() * ratio)
-            new_h = int(self.game_over_img.get_height() * ratio)
-            self.game_over_img = pygame.transform.scale(self.game_over_img, (new_w, new_h))
+        # Game Over Image (Animated GIF)
+        self.go_frames = load_gif_frames('img/icons/game-over-game.gif', max_width=SCREEN_WIDTH * 0.8)
+        self.go_frame_index = 0
+        self.go_last_update = pygame.time.get_ticks()
+        self.go_anim_cooldown = 100
 
         # Botões de seleção de fase (gamepads alinhados no centro)
         self.level_buttons: list[button.Button] = []
@@ -239,6 +255,7 @@ class Game:
             self.decoration_group,
             self.water_group,
             self.exit_group,
+            level_number
         )
 
     # ==================================================================
@@ -326,7 +343,7 @@ class Game:
         # Atualizar grupos de sprites
         self.bullet_group.update(
             self.screen_scroll, self.world.obstacle_list,
-            self.player, self.bullet_group, self.enemy_group,
+            self.player, self.bullet_group, self.enemy_group
         )
         self.grenade_group.update(
             self.screen_scroll, self.world.obstacle_list,
@@ -751,10 +768,20 @@ class Game:
         self._draw_game_entities()
 
         if self.death_fade.fade(self.screen):
-            go_rect = self.game_over_img.get_rect()
+            # Controle de tempo do GIF
+            current_time = pygame.time.get_ticks()
+            if current_time - self.go_last_update >= self.go_anim_cooldown:
+                self.go_frame_index += 1
+                self.go_last_update = current_time
+                if self.go_frame_index >= len(self.go_frames):
+                    self.go_frame_index = 0
+
+            # Pega o frame atual, posiciona e desenha
+            current_go_img = self.go_frames[self.go_frame_index]
+            go_rect = current_go_img.get_rect()
             go_rect.centerx = SCREEN_WIDTH // 2
-            go_rect.centery = (SCREEN_HEIGHT // 2) - 100 # Empurra 100 pixeis para cima do centro
-            self.screen.blit(self.game_over_img, go_rect)
+            go_rect.centery = (SCREEN_HEIGHT // 2) - 100 # Mantém o afastamento do botão de restart
+            self.screen.blit(current_go_img, go_rect)
             
             if self.restart_button.draw(self.screen):
                 self.death_fade.fade_counter = 0
