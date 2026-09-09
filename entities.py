@@ -670,7 +670,7 @@ class Grenade(pygame.sprite.Sprite):
         self.direction = direction
 
     def update(self, screen_scroll, obstacle_list, player,
-               enemy_group, explosion_group):
+               enemy_group, explosion_group, boss_group=None):
         self.vel_y += GRAVITY
         dx = self.direction * self.speed
         dy = self.vel_y
@@ -712,6 +712,21 @@ class Grenade(pygame.sprite.Sprite):
                 if (abs(self.rect.centerx - enemy.rect.centerx) < GRENADE_BLAST_RADIUS
                         and abs(self.rect.centery - enemy.rect.centery) < GRENADE_BLAST_RADIUS):
                     enemy.health -= GRENADE_DAMAGE
+                    if enemy.health <= 0:
+                        enemy.health = 0
+                        enemy.alive = False
+                        if hasattr(enemy, 'update_action'):
+                            enemy.update_action(3)
+            if boss_group:
+                for boss in boss_group:
+                    if (abs(self.rect.centerx - boss.rect.centerx) < GRENADE_BLAST_RADIUS
+                            and abs(self.rect.centery - boss.rect.centery) < GRENADE_BLAST_RADIUS):
+                        boss.health -= GRENADE_DAMAGE
+                        if boss.health <= 0:
+                            boss.health = 0
+                            boss.alive = False
+                            if hasattr(boss, 'update_action'):
+                                boss.update_action(3)
 
 # ======================================================================
 #  EXPLOSION
@@ -1064,10 +1079,10 @@ class DragonBoss(pygame.sprite.Sprite):
         else:
             self.update_action(2)
 
-            target_y = player.rect.centery
-            if self.rect.centery < target_y:
+            target_y = player.rect.bottom
+            if self.rect.bottom < target_y:
                 self.rect.y += 4
-            elif self.rect.centery > target_y:
+            elif self.rect.bottom > target_y:
                 self.rect.y -= 2
 
         self.rect.x += screen_scroll
@@ -1728,7 +1743,7 @@ class Boss(pygame.sprite.Sprite):
 
         if abs_dist_x <= 100:
             self.update_action(2)
-        elif abs_dist_x < 450:
+        elif abs_dist_x < 250:
             self.update_action(1)
             dx = self.speed * self.direction
         else:

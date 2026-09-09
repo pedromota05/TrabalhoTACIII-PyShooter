@@ -363,6 +363,7 @@ class Game:
         self.grenade_group.update(
             self.screen_scroll, self.world.obstacle_list,
             self.player, self.enemy_group, self.explosion_group,
+            self.boss_group,
         )
         self.explosion_group.update(self.screen_scroll)
         self.item_box_group.update(self.screen_scroll, self.player)
