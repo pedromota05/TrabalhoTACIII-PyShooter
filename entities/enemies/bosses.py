@@ -77,6 +77,14 @@ class DragonBoss(pygame.sprite.Sprite):
         else:
             self.update_action(2)
 
+            # Permite que o Dragão vire caso o player passe para as costas dele
+            if player.rect.centerx > self.rect.centerx:
+                self.flip = False
+                self.direction = 1
+            else:
+                self.flip = True
+                self.direction = -1
+
             target_y = player.rect.bottom
             if self.rect.bottom < target_y:
                 self.rect.y += 4
@@ -116,11 +124,12 @@ class DragonBoss(pygame.sprite.Sprite):
             self.update_time = now
             self.frame_index += 1
             if self.frame_index >= len(self.animation_list[self.action]):
-                if self.action == 3:
+                if self.action == 3:  # Morte
                     self.frame_index = len(self.animation_list[self.action]) - 1
+                elif self.action == 2:  # Fim do ataque → volta para Idle
+                    self.action = 0
+                    self.frame_index = 0
                 else:
-                    if self.action == 2:
-                        self.update_action(0)
                     self.frame_index = 0
 
     def update_action(self, new_action: int):

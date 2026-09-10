@@ -7,6 +7,7 @@ from .projectiles import (
     Grenade,
     Explosion,
     RobotBullet,
+    SniperBullet,
     Arrow,
     DragonFire,
 )
@@ -16,6 +17,7 @@ __all__ = [
     'Grenade',
     'Explosion',
     'RobotBullet',
+    'SniperBullet',
     'Arrow',
     'DragonFire',
 ]

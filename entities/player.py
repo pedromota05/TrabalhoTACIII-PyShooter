@@ -30,7 +30,7 @@ class Player(Character):
         # Dano de Contato
         if enemy_group and self.invincible == 0:
             for enemy in enemy_group:
-                if type(enemy).__name__ == 'SkeletonEnemy':
+                if type(enemy).__name__ in ('SkeletonEnemy', 'Sniper'):
                     continue  # Ignora o dano de contato passivo
 
                 # Reduz a largura do retângulo invisível para ignorar a transparência

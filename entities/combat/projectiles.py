@@ -6,6 +6,7 @@ Contém as classes:
     - Grenade (granada lançada pelo jogador)
     - Explosion (efeito visual e temporal da explosão da granada)
     - RobotBullet (orbe de energia disparado pelo RobotEnemy)
+    - SniperBullet (projétil vetorial do Sniper com mira diagonal)
     - Arrow (flecha disparada pelo SkeletonEnemy)
     - DragonFire (bola de fogo disparada pelo DragonBoss)
 """
@@ -213,6 +214,62 @@ class RobotBullet(pygame.sprite.Sprite):
         self.image = pygame.image.load('img/robot/Ball1.png').convert_alpha()
         self.rect = self.image.get_rect()
         self.rect.center = (int(x), int(y))
+
+        self.vel_x = vel_x
+        self.vel_y = vel_y
+
+        self.x = float(x)
+        self.y = float(y)
+
+        self.has_hit = False
+        self.hit_timer = 0
+
+    def update(self, screen_scroll: int, obstacle_list: list, player,
+               bullet_group, enemy_group, boss_group=None):
+        if self.has_hit:
+            self.hit_timer += 1
+            if self.hit_timer > 2:
+                self.kill()
+            self.x += screen_scroll
+            self.rect.centerx = int(self.x)
+            return
+
+        # Mover
+        self.x += self.vel_x + screen_scroll
+        self.y += self.vel_y
+        self.rect.centerx = int(self.x)
+        self.rect.centery = int(self.y)
+
+        # Fora da tela
+        if (self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or
+                self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT):
+            self.kill()
+            return
+
+        # Colisão com tiles
+        for tile in obstacle_list:
+            if tile[1].colliderect(self.rect):
+                self.has_hit = True
+                break
+
+        # Colisão com jogador
+        if not self.has_hit and pygame.sprite.collide_rect(player, self):
+            if player.alive and getattr(player, 'invincible', 0) == 0:
+                player.health -= BULLET_DAMAGE_TO_PLAYER
+                player.invincible = 60
+                self.has_hit = True
+
+
+# ======================================================================
+#  SNIPER BULLET
+# ======================================================================
+class SniperBullet(pygame.sprite.Sprite):
+    """Projétil vetorial do Sniper com mira diagonal e posição float."""
+
+    def __init__(self, x: float, y: float, vel_x: float, vel_y: float):
+        super().__init__()
+        self.image = AssetManager().get_image('bullet')
+        self.rect = self.image.get_rect(center=(int(x), int(y)))
 
         self.vel_x = vel_x
         self.vel_y = vel_y
