@@ -1,29 +1,67 @@
 # PyShooter
 
-[![Language](https://img.shields.io/badge/language-python-blue.svg?style=flat)](https://www.python.org)
-[![Module](https://img.shields.io/badge/module-pygame-brightgreen.svg?style=flat)](http://www.pygame.org/news.html)
+Jogo de plataforma e ação 2D desenvolvido em Python com Pygame. Controle o personagem, enfrente inimigos e chefes, colete recursos e avance pelas fases.
 
-PyShooter is a two-dimensional shooter game in which the player runs horizontally and fires at enemies.
+## Requisitos
 
-## How To Play
+- Python 3
+- Pygame
+- Pillow — usado para carregar a animação da tela de game over
 
-- If you don't have [Python](https://www.python.org/downloads/) or [Pygame](http://www.pygame.org/download.shtml) installed, you can simply double click the .exe file to play the game.
-  **Note:** _The .exe file needs to stay in the same directory as the sounds, images, and font folders._
+## Instalação
 
-Install Pygame ```pip install pygame```
-
-- If you have the correct version of Python and Pygame installed, you can run the program in the command prompt / terminal.
+No terminal, na pasta raiz do projeto, instale as dependências:
 
 ```bash
-cd PyShooter
+python -m pip install pygame pillow
+```
+
+## Como executar
+
+Execute o comando a partir da raiz do repositório. Isso é importante porque imagens, áudios e fases são carregados por caminhos relativos.
+
+```bash
 python main.py
 ```
 
----
+## Controles
 
-Credits for assets used: 
-1. https://erayzesen.itch.io/pixel-platformer 
-2. https://secrethideout.itch.io/team-wars-platformer-battle 
-3. https://soundimage.org/fantasywonder 
-4. https://gushh.net/blog/free-game-sprites-explosion-3  
-5. https://mtk.itch.io/grenades-16x16 
+| Ação | Teclas |
+| --- | --- |
+| Mover para a esquerda | `A` ou seta para a esquerda |
+| Mover para a direita | `D` ou seta para a direita |
+| Pular | `W` ou seta para cima |
+| Atirar | `Espaço` |
+| Lançar granada | `Q` ou `G` |
+| Pausar, voltar ou sair de uma tela | `Esc` |
+
+Use o mouse para navegar pelo menu, escolher uma fase, pausar o jogo e ajustar o volume.
+
+## Fases
+
+As fases jogáveis ficam em [`levels/`](levels/) e seguem o padrão `level<N>_data.csv`. Atualmente, a progressão utiliza as fases 1 a 4, conforme `MAX_LEVELS` em [`config.py`](config.py).
+
+## Organização do projeto
+
+```text
+main.py             Ponto de entrada do jogo.
+game.py             Coordena a sessão, as telas e o loop principal.
+core/               Serviços de gameplay, entrada, renderização e carregamento de fases.
+entities/           Jogador, inimigos, projéteis, itens e elementos de cenário.
+ui/                 Telas, HUD e transições visuais.
+world/              Construção do mundo a partir da matriz de tiles.
+levels/             Arquivos CSV das fases.
+img/ e audio/       Recursos visuais e sonoros.
+config.py           Constantes de tela, física, fases e interface.
+```
+
+## Edição de fases
+
+O projeto inclui o script `level-editor.py` para edição manual das matrizes de tiles. Os mapas utilizados pelo jogo devem ser salvos em `levels/` com o nome esperado pela fase, por exemplo `level1_data.csv`.
+
+## Créditos dos assets
+
+- [Pixel Platformer](https://erayzesen.itch.io/pixel-platformer)
+- [Team Wars Platformer Battle](https://secrethideout.itch.io/team-wars-platformer-battle)
+- [Soundimage](https://soundimage.org/fantasywonder)
+- [Grenades 16x16](https://mtk.itch.io/grenades-16x16)
