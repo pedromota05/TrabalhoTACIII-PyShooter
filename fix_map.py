@@ -1,6 +1,9 @@
 import csv
+import os
 
 def fix_map(filename):
+    if not os.path.exists(filename) and os.path.exists(os.path.join('levels', filename)):
+        filename = os.path.join('levels', filename)
     with open(filename, newline='') as f:
         reader = csv.reader(f, delimiter=',')
         data = [list(row) for row in reader]

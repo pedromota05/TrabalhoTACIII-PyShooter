@@ -26,6 +26,7 @@ COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
 TILE_TYPES = 87
 MAX_LEVELS = 4
+LEVELS_DIR = 'levels'
 
 # ---------------------------------------------------------------------------
 #  Câmera / Scroll
