@@ -1,117 +1,156 @@
 @startuml
-title Diagrama de Dependências Estruturais para Entidades (Classes)
+title Diagrama de Classes — PyShooter
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+top to bottom direction
 
-' Base Externa
-class "pygame.sprite.Sprite" as Sprite <<External>>
+package "Aplicação" {
+  class Game {
+    +run()
+    -_load_level(level_number)
+  }
 
-' Entidades Principais (entities.py)
-class Character {
-  + move()
-  + draw()
-  + update()
-}
-class Player {
-  + jump()
-  + update_action()
-}
-class Enemy {
-  + ai()
-}
-class Sniper {
-}
-class RobotEnemy {
-}
-class SkeletonEnemy {
-}
+  enum GameState {
+    MENU
+    INSTRUCTIONS
+    LEVEL_SELECT
+    PLAYING
+    PAUSE
+    OPTIONS
+    GAME_OVER
+    LEVEL_TRANSITION
+  }
 
-' Projéteis e Efeitos
-class Bullet {
-}
-class RobotBullet {
-}
-class Arrow {
-}
-class Grenade {
-}
-class Explosion {
+  class AssetManager {
+    +load_all()
+    +get_image(name)
+    +get_sound(name)
+  }
+  class Button
 }
 
-' Interativos do Cenário
-class ItemBox {
-}
-class Decoration {
-}
-class Water {
-}
-class Exit {
-}
-
-' UI e Cenário (entities.py)
-class HealthBar {
-}
-class ScreenFade {
-}
-class World {
-  + process_data()
-  + draw()
+package "Mundo" {
+  class World {
+    +obstacle_list
+    +ramp_list
+    +level_length
+    +process_data(data, ..., level)
+    +draw(screen, screen_scroll)
+  }
 }
 
-' Gestão do Jogo (main.py e outos)
-class Game {
-  + run()
-  + draw()
-}
-enum GameState {
-  MENU
-  PLAYING
-  GAME_OVER
-  LEVEL_COMPLETE
-}
-class Button {
-}
-class AssetManager {
-  + load_all()
-  + get_image()
+package "Entidades" {
+  class "pygame.sprite.Sprite" as Sprite <<external>>
+
+  package "Personagens" {
+    class Character {
+      +move()
+      +shoot(bullet_group)
+      +update()
+      +draw(screen)
+    }
+    class Player {
+      +jump()
+      +move()
+      +update()
+    }
+  }
+
+  package "Inimigos" {
+    class Enemy { +ai() }
+    class Sniper
+    class RobotEnemy { +ai() }
+    class SkeletonEnemy { +ai() }
+    class DragonBoss { +update() }
+    class Boss { +update() }
+  }
+
+  package "Combate" {
+    class Bullet
+    class SniperBullet
+    class RobotBullet
+    class Arrow
+    class Grenade
+    class Explosion
+    class DragonFire
+  }
+
+  package "Cenário" {
+    class ItemBox
+    class Decoration
+    class Water
+    class Exit
+  }
 }
 
-' === Relações de Herança ===
+package "Interface" {
+  class HealthBar { +draw(screen, health) }
+  class ScreenFade { +fade(screen) }
+
+  package "Telas" {
+    class MainMenuScreen { +draw(game) }
+    class InstructionsScreen { +draw(game) }
+    class OptionsScreen { +draw(game) }
+    class LevelSelectScreen { +draw(game) }
+    class PauseOverlay { +draw(game) }
+    class GameOverScreen { +draw(game) }
+  }
+}
+
+' Heranças
 Sprite <|-- Character
+Character <|-- Player
+Character <|-- Enemy
+Enemy <|-- Sniper
+Character <|-- RobotEnemy
+Character <|-- SkeletonEnemy
+
+Sprite <|-- DragonBoss
+Sprite <|-- Boss
 Sprite <|-- Bullet
+Sprite <|-- SniperBullet
 Sprite <|-- RobotBullet
 Sprite <|-- Arrow
 Sprite <|-- Grenade
 Sprite <|-- Explosion
+Sprite <|-- DragonFire
 Sprite <|-- ItemBox
 Sprite <|-- Decoration
 Sprite <|-- Water
 Sprite <|-- Exit
 
-Character <|-- Player
-Character <|-- Enemy
-Character <|-- RobotEnemy
-Character <|-- SkeletonEnemy
+' Orquestração da sessão
+Game *-- AssetManager : assets
+Game *-- GameState : state
+Game *-- World : world
+Game *-- Player : player
+Game *-- HealthBar : health_bar
+Game *-- ScreenFade : intro_fade
+Game *-- "0..*" Sprite : grupos
+Game o-- "telas" MainMenuScreen
 
-Enemy <|-- Sniper
+note right of World
+  process_data cria Player, HealthBar,
+  inimigos, chefes, itens e elementos
+  de cenário a partir do CSV da fase.
+end note
 
-' === Relações de Composição e Uso ===
-Game "1" *-- "1" AssetManager : contém
-Game "1" *-- "1" GameState : gerencia estado
-Game "1" *-- "1" Player : controla
-Game "1" *-- "1" World : processa
-Game "1" *-- "2" ScreenFade : efeitos de tela
-Game "1" *-- "many" Button : UI principal
+' Relações de combate
+Player ..> Bullet : dispara
+Player ..> Grenade : lança
+Enemy ..> Bullet : dispara
+Sniper ..> SniperBullet : dispara
+RobotEnemy ..> RobotBullet : dispara
+SkeletonEnemy ..> Arrow : dispara
+DragonBoss ..> DragonFire : dispara
+Grenade ..> Explosion : gera
 
-World "1" *-- "many" Enemy : contém
-World "1" *-- "many" ItemBox : contém
-World "1" *-- "many" Decoration : contém
-World "1" *-- "many" Water : contém
-World "1" *-- "1" Exit : saída de nível
-World "1" ..> Player : cria através do process_data
-
-Player --> Bullet : dispara
-Player --> Grenade : lança
-Enemy --> Bullet : dispara
-RobotEnemy --> RobotBullet : dispara
-SkeletonEnemy --> Arrow : dispara
-
+' Telas que usam botões; setas ocultas mantêm as telas alinhadas.
+MainMenuScreen ..> Button
+MainMenuScreen -[hidden]-> InstructionsScreen
+InstructionsScreen -[hidden]-> OptionsScreen
+OptionsScreen -[hidden]-> LevelSelectScreen
+LevelSelectScreen -[hidden]-> PauseOverlay
+PauseOverlay -[hidden]-> GameOverScreen
 @enduml
