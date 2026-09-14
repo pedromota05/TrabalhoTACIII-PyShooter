@@ -4,7 +4,7 @@ import csv
 import os
 
 from config import COLS, LEVELS_DIR, ROWS
-from entities import World
+from world.level_builder import World
 
 
 def reset_groups(game) -> None:
