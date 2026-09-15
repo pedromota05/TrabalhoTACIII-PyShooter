@@ -28,7 +28,6 @@ from .items import ItemBox
 from .environment import Decoration, Water, Exit
 from ui.hud import HealthBar
 from ui.transitions import ScreenFade
-from world.level_builder import World
 
 __all__ = [
     'Character',
@@ -52,5 +51,4 @@ __all__ = [
     'Exit',
     'HealthBar',
     'ScreenFade',
-    'World',
 ]
