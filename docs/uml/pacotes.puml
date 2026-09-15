@@ -1,29 +1,108 @@
 @startuml
-title Diagrama de Estrutura de Módulos (Pacotes)
+title Arquitetura de Pacotes — PyShooter
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 50
 
-package "PyShooter - TACIII" {
-    [main]
-    [entities]
-    [config]
-    [asset_manager]
-    [button]
-    [level-editor]
-    [fix_map]
+package "Aplicação" {
+    ["main.py"] as main
+    ["game.py\nGame"] as game
+    ["game_state.py\nGameState"] as game_state
+    ["config.py"] as config
+    ["asset_manager.py\nAssetManager"] as assets
+    ["button.py\nButton"] as button
 }
 
-' Dependências do main.py
-[main] --> [entities] : importa classes e objetos
-[main] --> [config] : importa configurações
-[main] --> [asset_manager] : importa AssetManager
-[main] --> [button] : importa botões de UI
+package "Core & World" {
+    package "core" {
+        [input_handler] as input
+        [gameplay] as gameplay
+        [level_loader] as loader
+        [renderer] as renderer
+    }
+    package "world" {
+        ["level_builder\nWorld"] as world_comp
+    }
+}
 
-' Dependências do entities.py
-[entities] --> [config] : importa configurações
-[entities] --> [asset_manager] : utiliza assets para renderização
+package "Entities" {
+    package "entities" {
+        ["base\nCharacter"] as entity_base
+        ["player\nPlayer"] as player
 
-' Dependências do asset_manager.py
-[asset_manager] --> [config] : utiliza constantes e tamanhos
+        package "enemies" {
+            ["standard\nEnemy, Sniper"] as enemy_standard
+            ["robot\nRobotEnemy"] as enemy_robot
+            ["skeleton\nSkeletonEnemy"] as enemy_skeleton
+            ["bosses\nBoss, DragonBoss"] as enemy_bosses
+        }
 
-' Dependências das ferramentas
-[level-editor] --> [button] : utiliza UI
+        package "combat" {
+            [projectiles] as projectiles
+        }
+
+        ["items\nItemBox"] as items
+        ["environment\nDecoration, Water, Exit"] as environment
+    }
+}
+
+package "UI" {
+    package "ui" {
+        ["hud\nHealthBar"] as hud
+        ["transitions\nScreenFade"] as transitions
+
+        package "screens" {
+            [menu] as menu
+            [instructions] as instructions
+            [options] as options
+            [level_select] as level_select
+            [pause] as pause
+            [game_over] as game_over
+            [common] as common
+        }
+    }
+}
+
+folder "levels/\nCSVs das fases" as levels
+folder "img/ e audio/\nrecursos" as resources
+
+' Conexões Principais de Fluxo
+main --> game : inicia
+game --> input
+game --> gameplay
+game --> loader
+game --> renderer
+game --> transitions
+
+' Fluxo UI
+game --> menu
+game --> instructions
+game --> options
+game --> level_select
+game --> pause
+game --> game_over
+
+' Dependências Core e World
+loader --> world_comp : instancia
+loader ..> levels : lê
+world_comp --> player
+world_comp --> enemy_standard
+world_comp --> enemy_robot
+world_comp --> enemy_skeleton
+world_comp --> enemy_bosses
+world_comp --> items
+world_comp --> environment
+world_comp --> hud
+
+' Entidades e Combate
+player --> entity_base
+enemy_standard --> entity_base
+enemy_robot --> entity_base
+enemy_skeleton --> entity_base
+gameplay --> projectiles
+enemy_bosses --> projectiles
+
+' Recursos
+assets ..> resources : carrega
 @enduml
