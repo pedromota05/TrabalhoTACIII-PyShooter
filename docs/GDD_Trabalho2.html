@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>GDD PyShooter — TAC III</title>
+    <style>
+@page {
+    size: A4;
+    margin: 20mm 15mm 20mm 15mm;
+}
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #24292e;
+    margin: 0;
+    padding: 0;
+}
+h1, h2, h3, h4 {
+    color: #1a365d;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+h1 {
+    font-size: 20pt;
+    border-bottom: 2px solid #2b6cb0;
+    padding-bottom: 8px;
+    margin-top: 0;
+    text-align: center;
+}
+h2 {
+    font-size: 15pt;
+    border-bottom: 1px solid #cbd5e0;
+    padding-bottom: 5px;
+    margin-top: 25px;
+    page-break-after: avoid;
+}
+h3 {
+    font-size: 13pt;
+    margin-top: 18px;
+    page-break-after: avoid;
+}
+p {
+    margin-top: 0;
+    margin-bottom: 12px;
+    text-align: justify;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    margin-bottom: 16px;
+    page-break-inside: avoid;
+    font-size: 10pt;
+}
+th, td {
+    border: 1px solid #cbd5e0;
+    padding: 8px 12px;
+    text-align: left;
+}
+th {
+    background-color: #edf2f7;
+    font-weight: 600;
+    color: #2d3748;
+}
+tr:nth-child(even) {
+    background-color: #f7fafc;
+}
+code {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    background-color: #edf2f7;
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: #c53030;
+}
+pre {
+    background-color: #2d3748;
+    color: #f7fafc;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 9pt;
+    page-break-inside: avoid;
+}
+pre code {
+    background-color: transparent;
+    color: #f7fafc;
+    padding: 0;
+}
+hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 25px 0;
+}
+blockquote {
+    border-left: 4px solid #3182ce;
+    padding-left: 14px;
+    margin-left: 0;
+    color: #4a5568;
+    font-style: italic;
+}
+.header-badge {
+    text-align: center;
+    background-color: #ebf8ff;
+    border: 1px solid #bee3f8;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 25px;
+}
+</style>
+</head>
+<body>
+    <h1 id="gdd-tac-iii-pyshooter-atualizado-trabalho-2">GDD TAC III — PyShooter (Atualizado - Trabalho 2)</h1>
+<p><strong>Fundação Universidade Federal da Grande Dourados (UFGD)</strong><br />
+<strong>Faculdade de Engenharia (FAEN) — Engenharia de Computação</strong><br />
+<strong>Disciplina:</strong> Tópicos Avançados em Computação III (TAC III)<br />
+<strong>Professor:</strong> Vanderson Hafemann Fragal  </p>
+<p><strong>Desenvolvedores:</strong><br />
+- <strong>Guilherme Silva Sampaio:</strong> Arquitetura de software, multiplayer LAN (UDP/threads), integração do editor de fases, implementação de padrões de projeto, diagramas UML, refatoração segura e documentação do GDD.<br />
+- <strong>Pedro Henrique Gonçalves Mota:</strong> Concepção da base do jogo, obtenção e adaptação de assets gráficos/sonoros, mecânicas de gameplay, chefes, fases e testes.  </p>
+<hr />
+<h2 id="1-game-design-document-gdd">1. Game Design Document (GDD)</h2>
+<h3 id="11-conceito-principal">1.1 Conceito Principal</h3>
+<p><strong>PyShooter</strong> é um jogo de ação 2D <em>side-scrolling</em> no estilo <em>Run and Gun</em>, desenvolvido em <strong>Python</strong> e <strong>Pygame</strong>. O jogador assume o controle de um soldado em missão de combate através de biomas naturais hostis (florestas de pinheiros, cordilheiras nevadas e pântanos densos). O personagem avança horizontalmente enfrentando soldados de infantaria, snipers, atiradores robóticos, esqueletos arqueiros e chefes colossais (Demon Boss e Dragon Boss), coletando suprimentos (munição, kits médicos e granadas) e superando armadilhas de terreno. O objetivo de cada fase é sobreviver aos combates e alcançar o portal de extração para avançar na campanha.</p>
+<p>No <strong>Trabalho 2</strong>, o jogo expandiu suas fronteiras com a inclusão de:<br />
+1. <strong>Navegação Completa por Menus</strong>: Menu Principal, Seleção de Fases, Menu Multiplayer LAN, Editor de Fases, Instruções, Configurações de Áudio com sliders e Telas de Pausa/Fim de Jogo.<br />
+2. <strong>Editor de Fases Integrado</strong>: Ferramenta modular que permite criar, inspecionar, salvar e carregar mapas personalizados diretamente na matriz de arquivos CSV (<code>levels/</code>).<br />
+3. <strong>Multiplayer em LAN (Cliente e Servidor)</strong>: Partidas cooperativas locais em tempo real via sockets UDP não-bloqueantes com threads em background, controle de <em>heartbeat/timeout</em>, sincronização de combate e interpolação linear (LERP) para eliminar saltos visuais.<br />
+4. <strong>Formalização de Padrões de Projeto (GoF e Arquiteturais)</strong>: Aplicação explícita dos padrões Singleton, State, Factory Method, Facade, Observer e Remote Proxy.</p>
+<hr />
+<h3 id="12-estilo-e-genero">1.2 Estilo e Gênero</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Aspecto</th>
+<th style="text-align: left;">Classificação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Gênero primário</strong></td>
+<td style="text-align: left;">Run and Gun / 2D Platformer Shooter</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Subgênero</strong></td>
+<td style="text-align: left;">Side-scrolling Action / Co-op Multiplayer</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Perspectiva</strong></td>
+<td style="text-align: left;">Vista lateral 2D (Side-view)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Referências clássicas</strong></td>
+<td style="text-align: left;"><em>Metal Slug</em>, <em>Contra</em>, <em>Mega Man</em>, <em>Ghosts 'n Goblins</em></td>
+</tr>
+</tbody>
+</table>
+<p>O foco do jogo é a precisão de movimento, agilidade de esquiva e combate estratégico com armas de tiro reto e arremessos parabólicos de granadas contra agrupamentos de inimigos.</p>
+<hr />
+<h3 id="13-plataforma-alvo">1.3 Plataforma Alvo</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Requisito</th>
+<th style="text-align: left;">Especificação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Sistema Operacional</strong></td>
+<td style="text-align: left;">Windows 10/11, Linux ou macOS</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Linguagem / Versão</strong></td>
+<td style="text-align: left;">Python 3.10+ (compatível com 3.12+)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Dependências Principais</strong></td>
+<td style="text-align: left;"><code>pygame</code> (2.5+), <code>Pillow</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Resolução de Tela</strong></td>
+<td style="text-align: left;">1200 × 640 pixels (Modo Editor: 1200 × 740 pixels)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Periféricos</strong></td>
+<td style="text-align: left;">Teclado (movimento e combate), Mouse (menus, sliders e editor)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Rede</strong></td>
+<td style="text-align: left;">Conexão Ethernet ou Wi-Fi em LAN (UDP porta 5555)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="14-mecanicas-e-controles">1.4 Mecânicas e Controles</h3>
+<h4 id="141-mapa-de-controles">1.4.1 Mapa de Controles</h4>
+<h5 id="controles-de-gameplay-in-game">Controles de Gameplay (In-Game)</h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tecla</th>
+<th style="text-align: left;">Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>A</strong> ou <strong>←</strong></td>
+<td style="text-align: left;">Mover para a esquerda</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>D</strong> ou <strong>→</strong></td>
+<td style="text-align: left;">Mover para a direita</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>W</strong> ou <strong>↑</strong></td>
+<td style="text-align: left;">Pular</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Espaço</strong></td>
+<td style="text-align: left;">Disparo de arma primária (segurar para tiro contínuo)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Q</strong> ou <strong>G</strong></td>
+<td style="text-align: left;">Lançar granada (arco parabólico com dano em área)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>ESC</strong></td>
+<td style="text-align: left;">Pausar partida / Retornar ao menu</td>
+</tr>
+</tbody>
+</table>
+<h5 id="controles-do-editor-de-fases-level-editor">Controles do Editor de Fases (Level Editor)</h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Controle</th>
+<th style="text-align: left;">Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Botão Esquerdo do Mouse</strong></td>
+<td style="text-align: left;">Pintar o tile selecionado na grade</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão Direito do Mouse</strong></td>
+<td style="text-align: left;">Apagar tile da grade (define como vazio <code>-1</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>← / →</strong></td>
+<td style="text-align: left;">Rolar a visão horizontal do mapa no editor</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Shift Esquerdo / Direito</strong></td>
+<td style="text-align: left;">Multiplicador de velocidade de rolagem (5x mais rápido)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>↑ / ↓</strong></td>
+<td style="text-align: left;">Alternar número da fase ativa (Fase 1, 2, 3...)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão "Salvar"</strong></td>
+<td style="text-align: left;">Persiste a matriz editada em <code>levels/level{N}_data.csv</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão "Carregar"</strong></td>
+<td style="text-align: left;">Recarrega os dados do arquivo CSV correspondente</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão "&lt;- Menu" / ESC</strong></td>
+<td style="text-align: left;">Restaura a resolução padrão e retorna ao Menu Principal</td>
+</tr>
+</tbody>
+</table>
+<h5 id="controles-de-interface-e-menus">Controles de Interface e Menus</h5>
+<ul>
+<li><strong>Mouse (Clique Esquerdo):</strong> Interage com botões de navegação, caixas de diálogo, caixas de texto de IP e seleção de fases.</li>
+<li><strong>Sliders de Áudio:</strong> Arraste interativo para ajuste contínuo de volume da música de fundo e efeitos sonoros (SFX).</li>
+</ul>
+<hr />
+<h3 id="15-arquitetura-de-menus-e-telas">1.5 Arquitetura de Menus e Telas</h3>
+<p>A interface do PyShooter é estruturada sob o padrão <strong>State</strong>, onde o loop central do jogo delega a captura de eventos, atualização de estados e renderização visual para telas especializadas localizadas em <code>ui/screens/</code>.</p>
+<pre><code class="language-mermaid">graph TD
+    Menu[Menu Principal] --&gt; NovoJogo[Seleção de Fase]
+    Menu --&gt; MultiMenu[Menu Multiplayer LAN]
+    Menu --&gt; Editor[Editor de Fases]
+    Menu --&gt; Instr[Instruções e Controles]
+    Menu --&gt; Opcoes[Opções de Áudio]
+    Menu --&gt; Sair[Encerrar Jogo]
+
+    NovoJogo --&gt; Playing[Gameplay Campanha]
+    MultiMenu --&gt; Host[Criar Servidor LAN] --&gt; PlayingMulti[Gameplay Cooperativo]
+    MultiMenu --&gt; Join[Conectar via IP LAN] --&gt; PlayingMulti
+
+    Playing --&gt; Pause[Menu de Pausa]
+    Playing --&gt; GameOver[Tela de Game Over]
+    PlayingMulti --&gt; Pause
+    PlayingMulti --&gt; GameOver
+    Pause --&gt; Menu
+    GameOver --&gt; Menu
+    Editor --&gt; Menu
+    Instr --&gt; Menu
+    Opcoes --&gt; Menu
+</code></pre>
+<h4 id="descricao-das-telas">Descrição das Telas:</h4>
+<ol>
+<li><strong>Menu Principal (<code>MainMenuScreen</code>):</strong> Tela inicial elegante com o título do jogo e acesso direto a todas as áreas (Novo Jogo, Multiplayer, Editor de Fases, Instruções, Configurações e Sair).</li>
+<li><strong>Seleção de Fase (<code>LevelSelectScreen</code>):</strong> Exibe os gamepads interativos para escolha de fases da campanha (Fases 1 a 4).</li>
+<li><strong>Menu Multiplayer LAN (<code>MultiplayerMenuScreen</code>):</strong> Interface dedicada que permite:</li>
+<li><strong>Criar Servidor (Host):</strong> Inicializa o socket UDP local e conecta automaticamente o jogador hospedeiro como Jogador 1.</li>
+<li><strong>Conectar via IP (Join LAN):</strong> Campo de entrada de texto interativo com cursor piscante para informar o endereço IP do Host (padrão <code>127.0.0.1</code>, porta <code>5555</code>) e botão de conexão como Jogador 2.</li>
+<li>Exibição em tempo real de mensagens de status da rede.</li>
+<li><strong>Editor de Fases (<code>LevelEditorScreen</code>):</strong> Ambiente de edição de fases completo com grade, paleta de tiles, atalhos de teclado e botões de I/O em disco.</li>
+<li><strong>Configurações (<code>OptionsScreen</code>):</strong> Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (<em>knobs</em>) proporcionais.</li>
+<li><strong>Pausa (<code>PauseOverlay</code>):</strong> Overlay escurecido sobre a partida em andamento permitindo continuar ou sair para o menu.</li>
+<li><strong>Game Over (<code>GameOverScreen</code>):</strong> Exibida ao esgotar os pontos de vida do soldado, permitindo reiniciar a fase imediatamente ou voltar ao menu.</li>
+</ol>
+<hr />
+<h3 id="16-o-editor-de-fases-level-editor">1.6 O Editor de Fases (Level Editor)</h3>
+<p>O editor de fases foi refatorado de um script procedural legado (<code>level-editor.py</code>) para uma classe modular de alta coesão (<code>LevelEditorScreen</code> em <code>ui/screens/level_editor.py</code>), perfeitamente integrada ao ciclo de vida do jogo.</p>
+<h4 id="especificacoes-tecnicas-do-editor">Especificações Técnicas do Editor:</h4>
+<ul>
+<li><strong>Resolução de Tela Estendida:</strong> Ao entrar no editor, a janela é redimensionada dinamicamente para <code>1200 × 740</code> pixels (oferecendo 900 pixels de largura de visão de mapa, 300 pixels de barra lateral direita para a paleta de blocos e 100 pixels de margem inferior para a barra de ferramentas). Ao retornar ao menu, a resolução nativa de <code>1200 × 640</code> é restabelecida sem falhas.</li>
+<li><strong>Estrutura Matricial:</strong> O mapa é composto por uma matriz bidimensional de dimensões fixas:<br />
+  $$\text{Linhas} = 16, \quad \text{Colunas} = 200, \quad \text{Tamanho do Bloco} = 40 \times 40\text{ px}$$</li>
+<li><strong>Paleta de 88 Tiles Mapeados:</strong></li>
+<li><code>0 a 8, 24 a 35, 47 a 48, 50, 58 a 61, 65 a 66, 73 a 77, 83 a 84</code>: Terrenos e plataformas sólidas (terra, grama, pedra e neve).</li>
+<li><code>85</code>: Rampa com colisão diagonal/inclinada.</li>
+<li><code>9 a 10, 37 a 39, 42 a 46, 51 a 57, 62 a 64, 67 a 68</code>: Água profunda (perigo ambiental letal).</li>
+<li><code>11 a 14, 36, 40 a 41, 49, 71 a 72, 78 a 82</code>: Decorações visuais sem colisão física (árvores gigantes, pinheiros, placas, grama decorativa).</li>
+<li><code>15</code>: Ponto de geração (<em>Spawn</em>) do Jogador.</li>
+<li><code>16</code>: Spawn de Soldado patrulheiro básico.</li>
+<li><code>69</code>: Spawn de Inimigo Robô atirador.</li>
+<li><code>70</code>: Spawn de Inimigo Esqueleto arqueiro.</li>
+<li><code>86</code>: Spawn do Demônio Chefe terrestre (<em>Demon Boss</em>).</li>
+<li><code>87</code>: Spawn do Dragão Chefe voador (<em>Dragon Boss</em>).</li>
+<li><code>17, 18, 19</code>: Caixas de suprimentos (Munição +15, Granada +3, Kit Médico +25 HP).</li>
+<li><code>20</code>: Portal de saída e término da fase.</li>
+<li><strong>Sistema de Persistência em Disco:</strong> Gravação e leitura atômica em arquivos CSV no diretório <code>levels/level{N}_data.csv</code>.</li>
+</ul>
+<hr />
+<h3 id="17-multiplayer-em-lan-cliente-e-servidor-udp">1.7 Multiplayer em LAN (Cliente e Servidor UDP)</h3>
+<p>Baseado nos modelos desenvolvidos pelo professor Vanderson em <code>tac3/exemplos/threads/</code>, o sistema de rede do PyShooter adota o protocolo <strong>UDP (User Datagram Protocol)</strong> associado a <strong>threads assíncronas em segundo plano</strong>.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    autonumber
+    participant Client1 as Jogador 1 (Host)
+    participant Server as GameServer (UDP :5555)
+    participant Client2 as Jogador 2 (Cliente)
+
+    Note over Client1,Server: Client1 inicia GameServer na porta 5555
+    Client2-&gt;&gt;Server: Pacote de Estado (x, y, action, dir, shoot, hp)
+    Server-&gt;&gt;Client1: Broadcast do Estado de Client2
+    Client1-&gt;&gt;Server: Pacote de Estado (x, y, action, dir, shoot, hp)
+    Server-&gt;&gt;Client2: Broadcast do Estado de Client1
+    Note over Client1,Client2: Renderização com Interpolação Linear (LERP)
+    Client2-&gt;&gt;Server: Pacote de Desconexão (player_id,quit)
+    Server-&gt;&gt;Client1: Notificação de Remoção (player_id,remove)
+    Note over Client1: Remove sprite de Client2 sem travar gameplay
+</code></pre>
+<h4 id="171-protocolo-de-comunicacao-de-pacotes">1.7.1 Protocolo de Comunicação de Pacotes</h4>
+<p>Os pacotes são transmitidos em strings CSV de baixa sobrecarga de dados:<br />
+1. <strong>Sincronização de Estado:</strong><br />
+   $$\text{Formato: } \texttt{"player_id,x,y,action,direction,is_shooting,health"}$$<br />
+   - <code>player_id</code>: Identificador único da sessão (ex.: <code>"P1 (Host)"</code>, <code>"P2 (Cliente)"</code>).<br />
+   - <code>x, y</code>: Posição absoluta do personagem no mundo (compensando a rolagem de câmera <code>bg_scroll</code>).<br />
+   - <code>action</code>: Índice de animação ativo (0: Parado, 1: Correndo, 2: Pulando, 3: Morte).<br />
+   - <code>direction</code>: Orientação horizontal (<code>1</code> para a direita, <code>-1</code> para a esquerda).<br />
+   - <code>is_shooting</code>: Flag booleana (<code>1</code> ou <code>0</code>) indicando disparo de projéteis.<br />
+   - <code>health</code>: Pontos de vida atuais do combatente remoto.<br />
+2. <strong>Desconexão Voluntária:</strong><br />
+   $$\text{Formato: } \texttt{"player_id,quit"}$$<br />
+3. <strong>Remoção pelo Servidor:</strong><br />
+   $$\text{Formato: } \texttt{"player_id,remove"}$$</p>
+<h4 id="172-o-servidor-de-jogo-gameserver">1.7.2 O Servidor de Jogo (<code>GameServer</code>)</h4>
+<ul>
+<li><strong>Socket UDP com Timeout Seguro:</strong> Configurado com <code>settimeout(1.0)</code> em um loop de execução contínuo numa thread <em>daemon</em>. Isso garante que a thread possa ser cancelada graciosamente ao sair da partida sem travar o processo principal do Pygame.</li>
+<li><strong>Tabela de Sessões Ativas:</strong><br />
+  $$\texttt{clients[player_id]} = {\text{"address"}: (\text{ip}, \text{port}), \text{"last_seen"}: \text{timestamp}}$$</li>
+<li><strong>Broadcast Seletivo:</strong> Todo pacote de movimentação recebido de um jogador é imediatamente retransmitido para todos os demais jogadores registrados.</li>
+<li><strong>Tratamento de Inatividade (Heartbeat &amp; Timeout):</strong> A cada segundo, o servidor verifica se algum cliente não enviou pacotes por mais de <code>TIMEOUT_LIMIT = 5.0</code> segundos. Caso detectado, o cliente inativo é expulso da tabela e um comando <code>remove</code> é transmitido aos demais clientes.</li>
+</ul>
+<h4 id="173-o-cliente-de-rede-networkclient">1.7.3 O Cliente de Rede (<code>NetworkClient</code>)</h4>
+<ul>
+<li><strong>Thread Receptora Assíncrona:</strong> Uma thread independente escuta a porta UDP continuamente e alimenta um dicionário compartilhado protegido por semáforo de exclusão mútua (<code>threading.Lock()</code>).</li>
+<li><strong>Suavização de Movimento com LERP (Linear Interpolation):</strong> Para evitar que flutuações de rede e jitter causem "teleportes" na tela, o cliente atualiza a posição exibida a cada quadro através da fórmula de interpolação linear:<br />
+  $$x_{\text{atual}} = x_{\text{atual}} + (x_{\text{alvo}} - x_{\text{atual}}) \times \alpha$$<br />
+  $$y_{\text{atual}} = y_{\text{atual}} + (y_{\text{alvo}} - y_{\text{atual}}) \times \alpha$$<br />
+  onde $\alpha = 0.20$ ($\text{LERP_FACTOR}$), garantindo uma movimentação extremamente fluida e natural.</li>
+</ul>
+<h4 id="174-a-entidade-de-jogador-remoto-remoteplayer">1.7.4 A Entidade de Jogador Remoto (<code>RemotePlayer</code>)</h4>
+<p>Representa visualmente o combatente conectado via LAN:<br />
+- Utiliza o mesmo conjunto de animações do jogador principal através do cache do <code>AssetManager</code>.<br />
+- Converte a coordenada absoluta do mundo para a coordenada relativa da câmera local:<br />
+  $$\text{rect.center} = (\text{int}(x_{\text{mundo}} - \text{bg_scroll}), \text{int}(y_{\text{mundo}}))$$<br />
+- Renderiza uma <strong>Tag com o Nome do Jogador</strong> e uma <strong>Mini Barra de Vida</strong> sobre a cabeça do personagem.<br />
+- Reproduz disparos de projéteis sincronizados na tela local.</p>
+<hr />
+<h3 id="18-padroes-de-projeto-utilizados-design-patterns">1.8 Padrões de Projeto Utilizados (Design Patterns)</h3>
+<p>A refatoração do PyShooter consolidou uma arquitetura robusta, aplicando formalmente padrões clássicos do <em>Gang of Four (GoF)</em> e arquiteturais:</p>
+<h4 id="1-singleton-assetmanager">1. Singleton (<code>AssetManager</code>)</h4>
+<ul>
+<li><strong>Problema:</strong> Múltiplas entidades chamando <code>pygame.image.load()</code> e <code>pygame.mixer.Sound()</code> repetidamente, gerando desperdício de memória RAM e sobrecarga de I/O em disco.</li>
+<li><strong>Solução:</strong> Implementação do <code>AssetManager</code> com controle de instância única no método <code>__new__</code> e cache de texturas e animações (<code>_anim_cache</code>).</li>
+<li><strong>Benefício:</strong> Centralização de recursos, carregamento único na inicialização e consumo de memória rigorosamente controlado.</li>
+</ul>
+<h4 id="2-state-gamestate-e-maquina-de-telas">2. State (<code>GameState</code> e Máquina de Telas)</h4>
+<ul>
+<li><strong>Problema:</strong> Lógica de menus, jogo ativo, editor e pausa misturadas em um único laço condicional gigantesco (<em>God Method</em>).</li>
+<li><strong>Solução:</strong> Enumeração <code>GameState</code> operando em conjunto com classes de tela especializadas (<code>MainMenuScreen</code>, <code>MultiplayerMenuScreen</code>, <code>LevelEditorScreen</code>, etc.), cada uma contendo seus próprios métodos de captura de eventos e renderização.</li>
+<li><strong>Benefício:</strong> Desacoplamento completo entre menus, editor e o motor de combate, facilitando a adição de novos modos sem risco de efeitos colaterais.</li>
+</ul>
+<h4 id="3-factory-method-worldprocess_data">3. Factory Method (<code>World.process_data</code>)</h4>
+<ul>
+<li><strong>Problema:</strong> Necessidade de instanciar dezenas de tipos distintos de sprites (jogador, soldados, chefes, armadilhas, itens) a partir de matrizes numéricas arbitrárias salvas em CSV.</li>
+<li><strong>Solução:</strong> O método <code>process_data()</code> da classe <code>World</code> funciona como uma fábrica de entidades, interpretando o ID do bloco e instanciando dinamicamente a classe polimórfica correta com escala, velocidade e atributos balanceados.</li>
+<li><strong>Benefício:</strong> Facilidade de expansão do jogo; novos inimigos ou blocos podem ser adicionados ao editor sem modificar o motor físico do jogo.</li>
+</ul>
+<h4 id="4-facade-game-e-subsistemas-em-core">4. Facade (<code>Game</code> e subsistemas em <code>core/</code>)</h4>
+<ul>
+<li><strong>Problema:</strong> Acoplamento excessivo entre renderização gráfica, detecção de colisões, controle de entrada de teclado e ciclo de vida do Pygame.</li>
+<li><strong>Solução:</strong> A classe <code>Game</code> atua como uma Fachada unificada, orquestrando subsistemas modulares de responsabilidade única:</li>
+<li><code>core/input_handler.py</code>: Processamento de periféricos.</li>
+<li><code>core/gameplay.py</code>: Atualização física e combate.</li>
+<li><code>core/renderer.py</code>: Desenho de cenários, entidades e HUD.</li>
+<li><code>core/level_loader.py</code>: Carregamento e reset de fases.</li>
+<li><strong>Benefício:</strong> Código legível, altamente modular e em estrita conformidade com o princípio de Responsabilidade Única (SRP).</li>
+</ul>
+<h4 id="5-observer-event-driven-manipulacao-de-eventos-e-rede">5. Observer / Event-Driven (Manipulação de Eventos e Rede)</h4>
+<ul>
+<li><strong>Problema:</strong> Ações do usuário e mensagens de rede ocorrem de forma assíncrona.</li>
+<li><strong>Solução:</strong> O laço de eventos do Pygame e a thread de escuta UDP (<code>NetworkClient._receive_loop</code>) funcionam sob o modelo de observador/notificador, despachando eventos de clique, tecla e pacotes de rede para os tratadores apropriados.</li>
+<li><strong>Benefício:</strong> Resposta imediata a comandos do usuário e mensagens de rede sem bloquear a taxa de quadros (60 FPS).</li>
+</ul>
+<h4 id="6-remote-proxy-remoteplayer">6. Remote Proxy (<code>RemotePlayer</code>)</h4>
+<ul>
+<li><strong>Problema:</strong> O jogo precisa renderizar e simular jogadores remotos como se fossem entidades locais normais, sem que eles possuam teclado ou lógica de física local conectada.</li>
+<li><strong>Solução:</strong> A classe <code>RemotePlayer</code> atua como um representante local (<em>Proxy</em>) do jogador remoto, espelhando sua posição via interpolação LERP e renderizando suas ações no mundo.</li>
+<li><strong>Benefício:</strong> Compatibilidade perfeita com o sistema de renderização e grupos de sprites do Pygame.</li>
+</ul>
+<hr />
+<h3 id="19-formulas-e-mecanicas-matematicas">1.9 Fórmulas e Mecânicas Matemáticas</h3>
+<h4 id="191-fisica-de-movimentacao-e-gravidade">1.9.1 Física de Movimentação e Gravidade</h4>
+<p>Aplicada a entidades terrestres (Jogador, Inimigos, Caixas de Itens e Granadas):<br />
+$$\text{Velocidade_Y}_{t+1} = \min(\text{Velocidade_Y}_t + \text{Gravidade}, \; \text{Velocidade_Terminal})$$<br />
+$$\text{Gravidade} = 0.75, \quad \text{Velocidade_Terminal} = 10, \quad \text{Força_do_Pulo} = -14$$</p>
+<h4 id="192-interpolacao-linear-lerp-do-multiplayer">1.9.2 Interpolação Linear (LERP) do Multiplayer</h4>
+<p>Suavização espacial por quadro para jogadores remotos:<br />
+$$P_{\text{atual}} = P_{\text{atual}} + (P_{\text{alvo}} - P_{\text{atual}}) \times 0.20$$</p>
+<h4 id="193-visao-da-inteligencia-artificial-distancia-euclidiana">1.9.3 Visão da Inteligência Artificial (Distância Euclidiana)</h4>
+<p>Medição da proximidade entre os centros de massa para disparo e perseguição:<br />
+$$d = \sqrt{(X_{\text{jogador}} - X_{\text{inimigo}})^2 + (Y_{\text{jogador}} - Y_{\text{inimigo}})^2}$$</p>
+<h4 id="194-mira-e-projeteis-vetoriais-trigonometria">1.9.4 Mira e Projéteis Vetoriais (Trigonometria)</h4>
+<p>Utilizada pelos Esqueletos Arqueiros e projéteis guiados do Dragon Boss:<br />
+$$\theta = \operatorname{atan2}(Y_{\text{alvo}} - Y_{\text{origem}}, \; X_{\text{alvo}} - X_{\text{origem}})$$<br />
+$$v_x = \cos(\theta) \times V_{\text{projétil}}, \quad v_y = \sin(\theta) \times V_{\text{projétil}}$$</p>
+<h4 id="195-fisica-parabolica-e-quique-de-granadas">1.9.5 Física Parabólica e Quique de Granadas</h4>
+<p>A granada avança horizontalmente com conservação de velocidade linear e sofre aceleração vertical:<br />
+$$x_{t+1} = x_t + (\text{Direção} \times 7)$$<br />
+$$y_{t+1} = y_t + v_{y, t}, \quad v_{y, t+1} = v_{y, t} + 0.75$$<br />
+Ao colidir lateralmente com uma parede ou obstáculo:<br />
+$$\text{Direção} = \text{Direção} \times (-1)$$</p>
+<hr />
+<h3 id="110-engenharia-de-requisitos-atualizada">1.10 Engenharia de Requisitos Atualizada</h3>
+<h4 id="requisitos-funcionais-rf">Requisitos Funcionais (RF)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">ID</th>
+<th style="text-align: left;">Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>RF-01</strong></td>
+<td style="text-align: left;">Movimentação horizontal do jogador (esquerda/direita) via teclado (A/D ou setas).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-02</strong></td>
+<td style="text-align: left;">Salto do jogador ao pressionar W ou seta para cima com simulação gravitacional.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-03</strong></td>
+<td style="text-align: left;">Disparo de projéteis com munição limitada e cooldown de tiro de 20 frames.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-04</strong></td>
+<td style="text-align: left;">Lançamento de granadas com trajetória parabólica, timer de pavio e explosão em área.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-05</strong></td>
+<td style="text-align: left;">Detecção de colisões com aplicação de dano diferenciado (inimigos, jogador e chefes).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-06</strong></td>
+<td style="text-align: left;">Carregamento de fases através de matrizes em arquivos CSV (<code>levels/levelN_data.csv</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-07</strong></td>
+<td style="text-align: left;">Inteligência Artificial para inimigos com patrulha, detecção e ataque.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-08</strong></td>
+<td style="text-align: left;">Coleta de suprimentos em caixas (vida +25, munição +15, granadas +3).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-09</strong></td>
+<td style="text-align: left;">HUD gráfico exibindo barra de vida dinâmica, contagem de munição e granadas.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-10</strong></td>
+<td style="text-align: left;">Transição suave de fases com efeito de fade na tela.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-11</strong></td>
+<td style="text-align: left;"><strong>[T2] Navegação Completa por Menus:</strong> Suporte a menus integrados de Novo Jogo, Multiplayer, Editor de Fases, Instruções, Configurações e Sair.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-12</strong></td>
+<td style="text-align: left;"><strong>[T2] Configurações de Áudio:</strong> Sliders interativos com knob para ajuste contínuo do volume da música e dos efeitos sonoros.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-13</strong></td>
+<td style="text-align: left;"><strong>[T2] Editor de Fases Integrado:</strong> Ferramenta gráfica para edição da matriz de blocos (pintar e apagar), rolagem de mapa, seleção de 88 tiles e I/O de arquivos CSV.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-14</strong></td>
+<td style="text-align: left;"><strong>[T2] Hospedagem de Servidor LAN:</strong> Criação de servidor local UDP na porta 5555 via thread em background no modo Host.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-15</strong></td>
+<td style="text-align: left;"><strong>[T2] Conexão Cliente LAN:</strong> Conexão a partidas via endereço IP informado pelo usuário com recepção contínua em thread daemon.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RF-16</strong></td>
+<td style="text-align: left;"><strong>[T2] Sincronização e LERP:</strong> Sincronização em tempo real de coordenadas, ações, direção e tiros entre jogadores em rede local com suavização por LERP.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="requisitos-nao-funcionais-rnf">Requisitos Não-Funcionais (RNF)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">ID</th>
+<th style="text-align: left;">Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>RNF-01</strong></td>
+<td style="text-align: left;"><strong>Desempenho:</strong> Manutenção de taxa estável de 60 quadros por segundo (FPS).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-02</strong></td>
+<td style="text-align: left;"><strong>Portabilidade:</strong> Execução limpa em qualquer sistema operacional compatível com Python 3.10+ e Pygame.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-03</strong></td>
+<td style="text-align: left;"><strong>Usabilidade:</strong> Telas intuitivas com feedback visual de botões e atalhos claros.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-04</strong></td>
+<td style="text-align: left;"><strong>Manutenibilidade:</strong> Separação estrita de responsabilidades (SRP) e eliminação de código duplicado (DRY).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-05</strong></td>
+<td style="text-align: left;"><strong>Economia de Recursos:</strong> Gerenciamento único de assets na memória via Singleton <code>AssetManager</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-06</strong></td>
+<td style="text-align: left;"><strong>[T2] Baixa Latência em LAN:</strong> Comunicação via UDP de baixa sobrecarga de dados por pacote (&lt; 128 bytes).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-07</strong></td>
+<td style="text-align: left;"><strong>[T2] Tolerância a Falhas de Rede:</strong> Desconexão segura por timeout após 5 segundos de inatividade sem congelar o Pygame.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>RNF-08</strong></td>
+<td style="text-align: left;"><strong>[T2] Integridade da Física:</strong> Preservação estrita de todas as constantes gravitacionais, colisões e câmera do jogo original.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-diagramas-de-arquitetura-uml">2. Diagramas de Arquitetura (UML)</h2>
+<p>Os diagramas de arquitetura foram completamente atualizados para incorporar os pacotes de rede (<code>network/</code>), o editor de fases modular (<code>ui/screens/level_editor.py</code>), os novos menus e os padrões de projeto.</p>
+<h3 id="21-diagrama-de-pacotes-plantuml">2.1 Diagrama de Pacotes (PlantUML)</h3>
+<p>Localizado em <a href="file:///c:/projetos_disco_C/faculdade/TrabalhoTACIII-PyShooter/docs/uml/pacotes.puml">docs/uml/pacotes.puml</a>:<br />
+- Ilustra o fluxo de inicialização a partir de <code>main.py</code> e <code>game.py</code> (Fachada).<br />
+- Destaca o pacote <code>network/</code> interagindo com o <code>game.py</code> e alimentando o subsistema <code>gameplay</code>.<br />
+- Demonstra a integração de <code>level_editor</code> com os arquivos em <code>levels/</code>.<br />
+- Mapeia o desacoplamento das telas em <code>ui/screens/</code>.</p>
+<h3 id="22-diagrama-de-classes-plantuml">2.2 Diagrama de Classes (PlantUML)</h3>
+<p>Localizado em <a href="file:///c:/projetos_disco_C/faculdade/TrabalhoTACIII-PyShooter/docs/uml/classes.puml">docs/uml/classes.puml</a>:<br />
+- Detalha as classes <code>GameServer</code>, <code>NetworkClient</code> e <code>Protocol</code>.<br />
+- Exibe o relacionamento de herança entre <code>pygame.sprite.Sprite</code> e a nova entidade <code>RemotePlayer</code>.<br />
+- Identifica os novos estados de <code>GameState</code> (<code>MULTIPLAYER_MENU</code> e <code>EDITOR</code>).<br />
+- Inclui estereótipos explícitos para os padrões GoF: <code>&lt;&lt;Singleton&gt;&gt;</code>, <code>&lt;&lt;State&gt;&gt;</code>, <code>&lt;&lt;Factory Method&gt;&gt;</code>, <code>&lt;&lt;Facade&gt;&gt;</code> e <code>&lt;&lt;Proxy&gt;&gt;</code>.</p>
+<hr />
+<h2 id="3-repositorio-do-projeto">3. Repositório do Projeto</h2>
+<p>O código-fonte integral, histórico de commits e documentações estão disponíveis no repositório oficial do projeto:<br />
+- <strong>Repositório GitHub:</strong> <a href="https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git">https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git</a></p>
+</body>
+</html>
