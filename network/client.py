@@ -103,7 +103,7 @@ class NetworkClient:
                                 "health": packet["health"],
                                 "last_seen": time.time(),
                             }
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 pass
             except Exception:
                 if not self.running:

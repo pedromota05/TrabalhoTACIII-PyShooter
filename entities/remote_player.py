@@ -89,7 +89,7 @@ class RemotePlayer(pygame.sprite.Sprite):
             bullet_y = self.rect.centery
             bullet = Bullet(bullet_x, bullet_y, self.direction)
             bullet_group.add(bullet)
-            AssetManager().play_sound('shot')
+            AssetManager().get_sound('shot').play()
 
     def draw(self, screen: pygame.Surface) -> None:
         """Renderiza o jogador remoto com tag de identificação e mini barra de HP."""

@@ -103,7 +103,7 @@ class GameServer:
                                 except Exception:
                                     pass
 
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 pass
             except Exception as e:
                 if self.running:
