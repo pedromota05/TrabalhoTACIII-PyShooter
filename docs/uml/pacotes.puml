@@ -1,5 +1,5 @@
 @startuml
-title Arquitetura de Pacotes — PyShooter
+title Arquitetura de Pacotes — PyShooter (Atualizado Trabalho 2)
 top to bottom direction
 skinparam packageStyle rectangle
 skinparam nodesep 40
@@ -7,11 +7,19 @@ skinparam ranksep 50
 
 package "Aplicação" {
     ["main.py"] as main
-    ["game.py\nGame"] as game
-    ["game_state.py\nGameState"] as game_state
+    ["game.py\nGame <<Facade>>"] as game
+    ["game_state.py\nGameState <<State>>"] as game_state
     ["config.py"] as config
-    ["asset_manager.py\nAssetManager"] as assets
+    ["asset_manager.py\nAssetManager <<Singleton>>"] as assets
     ["button.py\nButton"] as button
+}
+
+package "Rede (Multiplayer LAN)" {
+    package "network" {
+        ["protocol\nSerialização UDP"] as net_proto
+        ["server\nGameServer"] as net_server
+        ["client\nNetworkClient"] as net_client
+    }
 }
 
 package "Core & World" {
@@ -22,7 +30,7 @@ package "Core & World" {
         [renderer] as renderer
     }
     package "world" {
-        ["level_builder\nWorld"] as world_comp
+        ["level_builder\nWorld <<Factory Method>>"] as world_comp
     }
 }
 
@@ -30,6 +38,7 @@ package "Entities" {
     package "entities" {
         ["base\nCharacter"] as entity_base
         ["player\nPlayer"] as player
+        ["remote_player\nRemotePlayer <<Proxy>>"] as remote_player
 
         package "enemies" {
             ["standard\nEnemy, Sniper"] as enemy_standard
@@ -54,6 +63,8 @@ package "UI" {
 
         package "screens" {
             [menu] as menu
+            [multiplayer_menu] as multi_menu
+            [level_editor] as editor_screen
             [instructions] as instructions
             [options] as options
             [level_select] as level_select
@@ -75,13 +86,25 @@ game --> loader
 game --> renderer
 game --> transitions
 
+' Fluxo de Rede
+game --> net_server : gerencia host
+game --> net_client : sincroniza estado
+net_client ..> net_proto : codifica/decodifica
+net_server ..> net_proto : gerencia pacotes
+gameplay --> remote_player : interpola LERP
+
 ' Fluxo UI
 game --> menu
+game --> multi_menu
+game --> editor_screen
 game --> instructions
 game --> options
 game --> level_select
 game --> pause
 game --> game_over
+
+' Editor de Fases
+editor_screen ..> levels : salva/carrega CSV
 
 ' Dependências Core e World
 loader --> world_comp : instancia
@@ -97,6 +120,7 @@ world_comp --> hud
 
 ' Entidades e Combate
 player --> entity_base
+remote_player --> projectiles : sincroniza disparos
 enemy_standard --> entity_base
 enemy_robot --> entity_base
 enemy_skeleton --> entity_base

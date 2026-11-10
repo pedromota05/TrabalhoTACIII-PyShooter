@@ -1,242 +1,56 @@
-import os
+"""
+level-editor.py — Launcher executável do Editor de Fases do PyShooter.
+
+Refatorado para utilizar a classe modular LevelEditorScreen de ui/screens/level_editor.py,
+mantendo 100% de compatibilidade para execução direta via linha de comando.
+"""
+
+import sys
 import pygame
-import button
-import csv
-import pickle
+from asset_manager import AssetManager
+from ui.screens.level_editor import LevelEditorScreen, EDITOR_TOTAL_WIDTH, EDITOR_TOTAL_HEIGHT
 
-pygame.init()
 
-clock = pygame.time.Clock()
-FPS = 60
+class EditorStandaloneRunner:
+    """Ambiente de execução autônomo para o LevelEditorScreen."""
 
-#game window
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 640
-LOWER_MARGIN = 100
-SIDE_MARGIN = 300
+    def __init__(self, screen: pygame.Surface):
+        self.screen = screen
+        self.state = "editor"
+        self.running = True
 
-screen = pygame.display.set_mode((SCREEN_WIDTH + SIDE_MARGIN, SCREEN_HEIGHT + LOWER_MARGIN))
-pygame.display.set_caption('Level Editor')
 
-#define game variables
-ROWS = 16
-MAX_COLS = 200
-TILE_SIZE = SCREEN_HEIGHT // ROWS
-TILE_TYPES = 87
-level = 0
-current_tile = 0
-scroll_left = False
-scroll_right = False
-scroll = 0
-scroll_speed = 1
+def main() -> None:
+    """Ponto de entrada para execução avulsa do editor de fases."""
+    pygame.init()
+    screen = pygame.display.set_mode((EDITOR_TOTAL_WIDTH, EDITOR_TOTAL_HEIGHT))
+    pygame.display.set_caption('PyShooter - Level Editor')
+    clock = pygame.time.Clock()
 
-#load images
-pine1_img = pygame.image.load('img/Background/pine1.png').convert_alpha()
-pine2_img = pygame.image.load('img/Background/pine2.png').convert_alpha()
-mountain_img = pygame.image.load('img/Background/mountain.png').convert_alpha()
-sky_img = pygame.image.load('img/Background/sky_cloud.png').convert_alpha()
-#store tiles in a list
-img_list = []
-for x in range(TILE_TYPES):
-	img = pygame.image.load(f'img/tile/{x}.png').convert_alpha()
-	if x == 82:
-		scale_factor = 1.0
-		img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
-	elif x in (71, 72):
-		scale_factor = 1.5
-		img = pygame.transform.scale(img, (int(img.get_width() * scale_factor), int(img.get_height() * scale_factor)))
-	elif x in (78, 79, 80, 81):
-		tamanho_decor = int(TILE_SIZE * 0.6)
-		img = pygame.transform.scale(img, (tamanho_decor, tamanho_decor))
-	else:
-		img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
-	img_list.append(img)
+    assets = AssetManager()
+    assets.load_all()
 
-# Spawn do Dragão (ID 87), que não possui um tile de cenário próprio.
-dragon_img = pygame.image.load('img/enemy/Dragon/Idle1.png').convert_alpha()
-dragon_img = dragon_img.subsurface(dragon_img.get_bounding_rect())
-dragon_img = pygame.transform.scale(
-	dragon_img,
-	(int(dragon_img.get_width() * 1.5), int(dragon_img.get_height() * 1.5))
-)
-img_list.append(dragon_img)
+    editor = LevelEditorScreen(assets)
+    runner = EditorStandaloneRunner(screen)
+    editor.on_enter(runner)
 
-save_img = pygame.image.load('img/save_btn.png').convert_alpha()
-load_img = pygame.image.load('img/load_btn.png').convert_alpha()
+    running = True
+    while running:
+        clock.tick(60)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            editor.handle_event(event, runner)
 
-#define colours
-GREEN = (144, 201, 120)
-WHITE = (255, 255, 255)
-RED = (200, 25, 25)
+        if runner.state != "editor":
+            running = False
 
-#define font
-font = pygame.font.SysFont('Futura', 30)
+        editor.update(runner.screen, runner)
+        pygame.display.update()
 
-#create empty tile list
-world_data = []
-for row in range(ROWS):
-	r = [-1] * MAX_COLS
-	world_data.append(r)
+    pygame.quit()
+    sys.exit()
 
-#create ground
-for tile in range(0, MAX_COLS):
-	world_data[ROWS - 1][tile] = 0
 
-#function for outputting text onto the screen
-def draw_text(text, font, text_col, x, y):
-	img = font.render(text, True, text_col)
-	screen.blit(img, (x, y))
-
-#create function for drawing background
-def draw_bg():
-	screen.fill(GREEN)
-	width = sky_img.get_width()
-	for x in range(4):
-		screen.blit(sky_img, ((x * width) - scroll * 0.5, 0))
-		screen.blit(mountain_img, ((x * width) - scroll * 0.6, SCREEN_HEIGHT - mountain_img.get_height() - 300))
-		screen.blit(pine1_img, ((x * width) - scroll * 0.7, SCREEN_HEIGHT - pine1_img.get_height() - 150))
-		screen.blit(pine2_img, ((x * width) - scroll * 0.8, SCREEN_HEIGHT - pine2_img.get_height()))
-
-#draw grid
-def draw_grid():
-	#vertical lines
-	for c in range(MAX_COLS + 1):
-		pygame.draw.line(screen, WHITE, (c * TILE_SIZE - scroll, 0), (c * TILE_SIZE - scroll, SCREEN_HEIGHT))
-	#horizontal lines
-	for c in range(ROWS + 1):
-		pygame.draw.line(screen, WHITE, (0, c * TILE_SIZE), (SCREEN_WIDTH, c * TILE_SIZE))
-
-#function for drawing the world tiles
-def draw_world():
-	for y, row in enumerate(world_data):
-		for x, tile in enumerate(row):
-			if tile >= 0:
-				if tile < len(img_list):
-					img = img_list[tile]
-					y_pos = y * TILE_SIZE + (TILE_SIZE - img.get_height())
-					# Centraliza a imagem horizontalmente no bloco (igual à classe Decoration no jogo)
-					x_pos = (x * TILE_SIZE + TILE_SIZE // 2) - (img.get_width() // 2) - scroll
-					screen.blit(img, (x_pos, y_pos))
-
-#create buttons
-save_button = button.Button(SCREEN_WIDTH // 2, SCREEN_HEIGHT + LOWER_MARGIN - 50, save_img, 1)
-load_button = button.Button(SCREEN_WIDTH // 2 + 200, SCREEN_HEIGHT + LOWER_MARGIN - 50, load_img, 1)
-#make a button list
-button_list = []
-button_col = 0
-button_row = 0
-for i in range(len(img_list)):
-	btn_img = img_list[i]
-	if i in (71, 72, 82, 86, 87):
-		scale = min(40 / btn_img.get_width(), 40 / btn_img.get_height())
-		btn_img = pygame.transform.scale(btn_img, (int(btn_img.get_width() * scale), int(btn_img.get_height() * scale)))
-	
-	tile_button = button.Button(SCREEN_WIDTH + (45 * button_col) + 15, 45 * button_row + 20, btn_img, 1)
-	button_list.append(tile_button)
-	button_col += 1
-	if button_col == 6:
-		button_row += 1
-		button_col = 0
-
-run = True
-while run:
-
-	clock.tick(FPS)
-
-	draw_bg()
-	draw_grid()
-	draw_world()
-
-	draw_text(f'Level: {level}', font, WHITE, 10, SCREEN_HEIGHT + LOWER_MARGIN - 90)
-	draw_text('Press UP or DOWN to change level', font, WHITE, 10, SCREEN_HEIGHT + LOWER_MARGIN - 60)
-
-	#save and load data
-	level_dir = 'levels'
-	os.makedirs(level_dir, exist_ok=True)
-	level_file = os.path.join(level_dir, f'level{level}_data.csv')
-
-	if save_button.draw(screen):
-		#save level data
-		with open(level_file, 'w', newline='') as csvfile:
-			writer = csv.writer(csvfile, delimiter = ',')
-			for row in world_data:
-				writer.writerow(row)
-		#alternative pickle method
-		#pickle_out = open(f'level{level}_data', 'wb')
-		#pickle.dump(world_data, pickle_out)
-		#pickle_out.close()
-	if load_button.draw(screen):
-		#load in level data
-		#reset scroll back to the start of the level
-		scroll = 0
-		load_path = level_file if os.path.exists(level_file) else f'level{level}_data.csv'
-		with open(load_path, newline='') as csvfile:
-			reader = csv.reader(csvfile, delimiter = ',')
-			for x, row in enumerate(reader):
-				for y, tile in enumerate(row):
-					world_data[x][y] = int(tile)
-		#alternative pickle method
-		#world_data = []
-		#pickle_in = open(f'level{level}_data', 'rb')
-		#world_data = pickle.load(pickle_in)				
-
-	#draw tile panel and tiles
-	pygame.draw.rect(screen, GREEN, (SCREEN_WIDTH, 0, SIDE_MARGIN, SCREEN_HEIGHT))
-
-	#choose a tile
-	button_count = 0
-	for button_count, i in enumerate(button_list):
-		if i.draw(screen):
-			current_tile = button_count
-
-	#highlight the selected tile
-	pygame.draw.rect(screen, RED, button_list[current_tile].rect, 3)
-
-	#scroll the map
-	if scroll_left == True and scroll > 0:
-		scroll -= 5 * scroll_speed
-	if scroll_right == True and scroll < (MAX_COLS * TILE_SIZE) - SCREEN_WIDTH:
-		scroll += 5 * scroll_speed
-
-	#add new tiles to the screen
-	#get mouse position
-	pos = pygame.mouse.get_pos()
-	x = (pos[0] + scroll) // TILE_SIZE
-	y = pos[1] // TILE_SIZE
-
-	#check that the coordinates are within the tile area
-	if pos[0] < SCREEN_WIDTH and pos[1] < SCREEN_HEIGHT:
-		#update tile value
-		if pygame.mouse.get_pressed()[0] == 1:
-			if world_data[y][x] != current_tile:
-				world_data[y][x] = current_tile
-		if pygame.mouse.get_pressed()[2] == 1:
-			world_data[y][x] = -1
-
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			run = False
-		#keyboard presses
-		if event.type == pygame.KEYDOWN:
-			if event.key == pygame.K_UP:
-				level += 1
-			if event.key == pygame.K_DOWN and level > 0:
-				level -= 1
-			if event.key == pygame.K_LEFT:
-				scroll_left = True
-			if event.key == pygame.K_RIGHT:
-				scroll_right = True
-			if event.key == pygame.K_RSHIFT:
-				scroll_speed = 5
-
-		if event.type == pygame.KEYUP:
-			if event.key == pygame.K_LEFT:
-				scroll_left = False
-			if event.key == pygame.K_RIGHT:
-				scroll_right = False
-			if event.key == pygame.K_RSHIFT:
-				scroll_speed = 1
-
-	pygame.display.update()
-
-pygame.quit()
+if __name__ == '__main__':
+    main()

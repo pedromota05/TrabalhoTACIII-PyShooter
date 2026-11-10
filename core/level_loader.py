@@ -18,6 +18,10 @@ def reset_groups(game) -> None:
     game.decoration_group.empty()
     game.water_group.empty()
     game.exit_group.empty()
+    if hasattr(game, 'remote_players_group'):
+        game.remote_players_group.empty()
+    if hasattr(game, 'remote_players_map'):
+        game.remote_players_map.clear()
 
 
 def load_level(game, level_number: int) -> None:

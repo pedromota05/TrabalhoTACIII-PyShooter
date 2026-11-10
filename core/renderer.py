@@ -46,6 +46,10 @@ def draw_game_entities(game) -> None:
     game.world.draw(game.screen, game.screen_scroll)
 
     game.player.draw(game.screen)
+    if getattr(game, 'is_multiplayer', False) and hasattr(game, 'remote_players_group'):
+        for remote in game.remote_players_group:
+            remote.draw(game.screen)
+
     for enemy in game.enemy_group:
         enemy.draw(game.screen)
 

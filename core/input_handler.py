@@ -11,6 +11,13 @@ def handle_events(game) -> None:
         if event.type == pygame.QUIT:
             game.running = False
 
+        if game.state == GameState.EDITOR:
+            game.editor_screen.handle_event(event, game)
+            continue
+
+        if game.state == GameState.MULTIPLAYER_MENU:
+            game.multiplayer_screen.handle_event(event)
+
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_a, pygame.K_LEFT):
                 game.moving_left = True
@@ -24,7 +31,7 @@ def handle_events(game) -> None:
                 game.player.jump = True
                 game.assets.get_sound('jump').play()
             if event.key == pygame.K_ESCAPE:
-                if game.state in (GameState.INSTRUCTIONS, GameState.LEVEL_SELECT):
+                if game.state in (GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.MULTIPLAYER_MENU):
                     game.state = GameState.MENU
                 elif game.state == GameState.OPTIONS:
                     game.state = game.previous_state if game.previous_state else GameState.MENU

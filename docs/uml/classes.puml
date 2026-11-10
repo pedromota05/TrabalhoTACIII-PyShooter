@@ -1,17 +1,21 @@
 @startuml
-title Diagrama de Classes — PyShooter
+title Diagrama de Classes — PyShooter (Atualizado Trabalho 2)
 skinparam classAttributeIconSize 0
 skinparam packageStyle rectangle
 skinparam linetype ortho
 top to bottom direction
 
 package "Aplicação" {
-  class Game {
+  class Game <<Facade>> {
+    +is_multiplayer: bool
     +run()
+    +start_multiplayer_host(port)
+    +start_multiplayer_client(ip, port)
+    +clean_multiplayer()
     -_load_level(level_number)
   }
 
-  enum GameState {
+  enum GameState <<State>> {
     MENU
     INSTRUCTIONS
     LEVEL_SELECT
@@ -20,18 +24,52 @@ package "Aplicação" {
     OPTIONS
     GAME_OVER
     LEVEL_TRANSITION
+    MULTIPLAYER_MENU
+    EDITOR
   }
 
-  class AssetManager {
+  class AssetManager <<Singleton>> {
+    -_instance: AssetManager
     +load_all()
     +get_image(name)
     +get_sound(name)
+    +load_character_animations(char_type, scale)
   }
   class Button
 }
 
+package "Rede (Multiplayer LAN)" {
+  class GameServer {
+    +host: str
+    +port: int
+    +running: bool
+    +start(): bool
+    +stop()
+    -_run_loop()
+  }
+
+  class NetworkClient {
+    +player_id: str
+    +server_ip: str
+    +server_port: int
+    +running: bool
+    +connect(): bool
+    +send_state(x, y, action, dir, shooting, hp)
+    +update_interpolation()
+    +get_remote_players_snapshot()
+    +disconnect()
+  }
+
+  class Protocol {
+    +encode_player_state(...)
+    +encode_disconnect(...)
+    +encode_remove(...)
+    +parse_packet(...)
+  }
+}
+
 package "Mundo" {
-  class World {
+  class World <<Factory Method>> {
     +obstacle_list
     +ramp_list
     +level_length
@@ -45,15 +83,25 @@ package "Entidades" {
 
   package "Personagens" {
     class Character {
+      +health: int
+      +alive: bool
       +move()
       +shoot(bullet_group)
       +update()
       +draw(screen)
     }
     class Player {
+      +invincible: int
       +jump()
       +move()
       +update()
+    }
+    class RemotePlayer <<Proxy>> {
+      +player_id: str
+      +world_x: float
+      +world_y: float
+      +update_from_network(data, bg_scroll, bullet_group)
+      +draw(screen)
     }
   }
 
@@ -89,17 +137,20 @@ package "Interface" {
   class ScreenFade { +fade(screen) }
 
   package "Telas" {
-    class MainMenuScreen { +draw(game) }
-    class InstructionsScreen { +draw(game) }
-    class OptionsScreen { +draw(game) }
-    class LevelSelectScreen { +draw(game) }
-    class PauseOverlay { +draw(game) }
-    class GameOverScreen { +draw(game) }
+    class MainMenuScreen { +update(screen, game) }
+    class MultiplayerMenuScreen { +update(screen, game); +handle_event(event) }
+    class LevelEditorScreen { +update(screen, game); +handle_event(event, game); +save_level_data(); +load_level_data(level) }
+    class InstructionsScreen { +update(screen, game) }
+    class OptionsScreen { +update(screen, game) }
+    class LevelSelectScreen { +update(screen, game) }
+    class PauseOverlay { +update(screen, game) }
+    class GameOverScreen { +update(screen, game) }
   }
 }
 
 ' Heranças
 Sprite <|-- Character
+Sprite <|-- RemotePlayer
 Character <|-- Player
 Character <|-- Enemy
 Enemy <|-- Sniper
@@ -128,16 +179,26 @@ Game *-- Player : player
 Game *-- HealthBar : health_bar
 Game *-- ScreenFade : intro_fade
 Game *-- "0..*" Sprite : grupos
+Game o-- GameServer : network_server
+Game o-- NetworkClient : network_client
 Game o-- "telas" MainMenuScreen
+Game o-- "telas" MultiplayerMenuScreen
+Game o-- "telas" LevelEditorScreen
+
+' Rede
+NetworkClient ..> Protocol
+GameServer ..> Protocol
+Game ..> RemotePlayer : instancia ao receber pacotes
 
 note right of World
-  process_data cria Player, HealthBar,
-  inimigos, chefes, itens e elementos
-  de cenário a partir do CSV da fase.
+  Factory Method: process_data cria Player,
+  HealthBar, inimigos, chefes, itens e elementos
+  de cenário a partir da matriz CSV da fase.
 end note
 
 ' Relações de combate
 Player ..> Bullet : dispara
+RemotePlayer ..> Bullet : dispara
 Player ..> Grenade : lança
 Enemy ..> Bullet : dispara
 Sniper ..> SniperBullet : dispara
@@ -146,11 +207,8 @@ SkeletonEnemy ..> Arrow : dispara
 DragonBoss ..> DragonFire : dispara
 Grenade ..> Explosion : gera
 
-' Telas que usam botões; setas ocultas mantêm as telas alinhadas.
+' Telas que usam botões
 MainMenuScreen ..> Button
-MainMenuScreen -[hidden]-> InstructionsScreen
-InstructionsScreen -[hidden]-> OptionsScreen
-OptionsScreen -[hidden]-> LevelSelectScreen
-LevelSelectScreen -[hidden]-> PauseOverlay
-PauseOverlay -[hidden]-> GameOverScreen
+MultiplayerMenuScreen ..> Button
+LevelEditorScreen ..> Button
 @enduml

@@ -32,6 +32,7 @@ from core.level_loader import load_level, reset_groups
 from core.renderer import draw_background, draw_game_entities, draw_text
 from game_state import GameState
 from entities import ScreenFade
+from network import GameServer, NetworkClient
 from ui.screens import (
     MainMenuScreen,
     InstructionsScreen,
@@ -39,6 +40,8 @@ from ui.screens import (
     LevelSelectScreen,
     PauseOverlay,
     GameOverScreen,
+    MultiplayerMenuScreen,
+    LevelEditorScreen,
 )
 
 
@@ -104,6 +107,13 @@ class Game:
         pause_img = pygame.transform.scale(pause_img, (40, 40))
         self.pause_button = button.Button(SCREEN_WIDTH - 60, 10, pause_img, 1)
 
+        # ----- Multiplayer LAN (Cliente/Servidor) -----
+        self.is_multiplayer = False
+        self.network_server: GameServer | None = None
+        self.network_client: NetworkClient | None = None
+        self.remote_players_group = pygame.sprite.Group()
+        self.remote_players_map: dict = {}
+
         # ----- Instâncias das Telas (SRP) -----
         self.menu_screen = MainMenuScreen(self.assets)
         self.instructions_screen = InstructionsScreen(self.assets, self.font, self.font_bold)
@@ -111,6 +121,8 @@ class Game:
         self.level_select_screen = LevelSelectScreen(self.assets, self.font, self.font_bold)
         self.pause_screen = PauseOverlay(self.assets, self.title_font)
         self.game_over_screen = GameOverScreen(self.assets)
+        self.multiplayer_screen = MultiplayerMenuScreen(self.assets, self.font, self.font_bold)
+        self.editor_screen = LevelEditorScreen(self.assets)
 
         # ----- Objetos do jogo -----
         self.player = None
@@ -170,6 +182,60 @@ class Game:
         update_level_transition(self)
 
     # ==================================================================
+    #  Controle de Multiplayer LAN
+    # ==================================================================
+    def start_multiplayer_host(self, port: int = 5555) -> bool:
+        """Inicia servidor local em LAN e conecta o jogador como Host (P1)."""
+        self.clean_multiplayer()
+        self.network_server = GameServer(host="0.0.0.0", port=port)
+        if not self.network_server.start():
+            self.network_server = None
+            return False
+
+        self.network_client = NetworkClient(player_id="P1 (Host)", server_ip="127.0.0.1", server_port=port)
+        if not self.network_client.connect():
+            self.clean_multiplayer()
+            return False
+
+        self.is_multiplayer = True
+        self.level = 1
+        self.bg_scroll = 0
+        self.start_intro = True
+        self._load_level(self.level)
+        self.state = GameState.PLAYING
+        return True
+
+    def start_multiplayer_client(self, server_ip: str, port: int = 5555) -> bool:
+        """Conecta ao servidor remoto em LAN como Cliente (P2)."""
+        self.clean_multiplayer()
+        self.network_client = NetworkClient(player_id="P2 (Cliente)", server_ip=server_ip, server_port=port)
+        if not self.network_client.connect():
+            self.clean_multiplayer()
+            return False
+
+        self.is_multiplayer = True
+        self.level = 1
+        self.bg_scroll = 0
+        self.start_intro = True
+        self._load_level(self.level)
+        self.state = GameState.PLAYING
+        return True
+
+    def clean_multiplayer(self) -> None:
+        """Desconecta cliente e encerra servidor de forma limpa."""
+        if self.network_client:
+            self.network_client.disconnect()
+            self.network_client = None
+
+        if self.network_server:
+            self.network_server.stop()
+            self.network_server = None
+
+        self.remote_players_group.empty()
+        self.remote_players_map.clear()
+        self.is_multiplayer = False
+
+    # ==================================================================
     #  GAME LOOP
     # ==================================================================
     def run(self):
@@ -187,6 +253,10 @@ class Game:
                 self.options_screen.update(self.screen, self)
             elif self.state == GameState.LEVEL_SELECT:
                 self.level_select_screen.update(self.screen, self)
+            elif self.state == GameState.MULTIPLAYER_MENU:
+                self.multiplayer_screen.update(self.screen, self)
+            elif self.state == GameState.EDITOR:
+                self.editor_screen.update(self.screen, self)
             elif self.state == GameState.PLAYING:
                 self._update_playing()
             elif self.state == GameState.PAUSE:
@@ -199,6 +269,7 @@ class Game:
             self._handle_events()
             pygame.display.update()
 
+        self.clean_multiplayer()
         pygame.quit()
 
 

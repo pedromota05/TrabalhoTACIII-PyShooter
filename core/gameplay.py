@@ -3,7 +3,7 @@
 import pygame
 
 from config import BLACK, MAX_LEVELS
-from entities import DragonBoss, Grenade
+from entities import DragonBoss, Grenade, RemotePlayer
 from game_state import GameState
 
 
@@ -45,6 +45,26 @@ def update_game_entities(game) -> None:
     game.water_group.update(game.screen_scroll)
     game.exit_group.update(game.screen_scroll)
 
+    # Sincronização e interpolação de jogadores remotos em LAN
+    if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
+        game.network_client.update_interpolation()
+        remote_data = game.network_client.get_remote_players_snapshot()
+
+        for p_id, p_info in remote_data.items():
+            if p_id not in game.remote_players_map:
+                remote_sprite = RemotePlayer(p_id, p_info["current"][0], p_info["current"][1])
+                game.remote_players_map[p_id] = remote_sprite
+                game.remote_players_group.add(remote_sprite)
+
+            game.remote_players_map[p_id].update_from_network(
+                p_info, game.bg_scroll, game.bullet_group
+            )
+
+        for p_id in list(game.remote_players_map.keys()):
+            if p_id not in remote_data:
+                game.remote_players_map[p_id].kill()
+                del game.remote_players_map[p_id]
+
 
 def update_playing(game) -> None:
     """Executa um frame de gameplay ativo."""
@@ -83,6 +103,16 @@ def update_playing(game) -> None:
             game.world.ramp_list,
         )
         game.bg_scroll -= game.screen_scroll
+
+        # Envio periódico de estado via UDP em modo multiplayer
+        if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
+            local_world_x = game.player.rect.centerx + game.bg_scroll
+            local_world_y = game.player.rect.centery
+            game.network_client.send_state(
+                local_world_x, local_world_y,
+                game.player.action, game.player.direction,
+                game.shoot, game.player.health
+            )
 
         if level_complete:
             game.state = GameState.LEVEL_TRANSITION
