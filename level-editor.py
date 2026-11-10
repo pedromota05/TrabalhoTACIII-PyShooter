@@ -46,6 +46,8 @@ def main() -> None:
             running = False
 
         editor.update(runner.screen, runner)
+        import button
+        button.Button.update_cursor()
         pygame.display.update()
 
     pygame.quit()

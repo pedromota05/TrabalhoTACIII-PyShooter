@@ -35,6 +35,7 @@ class LevelEditorScreen:
         self.scroll_right = False
         self.notification_msg = ""
         self.notification_timer = 0
+        self._mouse_held_from_enter = False
 
         self.font = pygame.font.SysFont('Futura', 24)
         self.font_bold = pygame.font.SysFont('Futura', 26, bold=True)
@@ -141,6 +142,7 @@ class LevelEditorScreen:
         game.screen = pygame.display.set_mode((EDITOR_TOTAL_WIDTH, EDITOR_TOTAL_HEIGHT))
         pygame.display.set_caption("PyShooter - Editor de Fases")
         self.scroll = 0
+        self._mouse_held_from_enter = pygame.mouse.get_pressed()[0] == 1
         self.load_level_data(self.level)
 
     def on_exit(self, game) -> None:
@@ -245,12 +247,15 @@ class LevelEditorScreen:
             pygame.draw.rect(screen, RED, active_rect.inflate(4, 4), 3)
 
         # 4. Modificação da grade pelo mouse (Pintar / Apagar)
+        mouse_buttons = pygame.mouse.get_pressed()
+        if mouse_buttons[0] == 0:
+            self._mouse_held_from_enter = False
+
         mouse_pos = pygame.mouse.get_pos()
-        if mouse_pos[0] < EDITOR_VIEWPORT_WIDTH and mouse_pos[1] < SCREEN_HEIGHT:
+        if not self._mouse_held_from_enter and mouse_pos[0] < EDITOR_VIEWPORT_WIDTH and mouse_pos[1] < SCREEN_HEIGHT:
             tile_col = (mouse_pos[0] + self.scroll) // TILE_SIZE
             tile_row = mouse_pos[1] // TILE_SIZE
             if 0 <= tile_row < ROWS and 0 <= tile_col < COLS:
-                mouse_buttons = pygame.mouse.get_pressed()
                 if mouse_buttons[0] == 1:  # Botão esquerdo: Pintar
                     self.world_data[tile_row][tile_col] = self.current_tile
                 elif mouse_buttons[2] == 1:  # Botão direito: Apagar

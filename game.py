@@ -240,9 +240,13 @@ class Game:
     # ==================================================================
     def run(self):
         """Loop principal do jogo."""
+        prev_state = self.state
         while self.running:
             self.clock.tick(FPS)
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+            if self.state != prev_state:
+                button.Button.reset_click_state()
+                prev_state = self.state
 
             # Despacho conforme estado atual
             if self.state == GameState.MENU:
@@ -267,6 +271,7 @@ class Game:
                 self.game_over_screen.update(self.screen, self)
 
             self._handle_events()
+            button.Button.update_cursor()
             pygame.display.update()
 
         self.clean_multiplayer()
