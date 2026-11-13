@@ -29,7 +29,7 @@ from asset_manager import AssetManager
 class Bullet(pygame.sprite.Sprite):
     """Projétil linear padrão disparado pelo jogador e por soldados inimigos."""
 
-    def __init__(self, x: float, y: float, direction: int):
+    def __init__(self, x: float, y: float, direction: int, network_client=None):
         super().__init__()
         self.speed = BULLET_SPEED
         self.image = AssetManager().get_image('bullet')
@@ -38,6 +38,7 @@ class Bullet(pygame.sprite.Sprite):
         self.direction = direction
         self.has_hit = False
         self.hit_timer = 0
+        self.network_client = network_client
 
     def update(self, screen_scroll: int, obstacle_list: list, player,
                bullet_group, enemy_group, boss_group=None):
@@ -77,6 +78,8 @@ class Bullet(pygame.sprite.Sprite):
                 if pygame.sprite.collide_rect(self, enemy):
                     if enemy.alive:
                         enemy.health -= BULLET_DAMAGE_TO_ENEMY
+                        if self.network_client and hasattr(enemy, 'target_id'):
+                            self.network_client.send_enemy_hit(enemy.target_id, BULLET_DAMAGE_TO_ENEMY)
                         # Feedback visual de hit (se a animação 4 "Hurt" existir)
                         if hasattr(enemy, 'animation_list') and len(enemy.animation_list) > 4:
                             enemy.update_action(4)
@@ -90,6 +93,8 @@ class Bullet(pygame.sprite.Sprite):
                 if boss.alive:
                     self.kill()  # Bala some
                     boss.health -= 25
+                    if self.network_client and hasattr(boss, 'target_id'):
+                        self.network_client.send_enemy_hit(boss.target_id, 25)
                     if boss.health <= 0:
                         boss.health = 0
                         boss.alive = False
@@ -131,7 +136,7 @@ class Explosion(pygame.sprite.Sprite):
 class Grenade(pygame.sprite.Sprite):
     """Granada com trajetória parabólica, ricochete e dano em área."""
 
-    def __init__(self, x: float, y: float, direction: int):
+    def __init__(self, x: float, y: float, direction: int, network_client=None):
         super().__init__()
         self.timer = GRENADE_TIMER
         self.vel_y = GRENADE_INITIAL_VEL_Y
@@ -142,6 +147,7 @@ class Grenade(pygame.sprite.Sprite):
         self.width = self.image.get_width()
         self.height = self.image.get_height()
         self.direction = direction
+        self.network_client = network_client
 
     def update(self, screen_scroll: int, obstacle_list: list, player,
                enemy_group, explosion_group, boss_group=None):
@@ -186,6 +192,8 @@ class Grenade(pygame.sprite.Sprite):
                 if (abs(self.rect.centerx - enemy.rect.centerx) < GRENADE_BLAST_RADIUS
                         and abs(self.rect.centery - enemy.rect.centery) < GRENADE_BLAST_RADIUS):
                     enemy.health -= GRENADE_DAMAGE
+                    if self.network_client and hasattr(enemy, 'target_id'):
+                        self.network_client.send_enemy_hit(enemy.target_id, GRENADE_DAMAGE)
                     if enemy.health <= 0:
                         enemy.health = 0
                         enemy.alive = False
@@ -196,6 +204,8 @@ class Grenade(pygame.sprite.Sprite):
                     if (abs(self.rect.centerx - boss.rect.centerx) < GRENADE_BLAST_RADIUS
                             and abs(self.rect.centery - boss.rect.centery) < GRENADE_BLAST_RADIUS):
                         boss.health -= GRENADE_DAMAGE
+                        if self.network_client and hasattr(boss, 'target_id'):
+                            self.network_client.send_enemy_hit(boss.target_id, GRENADE_DAMAGE)
                         if boss.health <= 0:
                             boss.health = 0
                             boss.alive = False

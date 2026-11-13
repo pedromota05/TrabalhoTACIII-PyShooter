@@ -9,12 +9,13 @@ sincronização de combate e animação.
 import socket
 import threading
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .protocol import (
     DEFAULT_PORT,
     LERP_FACTOR,
     encode_player_state,
     encode_disconnect,
+    encode_enemy_hit,
     parse_packet,
 )
 
@@ -38,6 +39,8 @@ class NetworkClient:
         # Dicionário de jogadores remotos:
         # {player_id: {"current": [x, y], "target": [x, y], "action": int, "direction": int, "shooting": bool, "health": int}}
         self.remote_players: Dict[str, Dict[str, Any]] = {}
+        # Fila de eventos de dano em inimigos recebidos da rede: [(target_id, damage), ...]
+        self.pending_enemy_hits: List[tuple[int, int]] = []
         self.lock = threading.Lock()
 
     def connect(self) -> bool:
@@ -83,6 +86,8 @@ class NetworkClient:
                     if packet["type"] in ("quit", "remove"):
                         if p_id in self.remote_players:
                             del self.remote_players[p_id]
+                    elif packet["type"] == "hit":
+                        self.pending_enemy_hits.append((packet["target_id"], packet["damage"]))
                     elif packet["type"] == "state":
                         target_pos = [packet["x"], packet["y"]]
                         if p_id in self.remote_players:
@@ -129,6 +134,24 @@ class NetworkClient:
             self.socket.sendto(packet_str.encode("utf-8"), self.server_address)
         except Exception:
             pass
+
+    def send_enemy_hit(self, target_id: int, damage: int) -> None:
+        """Envia aviso de dano infligido a um inimigo para os demais clientes."""
+        if not self.running or self.socket is None:
+            return
+
+        packet_str = encode_enemy_hit(self.player_id, target_id, damage)
+        try:
+            self.socket.sendto(packet_str.encode("utf-8"), self.server_address)
+        except Exception:
+            pass
+
+    def pop_enemy_hits(self) -> List[tuple[int, int]]:
+        """Consome e limpa a fila thread-safe de acertos em inimigos."""
+        with self.lock:
+            hits = list(self.pending_enemy_hits)
+            self.pending_enemy_hits.clear()
+            return hits
 
     def update_interpolation(self) -> None:
         """

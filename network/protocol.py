@@ -37,6 +37,11 @@ def encode_remove(player_id: str) -> str:
     return f"{player_id},remove"
 
 
+def encode_enemy_hit(player_id: str, target_id: int, damage: int) -> str:
+    """Codifica a notificação de dano a um inimigo sincronizado (enemy/boss)."""
+    return f"{player_id},hit,{target_id},{damage}"
+
+
 def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     """
     Decodifica um pacote recebido na rede.
@@ -56,6 +61,16 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
         return {"type": "quit", "player_id": player_id}
     if command == "remove":
         return {"type": "remove", "player_id": player_id}
+    if command == "hit" and len(parts) >= 4:
+        try:
+            return {
+                "type": "hit",
+                "player_id": player_id,
+                "target_id": int(parts[2]),
+                "damage": int(parts[3]),
+            }
+        except ValueError:
+            return None
 
     try:
         x = float(parts[1])

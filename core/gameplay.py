@@ -47,6 +47,31 @@ def update_game_entities(game) -> None:
 
     # Sincronização e interpolação de jogadores remotos em LAN
     if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
+        # 1. Processa acertos de tiro/dano recebidos da rede
+        incoming_hits = game.network_client.pop_enemy_hits()
+        if incoming_hits:
+            target_map = {}
+            for enemy in game.enemy_group:
+                if hasattr(enemy, 'target_id'):
+                    target_map[enemy.target_id] = enemy
+            for boss in game.boss_group:
+                if hasattr(boss, 'target_id'):
+                    target_map[boss.target_id] = boss
+
+            for target_id, damage in incoming_hits:
+                if target_id in target_map:
+                    target = target_map[target_id]
+                    if target.alive:
+                        target.health -= damage
+                        if target.health <= 0:
+                            target.health = 0
+                            target.alive = False
+                            if hasattr(target, 'update_action'):
+                                target.update_action(3)
+                        else:
+                            if hasattr(target, 'animation_list') and len(target.animation_list) > 4:
+                                target.update_action(4)
+
         game.network_client.update_interpolation()
         remote_data = game.network_client.get_remote_players_snapshot()
 
@@ -77,13 +102,15 @@ def update_playing(game) -> None:
             game.intro_fade.fade_counter = 0
 
     if game.player.alive:
+        net_client = game.network_client if getattr(game, 'is_multiplayer', False) else None
         if game.shoot:
-            game.player.shoot(game.bullet_group)
+            game.player.shoot(game.bullet_group, network_client=net_client)
         elif game.grenade_input and not game.grenade_thrown and game.player.grenades > 0:
             grenade_obj = Grenade(
                 game.player.rect.centerx + (0.5 * game.player.rect.size[0] * game.player.direction),
                 game.player.rect.top,
                 game.player.direction,
+                network_client=net_client,
             )
             game.grenade_group.add(grenade_obj)
             game.player.grenades -= 1

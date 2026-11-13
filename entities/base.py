@@ -140,7 +140,7 @@ class Character(pygame.sprite.Sprite):
     # ------------------------------------------------------------------
     #  Combate
     # ------------------------------------------------------------------
-    def shoot(self, bullet_group):
+    def shoot(self, bullet_group, network_client=None):
         """Dispara um projétil se houver munição e o cooldown permitir."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
@@ -151,6 +151,7 @@ class Character(pygame.sprite.Sprite):
                 spawn_x,
                 spawn_y,
                 self.direction,
+                network_client=network_client,
             )
             bullet_group.add(bullet)
             self.ammo -= 1
