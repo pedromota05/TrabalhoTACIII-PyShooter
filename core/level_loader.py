@@ -50,3 +50,12 @@ def load_level(game, level_number: int) -> None:
         game.boss_group,
         level_number,
     )
+
+    # Atribui IDs determinísticos para inimigos e chefes para sincronização em rede
+    target_id = 0
+    for enemy in game.enemy_group:
+        enemy.target_id = target_id
+        target_id += 1
+    for boss in game.boss_group:
+        boss.target_id = target_id
+        target_id += 1
