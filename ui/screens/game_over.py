@@ -4,7 +4,7 @@ ui/screens/game_over.py — Tela de Game Over com animação GIF e botão de rei
 
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, PINK
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, PINK, GAME_OVER_BUTTON_SCALE
 from asset_manager import AssetManager
 from game_state import GameState
 from ui.transitions import ScreenFade
@@ -18,10 +18,12 @@ class GameOverScreen:
         self.assets = assets
         self.death_fade = ScreenFade(2, PINK, 35)
 
+        # Escala uniforme (preserva a proporção da arte) e centralização pelo
+        # próprio rect, em vez de um deslocamento fixo de -100 px.
         self.restart_button = button.Button(
-            SCREEN_WIDTH // 2 - 100, (SCREEN_HEIGHT // 2) + 50,
-            self.assets.get_image('restart_btn'), 2,
+            0, 0, self.assets.get_image('restart_btn'), GAME_OVER_BUTTON_SCALE,
         )
+        self.restart_button.rect.midtop = (SCREEN_WIDTH // 2, (SCREEN_HEIGHT // 2) + 50)
 
         self.go_frames = load_gif_frames('img/icons/game-over-game.gif', max_width=SCREEN_WIDTH * 0.8)
         self.go_frame_index = 0

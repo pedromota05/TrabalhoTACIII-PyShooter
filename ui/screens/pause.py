@@ -4,7 +4,11 @@ ui/screens/pause.py — Menu de pausa (overlay sobre o gameplay congelado).
 
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, BLACK
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, BLACK, MENU_SCALE
+
+OVERLAY_ALPHA = 150      # opacidade do véu preto sobre o jogo (0-255)
+PAUSE_SPACING_Y = 20     # espaço vertical entre os botões
+TITLE_GAP = 30           # distância entre o título 'PAUSED' e o 1º botão
 from asset_manager import AssetManager
 from game_state import GameState
 
@@ -16,32 +20,39 @@ class PauseOverlay:
         self.assets = assets
         self.title_font = title_font
 
-        btn_width = 280
-        center_x = SCREEN_WIDTH // 2 - btn_width // 2
-        center_y = SCREEN_HEIGHT // 2
+        # Véu escuro pré-criado uma única vez (evita alocar uma Surface por frame)
+        self.overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.overlay.set_alpha(OVERLAY_ALPHA)
+        self.overlay.fill(BLACK)
 
-        self.pause_resume_btn = button.Button(center_x, center_y - 120, self.assets.get_image('resume_btn'), 1)
-        self.pause_options_btn = button.Button(center_x, center_y, self.assets.get_image('options_btn'), 1)
-        self.pause_exit_btn = button.Button(center_x, center_y + 120, self.assets.get_image('exit_btn'), 1)
+        # Título 'PAUSED'
+        self.title_top = SCREEN_HEIGHT // 2 - 220
+
+        # Mesma escala geométrica dos demais botões coloridos (proporção intacta)
+        self.pause_resume_btn = button.Button(0, 0, self.assets.get_image('resume_btn'), MENU_SCALE)
+        self.pause_options_btn = button.Button(0, 0, self.assets.get_image('options_btn'), MENU_SCALE)
+        self.pause_exit_btn = button.Button(0, 0, self.assets.get_image('exit_btn'), MENU_SCALE)
+
+        # Empilhamento: Y(próximo) = Y(atual) + rect.height + espaçamento; X centralizado
+        y = self.title_top + self.title_font.get_height() + TITLE_GAP
+        for btn in (self.pause_resume_btn, self.pause_options_btn, self.pause_exit_btn):
+            btn.rect.midtop = (SCREEN_WIDTH // 2, y)
+            y += btn.rect.height + PAUSE_SPACING_Y
 
     def update(self, screen: pygame.Surface, game) -> None:
         # Desenha o jogo congelado
         game._draw_game_entities()
 
-        # Fundo escurecido semi-transparente
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        overlay.set_alpha(128)
-        overlay.fill(BLACK)
-        screen.blit(overlay, (0, 0))
+        # Véu preto semi-transparente sobre a tela inteira, ANTES do título e botões
+        screen.blit(self.overlay, (0, 0))
 
         # Título grande com sombra
-        center_y = SCREEN_HEIGHT // 2
         shadow_surf = self.title_font.render('PAUSED', True, BLACK)
-        shadow_rect = shadow_surf.get_rect(centerx=SCREEN_WIDTH // 2 + 4, top=center_y - 216)
+        shadow_rect = shadow_surf.get_rect(centerx=SCREEN_WIDTH // 2 + 4, top=self.title_top + 4)
         screen.blit(shadow_surf, shadow_rect)
 
         paused_surf = self.title_font.render('PAUSED', True, WHITE)
-        paused_rect = paused_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=center_y - 220)
+        paused_rect = paused_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=self.title_top)
         screen.blit(paused_surf, paused_rect)
 
         # Botões de ação

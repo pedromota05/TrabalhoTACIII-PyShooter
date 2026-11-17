@@ -7,10 +7,17 @@ informando o IP do servidor na rede local.
 
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, GREEN, RED, BLACK
+from config import (
+    SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, GREEN, RED, BLACK,
+    LAN_BUTTON_SCALE, LAN_SPACING_Y, FONT_NAME,
+)
 from asset_manager import AssetManager
 from game_state import GameState
-from ui.screens.common import draw_text_with_shadow
+from ui.screens.common import draw_text_with_shadow, draw_text_with_outline
+
+SUBTITLE_TEXT = "Jogue cooperativamente em rede local via UDP (Porta 5555)"
+SUBTITLE_Y = 120
+STACK_START_Y = 190   # topo do primeiro botão (abaixo do subtítulo)
 
 
 class MultiplayerMenuScreen:
@@ -20,7 +27,7 @@ class MultiplayerMenuScreen:
         self.assets = assets
         self.font = font
         self.font_bold = font_bold
-        self.title_font = pygame.font.SysFont('Futura', 44, bold=True)
+        self.title_font = pygame.font.SysFont(FONT_NAME, 44, bold=True)
         self.status_msg = ""
         self.status_color = WHITE
 
@@ -28,40 +35,35 @@ class MultiplayerMenuScreen:
         self.ip_input = "127.0.0.1"
         self.input_active = False
 
-        # Criação dos botões estilizados
-        btn_w, btn_h = 320, 60
-        center_x = SCREEN_WIDTH // 2 - btn_w // 2
+        # Botões pixel-art: escala uniforme (proporção intacta), sem tamanho fixo.
+        self.host_btn = button.Button(0, 0, self.assets.get_image('lan_host_btn'), LAN_BUTTON_SCALE)
+        self.join_btn = button.Button(0, 0, self.assets.get_image('lan_join_btn'), LAN_BUTTON_SCALE)
+        self.back_btn = button.Button(0, 0, self.assets.get_image('lan_back_btn'), LAN_BUTTON_SCALE)
 
-        self.host_btn = button.Button(
-            center_x, 220,
-            self._create_styled_button_surf("1. CRIAR SERVIDOR (HOST)", (40, 140, 60), btn_w, btn_h),
-            1.0,
-        )
+        # Empilhamento vertical, centralizado em X:
+        #   Y(próximo) = Y(atual) + rect.height + LAN_SPACING_Y
+        # O bloco "rótulo + campo de IP" fica entre o Host e o Join, pois o
+        # IP digitado é usado pelo botão Conectar.
+        center_x = SCREEN_WIDTH // 2
+        label_h = self.font.get_height()
+        y = STACK_START_Y
 
-        self.join_btn = button.Button(
-            center_x, 380,
-            self._create_styled_button_surf("2. CONECTAR VIA IP", (40, 90, 180), btn_w, btn_h),
-            1.0,
-        )
+        self.host_btn.rect.midtop = (center_x, y)
+        y += self.host_btn.rect.height + LAN_SPACING_Y
 
-        self.back_btn = button.Button(
-            center_x, 480,
-            self._create_styled_button_surf("<- VOLTAR AO MENU", (180, 50, 50), btn_w, btn_h),
-            1.0,
-        )
+        self.ip_label_y = y
+        y += label_h + 6
+        self.input_rect = pygame.Rect(0, 0, 320, 45)
+        self.input_rect.midtop = (center_x, y)
+        y += self.input_rect.height + LAN_SPACING_Y
 
-        self.input_rect = pygame.Rect(SCREEN_WIDTH // 2 - 160, 315, 320, 45)
+        self.join_btn.rect.midtop = (center_x, y)
+        y += self.join_btn.rect.height + LAN_SPACING_Y
 
-    def _create_styled_button_surf(self, text: str, bg_color: tuple, w: int, h: int) -> pygame.Surface:
-        """Gera uma superfície estilizada para botões do menu multiplayer."""
-        surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        pygame.draw.rect(surf, bg_color, (0, 0, w, h), border_radius=8)
-        pygame.draw.rect(surf, WHITE, (0, 0, w, h), 2, border_radius=8)
+        self.back_btn.rect.midtop = (center_x, y)
 
-        text_surf = self.font_bold.render(text, True, WHITE)
-        text_rect = text_surf.get_rect(center=(w // 2, h // 2))
-        surf.blit(text_surf, text_rect)
-        return surf
+        # Mensagem de status logo abaixo do último botão
+        self.status_y = self.back_btn.rect.bottom + LAN_SPACING_Y
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """Processa cliques e digitação no campo de IP."""
@@ -85,17 +87,11 @@ class MultiplayerMenuScreen:
 
         # Título principal
         draw_text_with_shadow(screen, "MULTIPLAYER EM LAN", self.title_font, WHITE, SCREEN_WIDTH // 2, 60)
-        draw_text_with_shadow(
-            screen, "Jogue cooperativamente em rede local via UDP (Porta 5555)",
-            self.font, (220, 220, 220), SCREEN_WIDTH // 2, 120
+        # Subtítulo: texto branco com contorno preto de 2 px (legível sobre as nuvens)
+        draw_text_with_outline(
+            screen, SUBTITLE_TEXT, self.font, WHITE, SCREEN_WIDTH // 2, SUBTITLE_Y,
+            outline_color=BLACK, thickness=2,
         )
-
-        # Card de fundo central
-        panel_rect = pygame.Rect(SCREEN_WIDTH // 2 - 250, 170, 500, 390)
-        panel_surf = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
-        panel_surf.fill((15, 20, 30, 220))
-        screen.blit(panel_surf, panel_rect.topleft)
-        pygame.draw.rect(screen, (80, 100, 130), panel_rect, 2, border_radius=12)
 
         # 1. Botão Host
         if self.host_btn.draw(screen):
@@ -108,14 +104,14 @@ class MultiplayerMenuScreen:
                 self.status_color = RED
 
         # Caixa de texto para o IP do Host
-        draw_text_with_shadow(screen, "IP do Servidor Host:", self.font, WHITE, SCREEN_WIDTH // 2, 290)
+        draw_text_with_shadow(screen, "IP do Servidor Host:", self.font, WHITE, SCREEN_WIDTH // 2, self.ip_label_y)
         input_border_color = GREEN if self.input_active else (140, 140, 160)
         pygame.draw.rect(screen, (30, 35, 45), self.input_rect, border_radius=6)
         pygame.draw.rect(screen, input_border_color, self.input_rect, 2, border_radius=6)
 
         ip_display = self.ip_input + ("|" if self.input_active and (pygame.time.get_ticks() // 400) % 2 == 0 else "")
         ip_surf = self.font_bold.render(ip_display, True, WHITE)
-        screen.blit(ip_surf, (self.input_rect.x + 12, self.input_rect.y + 10))
+        screen.blit(ip_surf, (self.input_rect.x + 12, self.input_rect.centery - ip_surf.get_height() // 2))
 
         # 2. Botão Join
         if self.join_btn.draw(screen):
@@ -134,6 +130,6 @@ class MultiplayerMenuScreen:
 
         # Mensagem de status
         if self.status_msg:
-            draw_text_with_shadow(screen, self.status_msg, self.font_bold, self.status_color, SCREEN_WIDTH // 2, 570)
+            draw_text_with_shadow(screen, self.status_msg, self.font_bold, self.status_color, SCREEN_WIDTH // 2, self.status_y)
         else:
-            draw_text_with_shadow(screen, "Pressione ESC para voltar ao menu", self.font, PINK, SCREEN_WIDTH // 2, 575)
+            draw_text_with_shadow(screen, "Pressione ESC para voltar ao menu", self.font, PINK, SCREEN_WIDTH // 2, self.status_y)

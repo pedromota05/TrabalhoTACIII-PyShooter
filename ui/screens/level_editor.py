@@ -10,7 +10,7 @@ import os
 import csv
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, ROWS, COLS, TILE_SIZE, TILE_TYPES, WHITE, GREEN, RED, BLACK
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, ROWS, COLS, TILE_SIZE, TILE_TYPES, WHITE, GREEN, RED, BLACK, EDITOR_MENU_BTN_SCALE, FONT_NAME
 from asset_manager import AssetManager
 from game_state import GameState
 
@@ -37,9 +37,9 @@ class LevelEditorScreen:
         self.notification_timer = 0
         self._mouse_held_from_enter = False
 
-        self.font = pygame.font.SysFont('Futura', 24)
-        self.font_bold = pygame.font.SysFont('Futura', 26, bold=True)
-        self.font_small = pygame.font.SysFont('Futura', 18)
+        self.font = pygame.font.SysFont(FONT_NAME, 24)
+        self.font_bold = pygame.font.SysFont(FONT_NAME, 26, bold=True)
+        self.font_small = pygame.font.SysFont(FONT_NAME, 18)
 
         # Matriz vazia de tiles (16 linhas x 200 colunas)
         self.world_data: list[list[int]] = []
@@ -110,13 +110,14 @@ class LevelEditorScreen:
         self.save_button = button.Button(EDITOR_VIEWPORT_WIDTH // 2 - 120, base_y, save_img, 0.9)
         self.load_button = button.Button(EDITOR_VIEWPORT_WIDTH // 2 + 30, base_y, load_img, 0.9)
 
-        # Botão de retorno ao Menu
-        back_surf = pygame.Surface((140, 42), pygame.SRCALPHA)
-        pygame.draw.rect(back_surf, (180, 40, 40), (0, 0, 140, 42), border_radius=6)
-        pygame.draw.rect(back_surf, WHITE, (0, 0, 140, 42), 2, border_radius=6)
-        text_surf = self.font_bold.render("<- Menu", True, WHITE)
-        back_surf.blit(text_surf, text_surf.get_rect(center=(70, 21)))
-        self.back_button = button.Button(15, base_y + 5, back_surf, 1.0)
+        # Botão de retorno ao Menu (escala reduzida para alinhar à altura de SAVE/LOAD)
+        menu_btn_img = (
+            self.assets.get_image('editor_menu_btn')
+            if 'editor_menu_btn' in self.assets.images
+            else pygame.image.load('img/menu_button_new.png').convert_alpha()
+        )
+        self.back_button = button.Button(15, 0, menu_btn_img, EDITOR_MENU_BTN_SCALE)
+        self.back_button.rect.centery = self.save_button.rect.centery
 
     def _init_palette_buttons(self) -> None:
         """Cria botões em grade (6 colunas) na barra lateral direita."""

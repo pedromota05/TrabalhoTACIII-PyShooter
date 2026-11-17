@@ -6,7 +6,7 @@ sincronizadas e desenha indicadores de identificação (ex: "P2") e vida sobre a
 """
 
 import pygame
-from config import PLAYER_SCALE, ANIMATION_COOLDOWN, WHITE, GREEN, RED, BLACK
+from config import PLAYER_SCALE, ANIMATION_COOLDOWN, WHITE, GREEN, RED, BLACK, FONT_NAME
 from asset_manager import AssetManager
 from entities.combat.projectiles import Bullet
 
@@ -37,7 +37,7 @@ class RemotePlayer(pygame.sprite.Sprite):
         self.rect.center = (int(x), int(y))
 
         # Fonte para identificação sobre a cabeça
-        self.font = pygame.font.SysFont('Futura', 16, bold=True)
+        self.font = pygame.font.SysFont(FONT_NAME, 16, bold=True)
 
     def update_from_network(
         self,

@@ -14,6 +14,22 @@ SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 640
 
 # ---------------------------------------------------------------------------
+#  Botões (pixel-art em resolução nativa ~810x305 px)
+# ---------------------------------------------------------------------------
+# A classe Button aplica o MESMO fator em largura e altura, então qualquer
+# escala uniforme preserva a proporção "de fábrica" de cada arte (sem
+# esticar/achatar o texto). Não existe mais tamanho fixo global.
+MENU_SCALE = 0.28             # ~228x86 px por botão (grade 2x3 do Menu)
+GAME_OVER_BUTTON_SCALE = 0.45  # mesmo tamanho para o Restart
+MENU_MARGIN_X = 40             # distância de cada coluna ao centro da tela
+MENU_SPACING_Y = 20            # espaço vertical entre as linhas da grade
+MENU_START_Y = 220             # Y da primeira linha (abaixo do título)
+LAN_BUTTON_SCALE = 0.28        # botões do menu Multiplayer LAN (mesma escala do Menu)
+LAN_SPACING_Y = 20             # espaço vertical entre os elementos do menu LAN
+EDITOR_MENU_BTN_SCALE = 0.12   # botão MENU do Editor de Fases (~85x42 px, alinhado a SAVE/LOAD)
+SETTINGS_BTN_SCALE = 0.12      # botão de engrenagem no canto superior direito (~59x61 px)
+
+# ---------------------------------------------------------------------------
 #  Timing
 # ---------------------------------------------------------------------------
 FPS = 60
@@ -103,5 +119,5 @@ YELLOW = (255, 255, 0)
 # ---------------------------------------------------------------------------
 #  UI
 # ---------------------------------------------------------------------------
-FONT_NAME = 'Futura'
+FONT_NAME = None  # Fonte padrão nativa do Pygame (mesma aparência original, sem UserWarning)
 FONT_SIZE = 30

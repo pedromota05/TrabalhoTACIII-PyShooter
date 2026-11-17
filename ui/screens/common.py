@@ -33,6 +33,29 @@ def draw_text_with_shadow(screen: pygame.Surface, text: str, font: pygame.font.F
     screen.blit(text_surf, text_rect)
 
 
+def draw_text_with_outline(screen: pygame.Surface, text: str, font: pygame.font.Font,
+                           text_color: tuple, x: int, y: int,
+                           outline_color: tuple = (0, 0, 0), thickness: int = 2) -> pygame.Rect:
+    """Desenha texto centralizado em x (topo em y) com contorno (stroke) sólido.
+
+    O contorno é feito desenhando o texto na cor do contorno deslocado
+    `thickness` px nas 4 direções cardeais (cima, baixo, esquerda, direita)
+    e nas 4 diagonais, que fecham os cantos das letras. Por fim, o texto
+    principal é desenhado por cima, sem deslocamento.
+    """
+    outline_surf = font.render(text, True, outline_color)
+    text_surf = font.render(text, True, text_color)
+    text_rect = text_surf.get_rect(centerx=x, top=y)
+
+    t = thickness
+    for dx, dy in ((-t, 0), (t, 0), (0, -t), (0, t),
+                   (-t, -t), (-t, t), (t, -t), (t, t)):
+        screen.blit(outline_surf, text_rect.move(dx, dy))
+
+    screen.blit(text_surf, text_rect)
+    return text_rect
+
+
 def draw_volume_bar(screen: pygame.Surface, x: int, y: int, current_vol: int, max_vol: int,
                     base_img: pygame.Surface, fill_img: pygame.Surface, knob_img: pygame.Surface) -> pygame.Rect:
     """Desenha a barra de volume com fundo, preenchimento proporcional e botão deslizante (knob)."""

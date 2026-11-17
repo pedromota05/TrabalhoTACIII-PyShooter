@@ -46,14 +46,32 @@ class AssetManager:
     #  Imagens
     # ------------------------------------------------------------------
     def _load_images(self) -> None:
-        # Botões
-        self.images['start_btn'] = pygame.transform.scale(pygame.image.load('img/start_button.png').convert_alpha(), (280, 80))
-        self.images['instructions_btn'] = pygame.transform.scale(pygame.image.load('img/controls_button.png').convert_alpha(), (280, 80))
-        self.images['exit_btn'] = pygame.transform.scale(pygame.image.load('img/exit_button.png').convert_alpha(), (280, 80))
-        self.images['resume_btn'] = pygame.transform.scale(pygame.image.load('img/resume_button.png').convert_alpha(), (280, 80))
-        self.images['options_btn'] = pygame.transform.scale(pygame.image.load('img/options_button.png').convert_alpha(), (280, 80))
-        
-        self.images['restart_btn'] = pygame.image.load('img/restart_btn.png').convert_alpha()
+        # Botões em resolução NATIVA (sem pygame.transform.scale forçado).
+        # Cada arte tem largura/altura próprias; a escala uniforme é aplicada
+        # pela classe Button na tela que instancia o botão.
+        button_files = {
+            'menu_start_btn':    'img/start_button_new.png',
+            'menu_multi_btn':    'img/multiplayer-removebg-preview.png',
+            'menu_editor_btn':   'img/leve_editor_button_new.png',
+            'menu_controls_btn': 'img/controls_button_new.png',
+            'menu_options_btn':  'img/options_button_new.png',
+            'editor_menu_btn':   'img/menu_button_new.png',
+            'settings_btn':      'img/settings_button_new.png',
+            'menu_exit_btn':     'img/exit_button_new.png',
+            'restart_btn':       'img/restart_button_new.png',
+            'resume_btn':        'img/resume_button_new.png',
+            # Menu Multiplayer LAN
+            'lan_host_btn':      'img/create_server_button_new.png',
+            'lan_join_btn':      'img/conect_ip_button_new.png',
+            'lan_back_btn':      'img/back_menu_button_new.png',
+        }
+        for key, path in button_files.items():
+            self.images[key] = pygame.image.load(path).convert_alpha()
+
+        # Aliases usados pela tela de Pause (mesma Surface; o Button cria
+        # sua própria cópia escalada, então compartilhar é seguro).
+        self.images['options_btn'] = self.images['menu_options_btn']
+        self.images['exit_btn'] = self.images['menu_exit_btn']
         
         # Assets da tela Options
         opt_bg = pygame.image.load('img/icons/LargeBoxMenuBanner.png').convert_alpha()
@@ -68,7 +86,6 @@ class AssetManager:
         slider_knob = pygame.image.load('img/icons/slider_knob.png').convert_alpha()
         self.images['slider_knob'] = pygame.transform.scale(slider_knob, (30, 60))
         
-        self.images['settings_btn'] = pygame.transform.scale(pygame.image.load('img/icons/settings_square_button.png').convert_alpha(), (60, 60))
 
         # Ícones de Áudio
         self.images['music_on'] = pygame.transform.scale(pygame.image.load('img/icons/music_on.png').convert_alpha(), (40, 40))
