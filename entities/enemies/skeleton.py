@@ -100,7 +100,7 @@ class SkeletonEnemy(Character):
         if self.frame_index == 0:
             self.shot_fired = False
 
-    def shoot(self, bullet_group, target_x: float, target_y: float):
+    def shoot(self, bullet_group, target_x: float, target_y: float, network_client=None, bg_scroll: int = 0):
         """Dispara a flecha APENAS quando a animação atingir o frame correto."""
         if self.action == 2 and self.frame_index == 9 and not self.shot_fired:
             self.shot_fired = True
@@ -111,8 +111,13 @@ class SkeletonEnemy(Character):
             bullet_group.add(bullet)
             self.ammo -= 1
             AssetManager().get_sound('skeleton_bow').play()
+            if network_client and getattr(network_client, 'running', False) and hasattr(self, 'target_id'):
+                network_client.send_enemy_shoot(
+                    "arrow", spawn_x + bg_scroll, spawn_y, self.direction,
+                    target_wx=target_x + bg_scroll, target_wy=target_y
+                )
 
-    def ai(self, player, screen_scroll: int, obstacle_list: list, water_group, bullet_group):
+    def ai(self, player, screen_scroll: int, obstacle_list: list, water_group, bullet_group, network_client=None, bg_scroll: int = 0):
         if self.flip_cooldown > 0:
             self.flip_cooldown -= 1
 
@@ -140,7 +145,7 @@ class SkeletonEnemy(Character):
 
                 if self.ammo > 0:
                     self.update_action(2)  # Attack (Shot_1)
-                    self.shoot(bullet_group, player.rect.centerx, player.rect.centery)
+                    self.shoot(bullet_group, player.rect.centerx, player.rect.centery, network_client=network_client, bg_scroll=bg_scroll)
                 else:
                     self.update_action(0)
             else:

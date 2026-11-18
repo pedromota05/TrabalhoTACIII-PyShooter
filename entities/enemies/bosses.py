@@ -50,9 +50,10 @@ class DragonBoss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(midbottom=(x, y))
 
     def update(self, player, obstacle_list=None, gravity=None,
-               bullet_group=None, screen_scroll: int = 0):
+               bullet_group=None, screen_scroll: int = 0,
+               network_client=None, bg_scroll: int = 0):
         if not self.alive:
-            self.update_animation(player, bullet_group)
+            self.update_animation(player, bullet_group, network_client=network_client, bg_scroll=bg_scroll)
             return
 
         distance_x = abs(player.rect.centerx - self.rect.centerx)
@@ -92,9 +93,9 @@ class DragonBoss(pygame.sprite.Sprite):
                 self.rect.y -= 2
 
         self.rect.x += screen_scroll
-        self.update_animation(player, bullet_group)
+        self.update_animation(player, bullet_group, network_client=network_client, bg_scroll=bg_scroll)
 
-    def update_animation(self, player, bullet_group=None):
+    def update_animation(self, player, bullet_group=None, network_client=None, bg_scroll: int = 0):
         animation_cooldown = 100
         old_bottom = self.rect.bottom
         old_centerx = self.rect.centerx
@@ -117,6 +118,15 @@ class DragonBoss(pygame.sprite.Sprite):
                 ))
                 self.last_shot_time = now
                 self.shot_frame_fired = True
+                if network_client and getattr(network_client, 'running', False) and hasattr(self, 'target_id'):
+                    network_client.send_enemy_shoot(
+                        "dragon",
+                        self.rect.centerx + bg_scroll,
+                        self.rect.centery,
+                        self.direction,
+                        target_wx=player.rect.centerx + bg_scroll,
+                        target_wy=player.rect.centery,
+                    )
         elif self.action != 2 or self.frame_index != 2:
             self.shot_frame_fired = False
 

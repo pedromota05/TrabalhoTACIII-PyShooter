@@ -2,34 +2,203 @@
 
 import pygame
 
+from asset_manager import AssetManager
 from config import BLACK, MAX_LEVELS
 from entities import DragonBoss, Grenade, RemotePlayer
+from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from game_state import GameState
+
+
+def get_target_player(entity, local_player, remote_players_group):
+    """Retorna o jogador vivo mais próximo da entidade (seja local ou remoto)."""
+    candidates = []
+    if getattr(local_player, 'alive', False):
+        dist = abs(entity.rect.centerx - local_player.rect.centerx)
+        candidates.append((dist, local_player))
+    for remote in remote_players_group:
+        if getattr(remote, 'alive', False):
+            dist = abs(entity.rect.centerx - remote.rect.centerx)
+            candidates.append((dist, remote))
+    if not candidates:
+        return local_player
+    candidates.sort(key=lambda c: c[0])
+    return candidates[0][1]
 
 
 def update_game_entities(game) -> None:
     """Atualiza a física e a lógica de todas as entidades ativas."""
+    is_multiplayer = getattr(game, 'is_multiplayer', False)
+    is_host = getattr(game, 'is_host', False)
+    net_client = game.network_client if is_multiplayer else None
+
+    # Atualiza o jogador local
     game.player.update(game.enemy_group)
 
-    for enemy in game.enemy_group:
-        enemy.ai(
-            game.player, game.screen_scroll,
-            game.world.obstacle_list, game.water_group,
-            game.bullet_group,
-        )
-        enemy.update()
+    # ------------------------------------------------------------------
+    # Sincronização de Inimigos e Bosses
+    # ------------------------------------------------------------------
+    if is_multiplayer and not is_host and net_client:
+        # === MODO CLIENTE: O Host é a autoridade sobre os inimigos ===
+        # 1. Cria projéteis de inimigos disparados remotamente pelo Host
+        for shoot_data in net_client.pop_enemy_shoots():
+            b_type = shoot_data.get("bullet_type")
+            sx = shoot_data["world_x"] - game.bg_scroll
+            sy = shoot_data["world_y"]
+            b_dir = shoot_data.get("direction", 1)
 
-    for boss in game.boss_group:
-        boss.rect.x += game.screen_scroll
-        if isinstance(boss, DragonBoss):
-            boss.update(
-                game.player,
-                game.world.obstacle_list,
-                bullet_group=game.bullet_group,
+            if b_type == "bullet":
+                game.bullet_group.add(Bullet(sx, sy, b_dir))
+                AssetManager().get_sound('shot').play()
+            elif b_type == "sniper":
+                game.bullet_group.add(SniperBullet(sx, sy, shoot_data["vel_x"], shoot_data["vel_y"]))
+                AssetManager().get_sound('shot').play()
+            elif b_type == "arrow":
+                tx = shoot_data["target_wx"] - game.bg_scroll
+                ty = shoot_data["target_wy"]
+                game.bullet_group.add(Arrow(sx, sy, tx, ty))
+                AssetManager().get_sound('skeleton_bow').play()
+            elif b_type == "robot":
+                game.bullet_group.add(RobotBullet(sx, sy, shoot_data["vel_x"], shoot_data["vel_y"]))
+                AssetManager().get_sound('robot_shoot').play()
+            elif b_type == "dragon":
+                tx = shoot_data["target_wx"] - game.bg_scroll
+                ty = shoot_data["target_wy"]
+                game.bullet_group.add(DragonFire(sx, sy, tx, ty))
+
+        # 2. Interpola e sincroniza estado dos inimigos com a visão do Host
+        net_client.update_enemy_interpolation()
+        enemies_snapshot = net_client.get_remote_enemies_snapshot()
+
+        for enemy in game.enemy_group:
+            t_id = getattr(enemy, 'target_id', None)
+            if t_id is not None and t_id in enemies_snapshot:
+                e_data = enemies_snapshot[t_id]
+                curr_wx, curr_wy = e_data["current"]
+                enemy.rect.x = int(curr_wx - game.bg_scroll)
+                enemy.rect.y = int(curr_wy)
+                enemy.direction = e_data["direction"]
+                enemy.flip = (enemy.direction == -1)
+                enemy.health = e_data["health"]
+                enemy.alive = e_data["alive"]
+                if not enemy.alive or enemy.health <= 0:
+                    enemy.alive = False
+                    enemy.health = 0
+                    if enemy.action != 3 and hasattr(enemy, 'update_action'):
+                        enemy.update_action(3)
+                else:
+                    if enemy.action != e_data["action"] and hasattr(enemy, 'update_action'):
+                        enemy.update_action(e_data["action"])
+                if hasattr(enemy, 'update_animation'):
+                    enemy.update_animation()
+            else:
+                enemy.rect.x += game.screen_scroll
+                if hasattr(enemy, 'update_animation'):
+                    enemy.update_animation()
+
+        for boss in game.boss_group:
+            t_id = getattr(boss, 'target_id', None)
+            if t_id is not None and t_id in enemies_snapshot:
+                b_data = enemies_snapshot[t_id]
+                curr_wx, curr_wy = b_data["current"]
+                boss.rect.x = int(curr_wx - game.bg_scroll)
+                boss.rect.y = int(curr_wy)
+                boss.direction = b_data["direction"]
+                boss.flip = (boss.direction == -1)
+                boss.health = b_data["health"]
+                boss.alive = b_data["alive"]
+                if not boss.alive or boss.health <= 0:
+                    boss.alive = False
+                    boss.health = 0
+                    if boss.action != 3 and hasattr(boss, 'update_action'):
+                        boss.update_action(3)
+                else:
+                    if boss.action != b_data["action"] and hasattr(boss, 'update_action'):
+                        boss.update_action(b_data["action"])
+                if hasattr(boss, 'update_animation'):
+                    boss.update_animation(game.player)
+            else:
+                boss.rect.x += game.screen_scroll
+                if hasattr(boss, 'update_animation'):
+                    boss.update_animation(game.player)
+
+    else:
+        # === MODO HOST OU SINGLE PLAYER: Executa IA e Física Local ===
+        if is_multiplayer and is_host and net_client:
+            # Processa acertos de tiro/dano recebidos dos clientes da rede
+            incoming_hits = net_client.pop_enemy_hits()
+            if incoming_hits:
+                target_map = {}
+                for enemy in game.enemy_group:
+                    if hasattr(enemy, 'target_id'):
+                        target_map[enemy.target_id] = enemy
+                for boss in game.boss_group:
+                    if hasattr(boss, 'target_id'):
+                        target_map[boss.target_id] = boss
+
+                for target_id, damage in incoming_hits:
+                    if target_id in target_map:
+                        target = target_map[target_id]
+                        if target.alive:
+                            target.health -= damage
+                            if target.health <= 0:
+                                target.health = 0
+                                target.alive = False
+                                if hasattr(target, 'update_action'):
+                                    target.update_action(3)
+                            else:
+                                if hasattr(target, 'animation_list') and len(target.animation_list) > 4:
+                                    target.update_action(4)
+
+        for enemy in game.enemy_group:
+            target_player = get_target_player(enemy, game.player, game.remote_players_group)
+            enemy.ai(
+                target_player, game.screen_scroll,
+                game.world.obstacle_list, game.water_group,
+                game.bullet_group,
+                network_client=net_client if (is_multiplayer and is_host) else None,
+                bg_scroll=game.bg_scroll,
             )
-        else:
-            boss.update(game.player, game.world.obstacle_list, 0.75)
+            enemy.update()
 
+        for boss in game.boss_group:
+            boss.rect.x += game.screen_scroll
+            target_player = get_target_player(boss, game.player, game.remote_players_group)
+            if isinstance(boss, DragonBoss):
+                boss.update(
+                    target_player,
+                    game.world.obstacle_list,
+                    bullet_group=game.bullet_group,
+                    network_client=net_client if (is_multiplayer and is_host) else None,
+                    bg_scroll=game.bg_scroll,
+                )
+            else:
+                boss.update(target_player, game.world.obstacle_list, 0.75)
+
+        # Se for Host no Multiplayer, envia lote de estado dos inimigos para os clientes
+        if is_multiplayer and is_host and net_client:
+            enemies_payload_list = []
+            for enemy in game.enemy_group:
+                t_id = getattr(enemy, 'target_id', 0)
+                wx = enemy.rect.x + game.bg_scroll
+                wy = enemy.rect.y
+                alive_val = 1 if enemy.alive else 0
+                enemies_payload_list.append(
+                    f"{t_id}:{round(wx, 1)}:{round(wy, 1)}:{enemy.action}:{enemy.direction}:{enemy.health}:{alive_val}:0"
+                )
+            for boss in game.boss_group:
+                t_id = getattr(boss, 'target_id', 0)
+                wx = boss.rect.x + game.bg_scroll
+                wy = boss.rect.y
+                alive_val = 1 if boss.alive else 0
+                enemies_payload_list.append(
+                    f"{t_id}:{round(wx, 1)}:{round(wy, 1)}:{boss.action}:{boss.direction}:{boss.health}:{alive_val}:1"
+                )
+            if enemies_payload_list:
+                net_client.send_enemies_state(enemies_payload_list)
+
+    # ------------------------------------------------------------------
+    # Atualização de grupos de projéteis e ambiente
+    # ------------------------------------------------------------------
     game.bullet_group.update(
         game.screen_scroll, game.world.obstacle_list,
         game.player, game.bullet_group, game.enemy_group, game.boss_group,
@@ -45,35 +214,12 @@ def update_game_entities(game) -> None:
     game.water_group.update(game.screen_scroll)
     game.exit_group.update(game.screen_scroll)
 
+    # ------------------------------------------------------------------
     # Sincronização e interpolação de jogadores remotos em LAN
-    if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
-        # 1. Processa acertos de tiro/dano recebidos da rede
-        incoming_hits = game.network_client.pop_enemy_hits()
-        if incoming_hits:
-            target_map = {}
-            for enemy in game.enemy_group:
-                if hasattr(enemy, 'target_id'):
-                    target_map[enemy.target_id] = enemy
-            for boss in game.boss_group:
-                if hasattr(boss, 'target_id'):
-                    target_map[boss.target_id] = boss
-
-            for target_id, damage in incoming_hits:
-                if target_id in target_map:
-                    target = target_map[target_id]
-                    if target.alive:
-                        target.health -= damage
-                        if target.health <= 0:
-                            target.health = 0
-                            target.alive = False
-                            if hasattr(target, 'update_action'):
-                                target.update_action(3)
-                        else:
-                            if hasattr(target, 'animation_list') and len(target.animation_list) > 4:
-                                target.update_action(4)
-
-        game.network_client.update_interpolation()
-        remote_data = game.network_client.get_remote_players_snapshot()
+    # ------------------------------------------------------------------
+    if is_multiplayer and net_client:
+        net_client.update_interpolation()
+        remote_data = net_client.get_remote_players_snapshot()
 
         for p_id, p_info in remote_data.items():
             if p_id not in game.remote_players_map:

@@ -42,6 +42,29 @@ def encode_enemy_hit(player_id: str, target_id: int, damage: int) -> str:
     return f"{player_id},hit,{target_id},{damage}"
 
 
+def encode_enemies_state(player_id: str, enemies_payload: str) -> str:
+    """Codifica o lote de estados dos inimigos e chefes sincronizados pelo Host."""
+    return f"{player_id},enemies,{enemies_payload}"
+
+
+def encode_enemy_shoot(
+    player_id: str,
+    bullet_type: str,
+    world_x: float,
+    world_y: float,
+    direction: int,
+    vel_x: float = 0.0,
+    vel_y: float = 0.0,
+    target_wx: float = 0.0,
+    target_wy: float = 0.0,
+) -> str:
+    """Codifica o disparo de um projétil de inimigo/chefe para sincronização."""
+    return (
+        f"{player_id},eshoot,{bullet_type},{round(world_x, 1)},{round(world_y, 1)},"
+        f"{direction},{round(vel_x, 2)},{round(vel_y, 2)},{round(target_wx, 1)},{round(target_wy, 1)}"
+    )
+
+
 def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     """
     Decodifica um pacote recebido na rede.
@@ -70,6 +93,46 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
                 "damage": int(parts[3]),
             }
         except ValueError:
+            return None
+
+    if command == "enemies" and len(parts) >= 3:
+        raw_list = parts[2].split("|")
+        enemies = []
+        for item in raw_list:
+            if not item:
+                continue
+            sub = item.split(":")
+            if len(sub) >= 7:
+                try:
+                    enemies.append({
+                        "target_id": int(sub[0]),
+                        "world_x": float(sub[1]),
+                        "world_y": float(sub[2]),
+                        "action": int(sub[3]),
+                        "direction": int(sub[4]),
+                        "health": int(sub[5]),
+                        "alive": bool(int(sub[6])),
+                        "is_boss": bool(int(sub[7])) if len(sub) > 7 else False,
+                    })
+                except ValueError:
+                    continue
+        return {"type": "enemies", "player_id": player_id, "enemies": enemies}
+
+    if command == "eshoot" and len(parts) >= 10:
+        try:
+            return {
+                "type": "enemy_shoot",
+                "player_id": player_id,
+                "bullet_type": parts[2],
+                "world_x": float(parts[3]),
+                "world_y": float(parts[4]),
+                "direction": int(parts[5]),
+                "vel_x": float(parts[6]),
+                "vel_y": float(parts[7]),
+                "target_wx": float(parts[8]),
+                "target_wy": float(parts[9]),
+            }
+        except (ValueError, IndexError):
             return None
 
     try:

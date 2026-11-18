@@ -16,6 +16,8 @@ from .protocol import (
     encode_player_state,
     encode_disconnect,
     encode_enemy_hit,
+    encode_enemies_state,
+    encode_enemy_shoot,
     parse_packet,
 )
 
@@ -41,6 +43,11 @@ class NetworkClient:
         self.remote_players: Dict[str, Dict[str, Any]] = {}
         # Fila de eventos de dano em inimigos recebidos da rede: [(target_id, damage), ...]
         self.pending_enemy_hits: List[tuple[int, int]] = []
+        # Dicionário de estados de inimigos sincronizados do Host:
+        # {target_id: {"current": [wx, wy], "target": [wx, wy], "action": int, "direction": int, "health": int, "alive": bool, "is_boss": bool}}
+        self.remote_enemies: Dict[int, Dict[str, Any]] = {}
+        # Fila de disparos de inimigos disparados remotamente pelo Host
+        self.pending_enemy_shoots: List[Dict[str, Any]] = []
         self.lock = threading.Lock()
 
     def connect(self) -> bool:
@@ -71,7 +78,7 @@ class NetworkClient:
             try:
                 if self.socket is None:
                     break
-                data, _ = self.socket.recvfrom(1024)
+                data, _ = self.socket.recvfrom(4096)
                 message = data.decode("utf-8")
                 packet = parse_packet(message)
 
@@ -88,6 +95,32 @@ class NetworkClient:
                             del self.remote_players[p_id]
                     elif packet["type"] == "hit":
                         self.pending_enemy_hits.append((packet["target_id"], packet["damage"]))
+                    elif packet["type"] == "enemies":
+                        for enemy_data in packet["enemies"]:
+                            t_id = enemy_data["target_id"]
+                            target_pos = [enemy_data["world_x"], enemy_data["world_y"]]
+                            if t_id in self.remote_enemies:
+                                entry = self.remote_enemies[t_id]
+                                entry["target"] = target_pos
+                                entry["action"] = enemy_data["action"]
+                                entry["direction"] = enemy_data["direction"]
+                                entry["health"] = enemy_data["health"]
+                                entry["alive"] = enemy_data["alive"]
+                                entry["is_boss"] = enemy_data.get("is_boss", False)
+                                entry["last_seen"] = time.time()
+                            else:
+                                self.remote_enemies[t_id] = {
+                                    "current": list(target_pos),
+                                    "target": list(target_pos),
+                                    "action": enemy_data["action"],
+                                    "direction": enemy_data["direction"],
+                                    "health": enemy_data["health"],
+                                    "alive": enemy_data["alive"],
+                                    "is_boss": enemy_data.get("is_boss", False),
+                                    "last_seen": time.time(),
+                                }
+                    elif packet["type"] == "enemy_shoot":
+                        self.pending_enemy_shoots.append(packet)
                     elif packet["type"] == "state":
                         target_pos = [packet["x"], packet["y"]]
                         if p_id in self.remote_players:
@@ -153,6 +186,79 @@ class NetworkClient:
             self.pending_enemy_hits.clear()
             return hits
 
+    def send_enemies_state(self, enemies_list: List[str]) -> None:
+        """Envia o estado atualizado dos inimigos pelo Host para os clientes."""
+        if not self.running or self.socket is None or not enemies_list:
+            return
+
+        payload = "|".join(enemies_list)
+        packet_str = encode_enemies_state(self.player_id, payload)
+        try:
+            self.socket.sendto(packet_str.encode("utf-8"), self.server_address)
+        except Exception:
+            pass
+
+    def send_enemy_shoot(
+        self,
+        bullet_type: str,
+        world_x: float,
+        world_y: float,
+        direction: int,
+        vel_x: float = 0.0,
+        vel_y: float = 0.0,
+        target_wx: float = 0.0,
+        target_wy: float = 0.0,
+    ) -> None:
+        """Envia aviso de disparo de projétil por um inimigo para os clientes."""
+        if not self.running or self.socket is None:
+            return
+
+        packet_str = encode_enemy_shoot(
+            self.player_id, bullet_type, world_x, world_y,
+            direction, vel_x, vel_y, target_wx, target_wy
+        )
+        try:
+            self.socket.sendto(packet_str.encode("utf-8"), self.server_address)
+        except Exception:
+            pass
+
+    def pop_enemy_shoots(self) -> List[Dict[str, Any]]:
+        """Consome e limpa a fila thread-safe de disparos de inimigos."""
+        with self.lock:
+            shoots = list(self.pending_enemy_shoots)
+            self.pending_enemy_shoots.clear()
+            return shoots
+
+    def update_enemy_interpolation(self) -> None:
+        """Interpola linearmente a posição dos inimigos remotos recebidos do Host."""
+        with self.lock:
+            for t_id, data in self.remote_enemies.items():
+                curr = data["current"]
+                targ = data["target"]
+                # Teleporte rápido caso a distância seja excessiva (ex: spawn inicial)
+                if abs(targ[0] - curr[0]) > 200 or abs(targ[1] - curr[1]) > 200:
+                    curr[0] = targ[0]
+                    curr[1] = targ[1]
+                else:
+                    curr[0] += (targ[0] - curr[0]) * LERP_FACTOR
+                    curr[1] += (targ[1] - curr[1]) * LERP_FACTOR
+
+    def get_remote_enemies_snapshot(self) -> Dict[int, Dict[str, Any]]:
+        """Retorna uma cópia thread-safe dos dados atuais dos inimigos sincronizados."""
+        with self.lock:
+            return {
+                t_id: {
+                    "current": list(info["current"]),
+                    "target": list(info["target"]),
+                    "action": info["action"],
+                    "direction": info["direction"],
+                    "health": info["health"],
+                    "alive": info["alive"],
+                    "is_boss": info.get("is_boss", False),
+                }
+                for t_id, info in self.remote_enemies.items()
+            }
+
     def update_interpolation(self) -> None:
         """
         Executado a cada frame para aplicar interpolação linear (LERP)
@@ -200,4 +306,7 @@ class NetworkClient:
         self.receive_thread = None
         with self.lock:
             self.remote_players.clear()
+            self.remote_enemies.clear()
+            self.pending_enemy_shoots.clear()
+            self.pending_enemy_hits.clear()
         print(f"[REDE CLIENTE] Desconectado.")

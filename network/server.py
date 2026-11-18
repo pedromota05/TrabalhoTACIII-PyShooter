@@ -65,7 +65,7 @@ class GameServer:
             try:
                 if self.socket is None:
                     break
-                data, client_address = self.socket.recvfrom(1024)
+                data, client_address = self.socket.recvfrom(4096)
                 message = data.decode("utf-8")
 
                 parts = message.split(",")

@@ -109,6 +109,7 @@ class Game:
 
         # ----- Multiplayer LAN (Cliente/Servidor) -----
         self.is_multiplayer = False
+        self.is_host = False
         self.network_server: GameServer | None = None
         self.network_client: NetworkClient | None = None
         self.remote_players_group = pygame.sprite.Group()
@@ -198,6 +199,7 @@ class Game:
             return False
 
         self.is_multiplayer = True
+        self.is_host = True
         self.level = 1
         self.bg_scroll = 0
         self.start_intro = True
@@ -214,6 +216,7 @@ class Game:
             return False
 
         self.is_multiplayer = True
+        self.is_host = False
         self.level = 1
         self.bg_scroll = 0
         self.start_intro = True
@@ -234,6 +237,7 @@ class Game:
         self.remote_players_group.empty()
         self.remote_players_map.clear()
         self.is_multiplayer = False
+        self.is_host = False
 
     # ==================================================================
     #  GAME LOOP

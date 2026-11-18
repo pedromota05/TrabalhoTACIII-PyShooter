@@ -140,7 +140,7 @@ class Character(pygame.sprite.Sprite):
     # ------------------------------------------------------------------
     #  Combate
     # ------------------------------------------------------------------
-    def shoot(self, bullet_group, network_client=None):
+    def shoot(self, bullet_group, network_client=None, bg_scroll: int = 0):
         """Dispara um projétil se houver munição e o cooldown permitir."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
@@ -156,6 +156,10 @@ class Character(pygame.sprite.Sprite):
             bullet_group.add(bullet)
             self.ammo -= 1
             AssetManager().get_sound('shot').play()
+            if network_client and getattr(network_client, 'running', False) and hasattr(self, 'target_id'):
+                network_client.send_enemy_shoot(
+                    "bullet", spawn_x + bg_scroll, spawn_y, self.direction
+                )
 
     # ------------------------------------------------------------------
     #  Animação
