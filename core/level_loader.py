@@ -31,6 +31,7 @@ def load_level(game, level_number: int) -> None:
     # anterior desloca o mundo novo no primeiro quadro (bg_scroll já é 0).
     game.screen_scroll = 0
     game.bg_scroll = 0
+    game.boss_clear_frames = 0
     world_data = [[-1] * COLS for _ in range(ROWS)]
 
     level_file = os.path.join(LEVELS_DIR, f'level{level_number}_data.csv')

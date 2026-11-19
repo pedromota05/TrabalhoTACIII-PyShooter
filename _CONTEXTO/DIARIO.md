@@ -5,12 +5,23 @@
 - Corrigida a sincronização de dano e morte de inimigos em rede (pacotes `hit` e `target_id`).
 - Demanda aberta no Trilho para finalizar bateria de testes e correções até sábado (2026-11-14).
 - 2026-11-18: fases 1 a 4 testadas por bot automático (modo solo, dano real). Fases 1, 2 e 3 concluídas; na fase 4 os dois chefes foram mortos, mas o jogo não tem saída nem tela de vitória.
-- Problemas abertos: fase 4 sem condição de vitória; fase 5 inacessível (MAX_LEVELS = 4); fim da campanha volta para a fase 3; fase 4 sem munição extra.
+- Problemas abertos: fase 4 sem munição/vida extra (o Dragão costuma matar o bot); fase 5 será a arena do Modo Desafio (etapa 6).
 - 2026-11-18: aprovado o plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): campanha com 4 fases e vitória ao matar os chefes da fase 4, progresso no menu de fases, checkpoints, edição dos mapas, Modo Desafio (maratona 1→5 com 1 vida) e, por último, teste do multiplayer.
 - Etapa 1 concluída (2026-11-18): bot em tools/bot_fases.py; corrigido bug de câmera ao trocar de fase (core/level_loader.py zera screen_scroll e bg_scroll). Fases 1→2→3 passam em sequência; na fase 4 o Dragão às vezes mata o bot (balanceamento fica para a etapa 5).
-- Próximos passos: seguir o plano a partir da etapa 2; depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
+- Etapa 2 concluída (2026-11-18): fase 4 termina 1,5 s após a morte dos 2 chefes e a campanha acaba na nova tela VITÓRIA (tempo da partida + botão de voltar ao menu).
+- Próximos passos: seguir o plano a partir da etapa 3 (progresso salvo e menu de fases); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
 
 ---
+
+### 2026-11-18 — Etapa 2 do plano: fim da campanha e vitória
+- Pedido: seguir para a etapa 2 (vitória e fim da campanha).
+- Feito:
+  - `core/gameplay.py`: `is_level_complete(game, touched_exit)` (saída tocada, ou fase sem saída com chefes e todos mortos há 1,5 s — `BOSS_DEATH_DELAY_FRAMES`); `update_level_transition` vai para `GameState.VICTORY` depois da fase `MAX_LEVELS` (4) em vez de `game.level = 3` + MENU; contador `game.run_frames` (quadros em PLAYING).
+  - `game_state.py`: estado `VICTORY`. `ui/screens/victory.py` (nova, `VictoryScreen`): véu escuro semitransparente sobre o cenário, "VITÓRIA!" com contorno, "Campanha concluída", tempo mm:ss.d e botão `lan_back_btn` (volta ao MENU, carrega a fase 1 e encerra o multiplayer se ativo). Ligada em `ui/screens/__init__.py` e em `game.py` (instância + despacho no `run`).
+  - `run_frames` zera ao escolher fase no menu de fases e ao iniciar partida multiplayer. `core/level_loader.py` zera `boss_clear_frames`. `core/renderer.py`: fundo de pântano para `level >= 4`.
+- Resultados: bot `--god` na fase 4 conclui em 9,0 s; teste 3 → transição → 4 → transição chega em `VICTORY` (captura conferida). Sem `--god`, sementes 0 e 1: fases 1-3 passam e o Dragão mata o bot na fase 4 em 3,8 s (fica para a etapa 5).
+- Observação para a etapa 7: no multiplayer cada lado decide a vitória sozinho (sem mensagem de fase na rede).
+- Próximos passos: etapa 3 (core/progress.py e selos no menu de fases).
 
 ### 2026-11-18 — Etapa 1 do plano: correção da troca de fase
 - Pedido: continuar o plano a partir do fim da etapa 1; o bot morria na fase 2 ao jogar fases seguidas no mesmo Game.

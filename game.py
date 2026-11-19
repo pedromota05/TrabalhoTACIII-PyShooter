@@ -40,6 +40,7 @@ from ui.screens import (
     LevelSelectScreen,
     PauseOverlay,
     GameOverScreen,
+    VictoryScreen,
     MultiplayerMenuScreen,
     LevelEditorScreen,
 )
@@ -74,6 +75,7 @@ class Game:
         self.screen_scroll = 0
         self.bg_scroll = 0
         self.start_intro = False
+        self.run_frames = 0  # quadros jogados na partida (tempo na tela de vitória)
         self.previous_state = None
 
         # ----- Volume -----
@@ -122,6 +124,7 @@ class Game:
         self.level_select_screen = LevelSelectScreen(self.assets, self.font, self.font_bold)
         self.pause_screen = PauseOverlay(self.assets, self.title_font)
         self.game_over_screen = GameOverScreen(self.assets)
+        self.victory_screen = VictoryScreen(self.assets)
         self.multiplayer_screen = MultiplayerMenuScreen(self.assets, self.font, self.font_bold)
         self.editor_screen = LevelEditorScreen(self.assets)
 
@@ -202,6 +205,7 @@ class Game:
         self.is_host = True
         self.level = 1
         self.bg_scroll = 0
+        self.run_frames = 0
         self.start_intro = True
         self._load_level(self.level)
         self.state = GameState.PLAYING
@@ -219,6 +223,7 @@ class Game:
         self.is_host = False
         self.level = 1
         self.bg_scroll = 0
+        self.run_frames = 0
         self.start_intro = True
         self._load_level(self.level)
         self.state = GameState.PLAYING
@@ -273,6 +278,8 @@ class Game:
                 self._update_level_transition()
             elif self.state == GameState.GAME_OVER:
                 self.game_over_screen.update(self.screen, self)
+            elif self.state == GameState.VICTORY:
+                self.victory_screen.update(self.screen, self)
 
             self._handle_events()
             button.Button.update_cursor()

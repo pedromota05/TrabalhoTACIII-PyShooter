@@ -8,6 +8,7 @@ from .options import OptionsScreen
 from .level_select import LevelSelectScreen
 from .pause import PauseOverlay
 from .game_over import GameOverScreen
+from .victory import VictoryScreen
 from .multiplayer_menu import MultiplayerMenuScreen
 from .level_editor import LevelEditorScreen
 
@@ -18,6 +19,7 @@ __all__ = [
     'LevelSelectScreen',
     'PauseOverlay',
     'GameOverScreen',
+    'VictoryScreen',
     'MultiplayerMenuScreen',
     'LevelEditorScreen',
 ]

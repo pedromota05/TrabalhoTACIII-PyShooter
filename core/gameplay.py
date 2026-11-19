@@ -3,10 +3,28 @@
 import pygame
 
 from asset_manager import AssetManager
-from config import BLACK, MAX_LEVELS
+from config import BLACK, FPS, MAX_LEVELS
 from entities import DragonBoss, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from game_state import GameState
+
+
+# Espera após a morte do último chefe antes de concluir a fase (animação de morte).
+BOSS_DEATH_DELAY_FRAMES = int(1.5 * FPS)
+
+
+def is_level_complete(game, touched_exit: bool) -> bool:
+    """A fase termina ao tocar a saída ou, numa fase de chefes sem saída,
+    cerca de 1,5 s depois que todos os chefes morrem."""
+    if touched_exit:
+        return True
+    if len(game.exit_group) or not len(game.boss_group):
+        return False
+    if any(boss.alive for boss in game.boss_group):
+        game.boss_clear_frames = 0
+        return False
+    game.boss_clear_frames = getattr(game, 'boss_clear_frames', 0) + 1
+    return game.boss_clear_frames >= BOSS_DEATH_DELAY_FRAMES
 
 
 def get_target_player(entity, local_player, remote_players_group):
@@ -239,6 +257,7 @@ def update_game_entities(game) -> None:
 
 def update_playing(game) -> None:
     """Executa um frame de gameplay ativo."""
+    game.run_frames = getattr(game, 'run_frames', 0) + 1
     game._update_game_entities()
     game._draw_game_entities()
 
@@ -287,7 +306,7 @@ def update_playing(game) -> None:
                 game.shoot, game.player.health
             )
 
-        if level_complete:
+        if is_level_complete(game, level_complete):
             game.state = GameState.LEVEL_TRANSITION
     else:
         game.screen_scroll = 0
@@ -298,15 +317,12 @@ def update_playing(game) -> None:
 
 
 def update_level_transition(game) -> None:
-    """Carrega a próxima fase ou retorna ao menu ao fim da campanha."""
+    """Carrega a próxima fase ou vai para a tela de vitória ao fim da campanha."""
     game.screen.fill(BLACK)
     game.start_intro = True
+    if game.level >= MAX_LEVELS:
+        game.state = GameState.VICTORY
+        return
     game.level += 1
-    game.bg_scroll = 0
-    if game.level <= MAX_LEVELS:
-        game._load_level(game.level)
-        game.state = GameState.PLAYING
-    else:
-        game.level = 3
-        game._load_level(game.level)
-        game.state = GameState.MENU
+    game._load_level(game.level)
+    game.state = GameState.PLAYING

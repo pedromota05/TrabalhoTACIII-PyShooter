@@ -7,7 +7,7 @@ def draw_background(game) -> None:
     """Desenha o background com parallax conforme a fase atual."""
     game.screen.fill(BG_COLOR)
 
-    if game.level == 4:
+    if game.level >= 4:
         bg_swamp = game.assets.get_image('bg_swamp')
         swamp_width = bg_swamp.get_width()
         for i in range(5):

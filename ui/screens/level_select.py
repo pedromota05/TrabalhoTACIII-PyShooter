@@ -49,6 +49,7 @@ class LevelSelectScreen:
             if btn.draw(screen):
                 game.level = i + 1
                 game.bg_scroll = 0
+                game.run_frames = 0
                 game.start_intro = True
                 game._load_level(game.level)
                 game.state = GameState.PLAYING
