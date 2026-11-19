@@ -62,6 +62,7 @@ class PauseOverlay:
             game.previous_state = game.state
             game.state = GameState.OPTIONS
         elif self.pause_exit_btn.draw(screen):
+            game.challenge_mode = False
             game.state = GameState.LEVEL_SELECT
             game.bg_scroll = 0
             game.start_intro = True

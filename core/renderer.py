@@ -81,9 +81,30 @@ def draw_game_entities(game) -> None:
     if game.player.speed_boost:
         draw_text(game, 'SPEED BOOST!', YELLOW, 10, 85, game.font_bold)
 
+    if getattr(game, 'challenge_mode', False):
+        draw_challenge_hud(game)
+
     if getattr(game, 'checkpoint_msg_frames', 0) > 0:
         msg = game.title_font.render('CHECKPOINT!', True, (60, 220, 90))
         shadow = game.title_font.render('CHECKPOINT!', True, (0, 0, 0))
         rect = msg.get_rect(centerx=SCREEN_WIDTH // 2, top=90)
         game.screen.blit(shadow, rect.move(3, 3))
         game.screen.blit(msg, rect)
+
+
+def _blit_shadowed(game, text: str, color: tuple, font, center_x: int, top: int) -> None:
+    """Texto centralizado com sombra preta (legível sobre qualquer cenário)."""
+    shadow = font.render(text, True, (0, 0, 0))
+    image = font.render(text, True, color)
+    rect = image.get_rect(centerx=center_x, top=top)
+    game.screen.blit(shadow, rect.move(2, 2))
+    game.screen.blit(image, rect)
+
+
+def draw_challenge_hud(game) -> None:
+    """Cronômetro (mm:ss.d) e 'FASE x/5' no topo central durante o Modo Desafio."""
+    from ui.screens.victory import format_time  # import tardio evita ciclo com ui.screens
+    total = len(game.challenge_levels)
+    _blit_shadowed(game, format_time(game.run_frames), YELLOW, game.title_font, SCREEN_WIDTH // 2, 8)
+    _blit_shadowed(game, f'FASE {game.challenge_index + 1}/{total}', WHITE, game.font_bold,
+                   SCREEN_WIDTH // 2, 68)

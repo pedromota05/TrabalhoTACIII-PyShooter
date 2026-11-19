@@ -340,10 +340,32 @@ def update_playing(game) -> None:
         game.state = GameState.PAUSE
 
 
+def update_challenge_transition(game) -> None:
+    """Modo Desafio: avança para a próxima fase da lista levando vida, munição
+    e granadas; depois da última, grava o tempo e mostra a vitória.
+    Não marca fases nem a campanha como concluídas."""
+    game.challenge_index += 1
+    if game.challenge_index >= len(game.challenge_levels):
+        game.challenge_new_record = progress.registrar_tempo_desafio(game.run_frames / FPS)
+        game.state = GameState.VICTORY
+        return
+    old = game.player
+    carried = (old.health, old.ammo, old.grenades)
+    game.level = game.challenge_levels[game.challenge_index]
+    game._load_level(game.level)
+    new = game.player
+    new.health = min(carried[0], new.max_health)  # vida máxima continua 100
+    new.ammo, new.grenades = carried[1], carried[2]
+    game.state = GameState.PLAYING
+
+
 def update_level_transition(game) -> None:
     """Carrega a próxima fase ou vai para a tela de vitória ao fim da campanha."""
     game.screen.fill(BLACK)
     game.start_intro = True
+    if getattr(game, 'challenge_mode', False):
+        update_challenge_transition(game)
+        return
     progress.marcar_fase(game.level)
     if game.level >= MAX_LEVELS:
         # Só conta como campanha zerada quando todas as fases já foram vencidas

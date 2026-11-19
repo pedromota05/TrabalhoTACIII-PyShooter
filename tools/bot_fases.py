@@ -11,6 +11,11 @@ Uso (na raiz do projeto):
     python tools/bot_fases.py todas --humano 30
         # 30 tentativas por fase com ruído no controle (simula uma pessoa):
         # mostra taxa de sucesso e o mapa de mortes por trecho da fase.
+    python tools/bot_fases.py --desafio [--capturas PASTA]
+        # Modo Desafio: chama game.start_challenge() e joga as fases 1 a 5
+        # seguidas, pelas transições reais (game._update_level_transition()),
+        # conferindo vida/munição levadas entre fases e o recorde gravado.
+        # --capturas salva PNGs do HUD de cada fase e da tela de vitória.
     Opções: --god (invencível), --max-seg N, --seed N, --checkpoint
         (--checkpoint: ao morrer, renasce no checkpoint e continua)
 """
@@ -326,6 +331,87 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
     }
 
 
+def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=None):
+    """Joga o Modo Desafio inteiro (fases 1 a 5) com a lógica real do jogo.
+
+    Em cada troca de fase confere se vida, munição e granadas do jogador
+    antigo chegaram ao jogador da fase nova. No fim, confere o recorde salvo."""
+    from core import progress
+    random.seed(seed)
+    if capturas:
+        os.makedirs(capturas, exist_ok=True)
+    campanha_antes = progress.carregar()['campanha_zerada']
+    game.start_challenge()
+    game.start_intro = False
+    bot = Bot(game, humano=humano, rng=random.Random(seed))
+    inicio = FRAME[0]
+    inicio_fase = FRAME[0]
+    fases, problemas = [], []
+    capturou_fase = set()
+    resultado = 'tempo_esgotado'
+    while FRAME[0] - inicio < max_seg * 60:
+        FRAME[0] += 1
+        if god:
+            game.player.health = 100
+        bot.tick()
+        game._update_playing()
+        pygame.event.pump()
+        # Captura do HUD 3 s depois do início de cada fase.
+        if (capturas and game.state == GameState.PLAYING
+                and FRAME[0] - inicio_fase == 180 and game.level not in capturou_fase):
+            capturou_fase.add(game.level)
+            pygame.image.save(game.screen, os.path.join(capturas, f'desafio_hud_fase{game.level}.png'))
+        if game.state == GameState.GAME_OVER:
+            fases.append({'fase': game.level, 'resultado': 'morreu',
+                          'causa': causa_morte(game),
+                          'segundos': round((FRAME[0] - inicio_fase) / 60, 1)})
+            resultado = 'morreu'
+            if capturas:
+                for _ in range(120):  # fade + texto "DESAFIO ENCERRADO"
+                    FRAME[0] += 1
+                    game.game_over_screen.update(game.screen, game)
+                pygame.image.save(game.screen, os.path.join(capturas, 'desafio_game_over.png'))
+            break
+        if game.state == GameState.LEVEL_TRANSITION:
+            p = game.player
+            antes = (min(p.health, p.max_health), p.ammo, p.grenades)
+            fase_antes = game.level
+            fases.append({'fase': fase_antes, 'resultado': 'passou',
+                          'segundos': round((FRAME[0] - inicio_fase) / 60, 1),
+                          'vida': p.health, 'municao': p.ammo, 'granadas': p.grenades})
+            game._update_level_transition()
+            game.start_intro = False
+            inicio_fase = FRAME[0]
+            if game.state == GameState.VICTORY:
+                resultado = 'venceu'
+                break
+            p = game.player
+            depois = (p.health, p.ammo, p.grenades)
+            if depois != antes:
+                problemas.append(f'fase {fase_antes}->{game.level}: levou {antes}, chegou {depois}')
+            if game.level != fase_antes + 1:
+                problemas.append(f'fase {fase_antes} foi para {game.level} (esperado {fase_antes + 1})')
+            if len(game.checkpoint_group):
+                problemas.append(f'fase {game.level} com checkpoints no Desafio')
+    segundos = round((FRAME[0] - inicio) / 60, 1)
+    saida = {'resultado': resultado, 'segundos_total': segundos,
+             'cronometro': game.run_frames, 'fases': fases}
+    if resultado == 'venceu':
+        saida['novo_recorde'] = game.challenge_new_record
+        saida['recorde_salvo'] = progress.carregar()['recorde_desafio']
+        if saida['recorde_salvo'] is None:
+            problemas.append('recorde não foi gravado')
+        if progress.carregar()['campanha_zerada'] and not campanha_antes:
+            problemas.append('o Desafio marcou a campanha como zerada')
+        if capturas:
+            for _ in range(60):  # véu da vitória chega à opacidade final em ~30 quadros
+                FRAME[0] += 1
+                game.victory_screen.update(game.screen, game)
+            pygame.image.save(game.screen, os.path.join(capturas, 'desafio_vitoria.png'))
+    saida['problemas'] = problemas
+    return saida
+
+
 def main(argv):
     fases = []
     for i, a in enumerate(argv):
@@ -341,6 +427,11 @@ def main(argv):
     god = '--god' in argv
     cp = '--checkpoint' in argv
     game = novo_jogo()
+    if '--desafio' in argv:
+        capturas = opt('--capturas', '')
+        res = jogar_desafio(game, seed, god, opt('--max-seg', 900), humano_n > 0, capturas or None)
+        print(json.dumps(res, ensure_ascii=False, indent=1))
+        return
     saida = []
     for fase in fases or [1]:
         if humano_n:
@@ -364,7 +455,7 @@ def main(argv):
 
 def fases_opcao(argv, i):
     """True se argv[i] é o valor de uma opção (ex.: o '30' de '--humano 30')."""
-    return i > 0 and argv[i - 1] in ('--humano', '--seed', '--max-seg')
+    return i > 0 and argv[i - 1] in ('--humano', '--seed', '--max-seg', '--capturas')
 
 
 if __name__ == '__main__':

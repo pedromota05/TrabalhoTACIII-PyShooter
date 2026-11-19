@@ -78,6 +78,12 @@ class Game:
         self.run_frames = 0  # quadros jogados na partida (tempo na tela de vitória)
         self.previous_state = None
 
+        # ----- Modo Desafio (maratona das fases 1 a 5 com uma vida) -----
+        self.challenge_mode = False
+        self.challenge_levels = [1, 2, 3, 4, 5]
+        self.challenge_index = 0
+        self.challenge_new_record = False  # resultado do último Desafio concluído
+
         # ----- Volume -----
         self.music_vol = round(pygame.mixer.music.get_volume() * 12)
         sample_sfx = self.assets.get_sound('shot')
@@ -191,6 +197,22 @@ class Game:
         update_level_transition(self)
 
     # ==================================================================
+    #  Modo Desafio
+    # ==================================================================
+    def start_challenge(self) -> None:
+        """Começa o Modo Desafio: fases 1 a 5 seguidas, sem checkpoints,
+        com vida e munição levadas de uma fase para a outra."""
+        self.challenge_mode = True
+        self.challenge_index = 0
+        self.challenge_new_record = False
+        self.level = self.challenge_levels[0]
+        self.run_frames = 0
+        self.bg_scroll = 0
+        self.start_intro = True
+        self._load_level(self.level)  # challenge_mode já ligado: sem bandeiras
+        self.state = GameState.PLAYING
+
+    # ==================================================================
     #  Controle de Multiplayer LAN
     # ==================================================================
     def start_multiplayer_host(self, port: int = 5555) -> bool:
@@ -206,6 +228,7 @@ class Game:
             self.clean_multiplayer()
             return False
 
+        self.challenge_mode = False
         self.is_multiplayer = True
         self.is_host = True
         self.level = 1
@@ -224,6 +247,7 @@ class Game:
             self.clean_multiplayer()
             return False
 
+        self.challenge_mode = False
         self.is_multiplayer = True
         self.is_host = False
         self.level = 1

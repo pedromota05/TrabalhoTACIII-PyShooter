@@ -9,6 +9,7 @@ from config import (
     MENU_SCALE,
 )
 from asset_manager import AssetManager
+from core import progress
 from game_state import GameState
 from ui.screens.common import draw_text_with_outline
 
@@ -52,17 +53,37 @@ class VictoryScreen:
 
         draw_text_with_outline(screen, 'VITÓRIA!', self.title_font, GOLD,
                                SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 200, thickness=4)
-        draw_text_with_outline(screen, 'Campanha concluída', self.info_font, WHITE,
-                               SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80)
-        draw_text_with_outline(screen, f'Tempo: {format_time(game.run_frames)}',
-                               self.info_font, YELLOW,
-                               SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20)
+        if getattr(game, 'challenge_mode', False):
+            self._draw_challenge_info(screen, game)
+        else:
+            draw_text_with_outline(screen, 'Campanha concluída', self.info_font, WHITE,
+                                   SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80)
+            draw_text_with_outline(screen, f'Tempo: {format_time(game.run_frames)}',
+                                   self.info_font, YELLOW,
+                                   SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20)
 
         if self.menu_button.draw(screen):
             self.alpha = 0
+            game.challenge_mode = False
             if getattr(game, 'is_multiplayer', False):
                 game.clean_multiplayer()
             game.level = 1
             game.start_intro = True
             game._load_level(game.level)
             game.state = GameState.MENU
+
+    def _draw_challenge_info(self, screen: pygame.Surface, game) -> None:
+        """Textos do Desafio: tempo da maratona, recorde salvo e aviso de novo recorde."""
+        draw_text_with_outline(screen, 'Desafio concluído', self.info_font, WHITE,
+                               SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 110)
+        draw_text_with_outline(screen, f'Tempo: {format_time(game.run_frames)}',
+                               self.info_font, YELLOW,
+                               SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 55)
+        record = progress.carregar()['recorde_desafio']
+        if record is not None:
+            draw_text_with_outline(screen, f'Recorde: {format_time(int(round(record * FPS)))}',
+                                   self.info_font, WHITE,
+                                   SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        if getattr(game, 'challenge_new_record', False):
+            draw_text_with_outline(screen, 'NOVO RECORDE!', self.info_font, GOLD,
+                                   SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40, thickness=3)

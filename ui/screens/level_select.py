@@ -95,6 +95,7 @@ class LevelSelectScreen:
         # Desenhar botões e checar cliques (todas as fases continuam abertas)
         for i, btn in enumerate(self.level_buttons):
             if btn.draw(screen):
+                game.challenge_mode = False
                 game.level = i + 1
                 game.bg_scroll = 0
                 game.run_frames = 0
@@ -109,9 +110,8 @@ class LevelSelectScreen:
             info = f'Recorde: {format_time(int(record * FPS))}' if record is not None else 'Sem recorde ainda'
             draw_text_with_outline(screen, info, self.small_font, WHITE,
                                    SCREEN_WIDTH // 2, self.challenge_open.rect.bottom + 8)
-            start = getattr(game, 'start_challenge', None)  # implementado na etapa do Desafio
-            if clicked and start:
-                start()
+            if clicked:
+                game.start_challenge()
         else:
             self.challenge_locked.draw(screen)
             draw_text_with_outline(screen, 'Zere a campanha para liberar', self.small_font, LOCKED_GREY,
