@@ -3,15 +3,23 @@
 ## Resumo
 - Jogo: campanha com 4 fases (vitória ao matar os 2 chefes da fase 4), progresso salvo, menu de fases com selos, checkpoints nas fases 1-3 e mapas ajustados (modo humano 80% nas fases 1-3).
 - Plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): etapas 1 a 7 com código pronto na branch trabalho-parte2.
-- 2026-11-19: etapa 6 (Modo Desafio, commit a8983ea) e etapa 7 (multiplayer, commit 58e26eb) feitas no PC da CLM, SEM pygame instalado (pedido para não baixar dependências).
+- 2026-11-19: etapa 6 (Modo Desafio, commit a8983ea) e etapa 7 (multiplayer, commit cdffc64) feitas no PC da CLM, SEM pygame instalado (pedido para não baixar dependências).
 - Validado no PC da CLM: lógica da transição do Desafio e da sincronização de fase (com módulos falsos) e mensagens de rede com sockets UDP reais (12/12 OK).
 - NÃO validado ainda: bot --desafio jogando de verdade, capturas de tela do HUD/vitória e tools/teste_multiplayer.py (precisam de pygame).
 - Multiplayer: nova mensagem "level"/"levelreq" (fase sincronizada), bala remota só visual (antes dava dano em dobro e fogo amigo), jogador morto não cai por timeout, Restart renasce ao lado do parceiro, Pausa -> Sair desconecta.
 - GDD (docs/GDD_Trabalho2.md) atualizado com Vitória, Desafio, checkpoints e protocolo; checklist manual em docs/checklist_teste_multiplayer.md.
 - 2026-11-19: rascunho dos slides da apresentação (15 slides) em https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL, com roteiro da demo nas notas; cópia em PowerPoint em docs/apresentacao/2026-11-19_slides-pyshooter.pptx.
-- Próximos passos: no PC de casa rodar `python tools/bot_fases.py --desafio --capturas docs/capturas` e `python tools/teste_multiplayer.py`, corrigir o que falhar; teste manual em 2 PCs; revisar os slides, pôr capturas da gameplay e ensaiar (semana de 2026-11-23).
+- 2026-11-19: guia de estudo para Guilherme e Pedro explicarem o código na aula em docs/2026-11-19_guia-de-estudo-apresentacao.md (loop, estados, CSV, câmera, física, IA, multiplayer, padrões, perguntas prováveis).
+- Apresentação final do T2: 2026-11-24 (data do docs/T2.pdf), com entrega do relatório em PDF no Classroom.
+- Próximos passos: no PC de casa rodar `python tools/bot_fases.py --desafio --capturas docs/capturas` e `python tools/teste_multiplayer.py`, corrigir o que falhar; teste manual em 2 PCs; ler o guia de estudo, revisar os slides, pôr capturas da gameplay e ensaiar antes de 2026-11-24.
 
 ---
+
+### 2026-11-19 — Guia de estudo para a apresentação
+- Pedido: um documento para Guilherme e Pedro lerem e conseguirem explicar o projeto na aula, já que muita coisa foi feita com IA.
+- Feito: `docs/2026-11-19_guia-de-estudo-apresentacao.md`, escrito a partir da leitura do código (game.py, core/, entities/, world/, network/, tools/) e do docs/T2.pdf. Seções: discurso de 1 minuto; pedidos do T2 e onde estão; mapa das pastas; loop principal; máquina de estados; fase CSV → `World.process_data`; câmera (`bg_scroll`/`screen_scroll`, mundo × tela); física e colisão AABB; IA dos inimigos; combate; checkpoints, save e Desafio; multiplayer (UDP, threads e Lock, protocolo, quadro do Host × cliente, `target_id`, LERP com exemplo numérico, heartbeat, troca de fase, bugs corrigidos); padrões de projeto com ressalvas honestas (Observer e Proxy não são a forma clássica); bot A* e teste de 2 processos; limitações; 15 perguntas prováveis com respostas; glossário; sugestão de divisão da fala. Links com número de linha conferidos em 2026-11-19.
+- Resultados: observado que o comentário de `TILE_SIZE` em config.py diz 37, mas o valor é 40 (640 / 16); não alterado. A data da apresentação no T2.pdf é 2026-11-24.
+- Próximos passos: os dois lerem o guia e explicarem a seção 5 (multiplayer) um para o outro; ajustar a divisão da fala.
 
 ### 2026-11-19 — Rascunho dos slides da apresentação
 - Pedido: começar os slides da apresentação no PC da CLM.
