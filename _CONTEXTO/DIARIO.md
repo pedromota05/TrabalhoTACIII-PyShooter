@@ -8,7 +8,7 @@
 - NÃO validado ainda: bot --desafio jogando de verdade, capturas de tela do HUD/vitória e tools/teste_multiplayer.py (precisam de pygame).
 - Multiplayer: nova mensagem "level"/"levelreq" (fase sincronizada), bala remota só visual (antes dava dano em dobro e fogo amigo), jogador morto não cai por timeout, Restart renasce ao lado do parceiro, Pausa -> Sair desconecta.
 - GDD (docs/GDD_Trabalho2.md) atualizado com Vitória, Desafio, checkpoints e protocolo; checklist manual em docs/checklist_teste_multiplayer.md.
-- 2026-11-19: rascunho dos slides da apresentação (15 slides) em https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL, com roteiro da demo nas notas.
+- 2026-11-19: rascunho dos slides da apresentação (15 slides) em https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL, com roteiro da demo nas notas; cópia em PowerPoint em docs/apresentacao/2026-11-19_slides-pyshooter.pptx.
 - Próximos passos: no PC de casa rodar `python tools/bot_fases.py --desafio --capturas docs/capturas` e `python tools/teste_multiplayer.py`, corrigir o que falhar; teste manual em 2 PCs; revisar os slides, pôr capturas da gameplay e ensaiar (semana de 2026-11-23).
 
 ---
@@ -16,6 +16,7 @@
 ### 2026-11-19 — Rascunho dos slides da apresentação
 - Pedido: começar os slides da apresentação no PC da CLM.
 - Feito: deck de 15 slides no Claude (https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL, privado até ser compartilhado pelo menu Share): capa com a arte da fase 1, o jogo, o que entrou no Trabalho 2, demo ao vivo, arquitetura (fachada e core/), máquina de estados, padrões de projeto, campanha, Modo Desafio, bot de testes (8%/0%/8% -> 80%), multiplayer, protocolo, correções, fórmulas e encerramento. Notas do apresentador em cada slide, com o roteiro da demo no slide 4. Conteúdo tirado do docs/GDD_Trabalho2.md e deste diário.
+- Exportado para PowerPoint pelo menu Share › Export do deck e salvo em `docs/apresentacao/2026-11-19_slides-pyshooter.pptx` (15 slides).
 - Resultados: sem capturas de gameplay (o PC da CLM não tem pygame); o slide de correções afirma correções do multiplayer que ainda não foram validadas com o teste completo.
 - Próximos passos: revisar textos, incluir capturas de tela da gameplay, dividir a fala entre Guilherme e Pedro e ensaiar.
 
