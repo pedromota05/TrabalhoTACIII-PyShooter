@@ -1,17 +1,31 @@
 # Diário — PyShooter
 
 ## Resumo
-- Jogo: campanha com 4 fases (vitória ao matar os 2 chefes da fase 4), progresso salvo, menu de fases com selos, checkpoints nas fases 1-3 e mapas ajustados (modo humano 80% nas fases 1-3).
-- Plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): etapas 1 a 7 com código pronto na branch trabalho-parte2.
-- 2026-11-19: etapa 6 (Modo Desafio, commit a8983ea) e etapa 7 (multiplayer, commit cdffc64) feitas no PC da CLM, SEM pygame instalado (pedido para não baixar dependências).
-- Validado no PC da CLM: lógica da transição do Desafio e da sincronização de fase (com módulos falsos) e mensagens de rede com sockets UDP reais (12/12 OK).
-- NÃO validado ainda: bot --desafio jogando de verdade, capturas de tela do HUD/vitória e tools/teste_multiplayer.py (precisam de pygame).
-- Multiplayer: nova mensagem "level"/"levelreq" (fase sincronizada), bala remota só visual (antes dava dano em dobro e fogo amigo), jogador morto não cai por timeout, Restart renasce ao lado do parceiro, Pausa -> Sair desconecta.
-- GDD (docs/GDD_Trabalho2.md) atualizado com Vitória, Desafio, checkpoints e protocolo; checklist manual em docs/checklist_teste_multiplayer.md.
-- 2026-11-19: rascunho dos slides da apresentação (15 slides) em https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL, com roteiro da demo nas notas; cópia em PowerPoint em docs/apresentacao/2026-11-19_slides-pyshooter.pptx.
-- 2026-11-19: guia de estudo para Guilherme e Pedro explicarem o código na aula em docs/2026-11-19_guia-de-estudo-apresentacao.md (loop, estados, CSV, câmera, física, IA, multiplayer, padrões, perguntas prováveis).
-- Apresentação final do T2: 2026-11-24 (data do docs/T2.pdf), com entrega do relatório em PDF no Classroom.
-- Próximos passos: no PC de casa rodar `python tools/bot_fases.py --desafio --capturas docs/capturas` e `python tools/teste_multiplayer.py`, corrigir o que falhar; teste manual em 2 PCs; ler o guia de estudo, revisar os slides, pôr capturas da gameplay e ensaiar antes de 2026-11-24.
+- Jogo: campanha com 4 fases (vitória ao matar os 2 chefes da fase 4), progresso salvo, menu de fases com selos, checkpoints nas fases 1-3, mapas ajustados e Modo Desafio (fases 1 a 5 seguidas, com recorde de tempo).
+- Plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): etapas 1 a 7 prontas na branch trabalho-parte2.
+- Multiplayer: fase sincronizada ("level"/"levelreq"), bala remota só visual (sem dano em dobro nem fogo amigo), morto não cai por timeout, Restart renasce ao lado do parceiro, Pausa -> Sair desconecta.
+- 2026-11-19 (PC de casa, pygame-ce 2.5.8), VALIDADO com testes automáticos:
+  - `python tools/bot_fases.py todas`: fases 1 a 4 passam.
+  - `python tools/bot_fases.py --desafio --god --capturas docs/capturas`: fases 1-5 passam, sem problemas; sem --god o bot morre para o DragonBoss na fase 4 (dificuldade, não erro).
+  - `python tools/teste_multiplayer.py`: 7 de 7 itens OK (após ajustar a medição do item 2).
+- Corrigido em 2026-11-19: HUD do Desafio mostrava "FASE 6/5" atrás da tela de vitória (core/renderer.py).
+- Capturas da gameplay (HUD das 5 fases, Game Over e Vitória do Desafio) em docs/capturas/, para os slides.
+- Slides: https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL e docs/apresentacao/2026-11-19_slides-pyshooter.pptx; guia de estudo em docs/2026-11-19_guia-de-estudo-apresentacao.md.
+- Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
+- Próximos passos: commit das mudanças de 2026-11-19 (casa); teste manual em 2 PCs (docs/checklist_teste_multiplayer.md); pôr as capturas nos slides; ler o guia e ensaiar antes de 2026-11-24.
+
+---
+
+### 2026-11-19 — Validação com pygame no PC de casa (bot, Desafio e multiplayer)
+- Pedido: fazer o pull e continuar os testes que ficaram pendentes por falta de pygame no PC da CLM.
+- Feito: `git pull` (até f6211ac). Rodados `tools/bot_fases.py --desafio --capturas docs/capturas`, `tools/bot_fases.py --desafio --god --capturas docs/capturas`, `tools/bot_fases.py todas` e `tools/teste_multiplayer.py` (3 vezes).
+- Resultados:
+  - Campanha (bot): fases 1 a 4 passam.
+  - Desafio sem --god: fases 1-3 passam e o bot morre para o DragonBoss na fase 4 (dificuldade do chefe para o bot, não erro de lógica; "problemas" vazio). Com --god: fases 1-5 passam, vida/munição/granadas levadas entre fases, recorde 01:22.7 gravado, campanha não marcada.
+  - Multiplayer: itens 1 e 3 a 7 e porta liberada OK desde a 1ª execução. O item 2 (posição dos inimigos) falhava (95% até 18-47 px; tolerância 12 px). Medido o tempo de cada quadro: 100% dos quadros lentos (até ~630 ms) eram o A* do bot (`bot.tick`), não o jogo (p99 do quadro sem o bot: 10-15 ms). Com o processo parado, a comparação fica injusta. Ajuste em `tools/teste_multiplayer.py`: o log grava `ms_bot`/`ms_quadro` e o item 2 descarta 1 s após cada quadro > 50 ms. Resultado: 95% até 11 px, máx 16,5 px -> 7/7 OK.
+  - Bug corrigido em `core/renderer.py` (`draw_challenge_hud`): atrás da tela de vitória o HUD mostrava "FASE 6/5"; agora limita em 5/5.
+  - Capturas salvas em `docs/capturas/` (desafio_hud_fase1..5.png, desafio_game_over.png, desafio_vitoria.png).
+- Próximos passos: commit; teste manual em 2 PCs com o checklist; usar as capturas nos slides.
 
 ---
 

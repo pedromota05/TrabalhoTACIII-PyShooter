@@ -106,5 +106,6 @@ def draw_challenge_hud(game) -> None:
     from ui.screens.victory import format_time  # import tardio evita ciclo com ui.screens
     total = len(game.challenge_levels)
     _blit_shadowed(game, format_time(game.run_frames), YELLOW, game.title_font, SCREEN_WIDTH // 2, 8)
-    _blit_shadowed(game, f'FASE {game.challenge_index + 1}/{total}', WHITE, game.font_bold,
+    fase = min(game.challenge_index + 1, total)  # após a última fase o índice passa do total
+    _blit_shadowed(game, f'FASE {fase}/{total}', WHITE, game.font_bold,
                    SCREEN_WIDTH // 2, 68)

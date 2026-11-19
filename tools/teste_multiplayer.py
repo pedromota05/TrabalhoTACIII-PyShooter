@@ -45,6 +45,8 @@ HOST_ID = 'P1 (Host)'
 CLIENTE_ID = 'P2 (Cliente)'
 LOG_A_CADA = 6            # quadros entre registros no log (0,1 s)
 FIM_APOS_VITORIA = 3.0    # segundos que cada lado continua depois da vitória
+QUADRO_LENTO_MS = 50      # quadro mais lento que isso = travada (A* do bot)
+JANELA_TRAVADA = 1.0      # segundos descartados na comparação após uma travada
 
 
 def _opt(argv, nome, padrao):
@@ -128,6 +130,7 @@ def rodar_papel(argv):
     morreu_de_proposito = False
     quadro = 0
     estado_ant, fase_ant = None, None
+    lento_bot = lento_quadro = 0.0   # maior tempo (ms) do bot e do quadro desde a última foto
     try:
         while time.time() - inicio < max_seg:
             quadro += 1
@@ -137,6 +140,7 @@ def rodar_papel(argv):
             if atraso > 0:
                 time.sleep(atraso)
 
+            t_quadro = time.perf_counter()
             seg = time.time() - inicio
             if (morte_em and not morreu_de_proposito and seg >= morte_em
                     and game.state == GameState.PLAYING):
@@ -147,7 +151,9 @@ def rodar_papel(argv):
                 game.player.health = 100
 
             if game.state == GameState.PLAYING:
+                t_bot = time.perf_counter()
                 bot.tick()
+                lento_bot = max(lento_bot, (time.perf_counter() - t_bot) * 1000)
                 game._update_playing()
             elif game.state == GameState.LEVEL_TRANSITION:
                 game._update_level_transition()
@@ -168,6 +174,7 @@ def rodar_papel(argv):
             if game.state != GameState.GAME_OVER:
                 t_game_over = None
             pygame.event.pump()
+            lento_quadro = max(lento_quadro, (time.perf_counter() - t_quadro) * 1000)
 
             if game.state.name != estado_ant or game.level != fase_ant:
                 escrever({'evento': 'estado', 'estado': game.state.name, 'fase': game.level})
@@ -185,7 +192,9 @@ def rodar_papel(argv):
                 escrever({'evento': 'foto', 'quadro': quadro, 'estado': game.state.name,
                           'fase': game.level, 'px': p.rect.centerx + game.bg_scroll,
                           'py': p.rect.centery, 'vida': p.health, 'vivo': bool(p.alive),
-                          'inimigos': inimigos, 'remotos': remotos})
+                          'inimigos': inimigos, 'remotos': remotos,
+                          'ms_bot': round(lento_bot, 1), 'ms_quadro': round(lento_quadro, 1)})
+                lento_bot = lento_quadro = 0.0
     finally:
         escrever({'evento': 'fim', 'estado': game.state.name, 'fase': game.level,
                   'contagem': contagem})
@@ -254,9 +263,17 @@ def analisar(host_log, cli_log, morte_cliente):
             dif_jog.append(math.hypot(rx - fh['px'], ry - fh['py']))
 
     # 2. inimigos na mesma posição
+    # O A* do bot às vezes leva até ~0,6 s num quadro (custo do robô de teste, não
+    # do jogo). Nesse tempo o processo para de enviar/receber e a comparação fica
+    # injusta; por isso descartamos o 1 s seguinte a um quadro lento (> 50 ms).
+    travadas = [r['t'] for r in fotos_h + fotos_c if r.get('ms_quadro', 0) > QUADRO_LENTO_MS]
+    pares_desc = 0
     dif = []
     for fh, fc in pares:
         if fh['estado'] != 'PLAYING' or fc['estado'] != 'PLAYING':
+            continue
+        if any(0 <= fh['t'] - x <= JANELA_TRAVADA for x in travadas):
+            pares_desc += 1
             continue
         for tid, (hx, hy, _, hv) in fh['inimigos'].items():
             if tid in fc['inimigos'] and hv and fc['inimigos'][tid][3]:
@@ -266,7 +283,8 @@ def analisar(host_log, cli_log, morte_cliente):
     item('2. posições dos inimigos iguais (por target_id)', dif and p95 <= 12,
          f'{len(dif)} comparações; mediana {statistics.median(dif) if dif else 0:.1f} px, '
          f'95% até {p95 if p95 is not None else 0:.1f} px, máx {max(dif) if dif else 0:.1f} px '
-         f'(tolerância 12 px, a interpolação do cliente atrasa uns quadros). '
+         f'(tolerância 12 px, a interpolação do cliente atrasa uns quadros; '
+         f'{pares_desc} fotos descartadas por {len(travadas)} travadas do bot). '
          f'Host visto pelo cliente: mediana {statistics.median(dif_jog) if dif_jog else 0:.1f} px')
 
     # 3. tiro do cliente tira vida no host
