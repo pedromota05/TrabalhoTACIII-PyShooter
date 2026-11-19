@@ -26,6 +26,9 @@ from collections import Counter
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('SDL_VIDEODRIVER', 'dummy')
 os.environ.setdefault('SDL_AUDIODRIVER', 'dummy')
+# Progresso do bot vai para um arquivo temporário, sem tocar em save/progresso.json.
+import tempfile  # noqa: E402
+os.environ.setdefault('PYSHOOTER_SAVE', os.path.join(tempfile.gettempdir(), 'pyshooter_bot_progresso.json'))
 os.chdir(RAIZ)
 sys.path.insert(0, RAIZ)
 

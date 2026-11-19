@@ -4,6 +4,7 @@ import pygame
 
 from asset_manager import AssetManager
 from config import BLACK, FPS, MAX_LEVELS
+from core import progress
 from entities import DragonBoss, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from game_state import GameState
@@ -320,7 +321,12 @@ def update_level_transition(game) -> None:
     """Carrega a próxima fase ou vai para a tela de vitória ao fim da campanha."""
     game.screen.fill(BLACK)
     game.start_intro = True
+    progress.marcar_fase(game.level)
     if game.level >= MAX_LEVELS:
+        # Só conta como campanha zerada quando todas as fases já foram vencidas
+        # (quem escolhe a fase 4 direto no menu não libera o Desafio).
+        if set(range(1, MAX_LEVELS + 1)) <= set(progress.carregar()['fases_concluidas']):
+            progress.marcar_campanha_zerada()
         game.state = GameState.VICTORY
         return
     game.level += 1

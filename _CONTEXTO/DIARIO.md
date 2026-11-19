@@ -9,9 +9,21 @@
 - 2026-11-18: aprovado o plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): campanha com 4 fases e vitória ao matar os chefes da fase 4, progresso no menu de fases, checkpoints, edição dos mapas, Modo Desafio (maratona 1→5 com 1 vida) e, por último, teste do multiplayer.
 - Etapa 1 concluída (2026-11-18): bot em tools/bot_fases.py; corrigido bug de câmera ao trocar de fase (core/level_loader.py zera screen_scroll e bg_scroll). Fases 1→2→3 passam em sequência; na fase 4 o Dragão às vezes mata o bot (balanceamento fica para a etapa 5).
 - Etapa 2 concluída (2026-11-18): fase 4 termina 1,5 s após a morte dos 2 chefes e a campanha acaba na nova tela VITÓRIA (tempo da partida + botão de voltar ao menu).
-- Próximos passos: seguir o plano a partir da etapa 3 (progresso salvo e menu de fases); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
+- Etapa 3 concluída (2026-11-18): progresso salvo em save/progresso.json (fora do git) e menu de fases com selo CONCLUÍDA e botão MODO DESAFIO (bloqueado até zerar as 4 fases; o clique só funcionará na etapa 6).
+- Próximos passos: seguir o plano a partir da etapa 4 (checkpoints); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
 
 ---
+
+### 2026-11-18 — Etapa 3 do plano: progresso salvo e menu de fases
+- Pedido: seguir para a etapa 3.
+- Feito:
+  - `core/progress.py` (novo): `carregar()`, `marcar_fase(n)`, `marcar_campanha_zerada()`, `registrar_tempo_desafio(seg)` (devolve True se for recorde). Arquivo `save/progresso.json`, leitura/gravação protegidas (arquivo ausente ou corrompido = progresso vazio); releitura só quando o arquivo muda. Variável `PYSHOOTER_SAVE` troca o caminho. `save/` no `.gitignore`.
+  - `core/gameplay.py` (`update_level_transition`): marca a fase concluída; ao vencer a fase 4 marca a campanha zerada só se as fases 1 a 4 estiverem concluídas (escolher a fase 4 direto no menu não libera o Desafio).
+  - `ui/screens/level_select.py`: contorno verde, medalha com visto e texto "CONCLUÍDA" nas fases vencidas; botão de texto "MODO DESAFIO" (cinza + "Zere a campanha para liberar", ou vermelho + recorde/"Sem recorde ainda"). O clique chama `game.start_challenge()` se existir (será criado na etapa 6). Gamepads subiram 60 px para caber o botão.
+  - `tools/bot_fases.py`: grava o progresso num arquivo temporário (`%TEMP%/pyshooter_bot_progresso.json`) para não mexer no save real.
+- Resultados: teste com save temporário (vazio → 2 fases → campanha zerada → recorde; recorde pior não substitui; arquivo corrompido volta vazio). Capturas do menu conferidas. Fluxo fase 3 → 4 → vitória grava [3, 4] e não libera o Desafio.
+- Observação: a tela de vitória diz "Campanha concluída" mesmo quando a pessoa começou pela fase 4.
+- Próximos passos: etapa 4 (checkpoints).
 
 ### 2026-11-18 — Etapa 2 do plano: fim da campanha e vitória
 - Pedido: seguir para a etapa 2 (vitória e fim da campanha).
