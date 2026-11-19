@@ -1,20 +1,36 @@
 # Diário — PyShooter
 
 ## Resumo
-- Implementado suporte multiplayer LAN UDP completo (Host e Cliente).
-- Corrigida a sincronização de dano e morte de inimigos em rede (pacotes `hit` e `target_id`).
-- Demanda aberta no Trilho para finalizar bateria de testes e correções até sábado (2026-11-14).
-- 2026-11-18: fases 1 a 4 testadas por bot automático (modo solo, dano real). Fases 1, 2 e 3 concluídas; na fase 4 os dois chefes foram mortos, mas o jogo não tem saída nem tela de vitória.
-- Problemas abertos: fase 4 sem munição/vida extra (o Dragão costuma matar o bot); fase 5 será a arena do Modo Desafio (etapa 6).
-- 2026-11-18: aprovado o plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): campanha com 4 fases e vitória ao matar os chefes da fase 4, progresso no menu de fases, checkpoints, edição dos mapas, Modo Desafio (maratona 1→5 com 1 vida) e, por último, teste do multiplayer.
-- Etapa 1 concluída (2026-11-18): bot em tools/bot_fases.py; corrigido bug de câmera ao trocar de fase (core/level_loader.py zera screen_scroll e bg_scroll). Fases 1→2→3 passam em sequência; na fase 4 o Dragão às vezes mata o bot (balanceamento fica para a etapa 5).
-- Etapa 2 concluída (2026-11-18): fase 4 termina 1,5 s após a morte dos 2 chefes e a campanha acaba na nova tela VITÓRIA (tempo da partida + botão de voltar ao menu).
-- Etapa 3 concluída (2026-11-18): progresso salvo em save/progresso.json (fora do git) e menu de fases com selo CONCLUÍDA e botão MODO DESAFIO (bloqueado até zerar as 4 fases; o clique só funcionará na etapa 6).
-- Etapa 4 concluída (2026-11-18): checkpoints com bandeira nas fases 1 a 3 (colunas em config.CHECKPOINTS); Restart da Game Over renasce na última bandeira. Modo humano sem checkpoint: 8% / 0% / 8% de sucesso (fases 1/2/3) — mapas precisam de ajuste na etapa 5.
-- Etapa 5 concluída (2026-11-18): mapas 1-3 alargados nos saltos difíceis; modo humano (sem checkpoint) agora 80% / 80% / 80% (antes 8% / 0% / 8%). Fases 4 e 5 com caixas e plataforma; bot vence as fases 1-5 em sequência.
-- Próximos passos: etapa 6 (Modo Desafio) e etapa 7 (teste do multiplayer); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
+- Jogo: campanha com 4 fases (vitória ao matar os 2 chefes da fase 4), progresso salvo, menu de fases com selos, checkpoints nas fases 1-3 e mapas ajustados (modo humano 80% nas fases 1-3).
+- Plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): etapas 1 a 7 com código pronto na branch trabalho-parte2.
+- 2026-11-19: etapa 6 (Modo Desafio, commit a8983ea) e etapa 7 (multiplayer, commit 58e26eb) feitas no PC da CLM, SEM pygame instalado (pedido para não baixar dependências).
+- Validado no PC da CLM: lógica da transição do Desafio e da sincronização de fase (com módulos falsos) e mensagens de rede com sockets UDP reais (12/12 OK).
+- NÃO validado ainda: bot --desafio jogando de verdade, capturas de tela do HUD/vitória e tools/teste_multiplayer.py (precisam de pygame).
+- Multiplayer: nova mensagem "level"/"levelreq" (fase sincronizada), bala remota só visual (antes dava dano em dobro e fogo amigo), jogador morto não cai por timeout, Restart renasce ao lado do parceiro, Pausa -> Sair desconecta.
+- GDD (docs/GDD_Trabalho2.md) atualizado com Vitória, Desafio, checkpoints e protocolo; checklist manual em docs/checklist_teste_multiplayer.md.
+- Próximos passos: no PC de casa rodar `python tools/bot_fases.py --desafio --capturas docs/capturas` e `python tools/teste_multiplayer.py`, corrigir o que falhar; teste manual em 2 PCs; slides da apresentação (semana de 2026-11-23).
 
 ---
+
+### 2026-11-19 — Etapas 6 (Modo Desafio) e 7 (teste do multiplayer)
+- Pedido: fazer as etapas 6 e 7 do plano no PC da CLM, evitando baixar dependências (pygame-ce não está instalado nesta máquina).
+- Feito (etapa 6, commit a8983ea):
+  - `game.py`: `challenge_mode`, `challenge_levels = [1, 2, 3, 4, 5]`, `challenge_index`, `challenge_new_record` e `Game.start_challenge()`; `challenge_mode = False` ao iniciar multiplayer.
+  - `core/gameplay.py`: `update_challenge_transition` leva vida (máx. 100), munição e granadas para a fase seguinte; depois da fase 5 grava `progress.registrar_tempo_desafio(run_frames / FPS)` e vai para VICTORY; não marca fases nem campanha.
+  - `core/renderer.py`: `draw_challenge_hud` (cronômetro mm:ss.d e "FASE x/5" no topo central).
+  - `ui/screens/game_over.py`: "DESAFIO ENCERRADO" + fase/tempo; Restart recomeça o Desafio na fase 1 (lógica do botão agora em `GameOverScreen.restart`).
+  - `ui/screens/victory.py`: "Desafio concluído", tempo, recorde e "NOVO RECORDE!".
+  - `ui/screens/level_select.py` (botão chama `game.start_challenge()`, fase normal desliga o Desafio) e `ui/screens/pause.py` (Sair desliga o Desafio).
+  - `tools/bot_fases.py`: opção `--desafio` (com `--capturas PASTA`), que passa pelas transições reais e confere vida/munição levadas, checkpoints desligados, recorde gravado e campanha não marcada.
+- Feito (etapa 7, commit 58e26eb):
+  - `network/protocol.py` e `network/client.py`: mensagens `level` (Host -> clientes, fase e vitória, repetida a cada 0,5 s) e `levelreq` (cliente -> Host ao chegar na saída); lote `enemies` leva a fase e o cliente descarta lotes de outra fase.
+  - `core/gameplay.py`: `sync_multiplayer_level` (chamada a cada quadro, inclusive em Game Over e Vitória); cliente pede a troca de fase em vez de trocar sozinho; jogador morto continua mandando sinal (antes caía por timeout em 5 s); `respawn_multiplayer` renasce ao lado do parceiro sem recarregar a fase (`core/level_loader.py`: `move_camera`).
+  - `entities/combat/projectiles.py` + `entities/remote_player.py`: bala de jogador remoto é só visual (`visual_only`); antes o Host aplicava o dano duas vezes e a bala do parceiro feria o jogador local.
+  - `ui/screens/pause.py`: Sair no multiplayer chama `clean_multiplayer()`.
+  - `tools/teste_multiplayer.py` (novo): host e cliente headless em 2 processos (subprocess, sem fork), guiados pelo Bot, com 7 verificações (se veem, posição dos inimigos por target_id, tiro do cliente, morte de inimigo, tiros inimigos, morte de jogador, troca de fase/vitória) e checagem da porta liberada.
+  - `docs/checklist_teste_multiplayer.md` (novo) e `docs/GDD_Trabalho2.md` (Vitória, Desafio, checkpoints, protocolo, RF-17 a RF-21).
+- Resultados: tudo compila; testes no PC da CLM sem pygame passaram — transição do Desafio (fases 1->5, vida/munição/granadas, recorde novo/não novo, campanha intacta), `sync_multiplayer_level` (anúncio, pedido, carga em Game Over, vitória) e rede com sockets UDP reais em 127.0.0.1 (12/12, porta liberada). O analisador do teste multiplayer foi conferido com logs sintéticos. Nenhuma captura de tela foi gerada (sem pygame).
+- Próximos passos: no PC de casa, `python -m pip install pygame-ce Pillow` se faltar; rodar `python tools/bot_fases.py --desafio --capturas docs/capturas` (conferir capturas e recorde) e `python tools/teste_multiplayer.py` (permitir o Python no Firewall se pedir); corrigir o que falhar; teste manual em 2 PCs com o checklist; slides.
 
 ### 2026-11-18 — Etapa 5 do plano: edição dos mapas
 - Pedido: seguir para a etapa 5 enquanto o teste da etapa 4 rodava.

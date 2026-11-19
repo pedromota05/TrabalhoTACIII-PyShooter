@@ -134,3 +134,25 @@ def respawn(game) -> None:
     player.ammo = cp['ammo']
     player.grenades = cp['grenades']
     player.invincible = 60
+
+
+def move_camera(game, world_x: float, level_px: int | None = None) -> None:
+    """Leva a câmera para mostrar `world_x` a 1/3 da tela, em qualquer ponto
+    da fase (diferente de shift_world, que exige bg_scroll = 0)."""
+    if level_px is None:
+        level_px = game.world.level_length * TILE_SIZE
+    new_bg = int(min(max(0, world_x - SCREEN_WIDTH // 3), max(0, level_px - SCREEN_WIDTH)))
+    delta = new_bg - game.bg_scroll
+    if delta == 0:
+        return
+    for _, rect in game.world.obstacle_list + game.world.ramp_list:
+        rect.x -= delta
+    groups = (game.enemy_group, game.boss_group, game.item_box_group,
+              game.decoration_group, game.water_group, game.exit_group,
+              game.checkpoint_group, game.bullet_group, game.grenade_group,
+              game.explosion_group)
+    for group in groups:
+        for sprite in group:
+            sprite.rect.x -= delta
+    game.player.rect.x -= delta
+    game.bg_scroll = new_bg

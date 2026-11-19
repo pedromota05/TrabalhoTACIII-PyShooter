@@ -42,9 +42,22 @@ def encode_enemy_hit(player_id: str, target_id: int, damage: int) -> str:
     return f"{player_id},hit,{target_id},{damage}"
 
 
-def encode_enemies_state(player_id: str, enemies_payload: str) -> str:
-    """Codifica o lote de estados dos inimigos e chefes sincronizados pelo Host."""
-    return f"{player_id},enemies,{enemies_payload}"
+def encode_enemies_state(player_id: str, enemies_payload: str, level: int = 0) -> str:
+    """Codifica o lote de estados dos inimigos e chefes sincronizados pelo Host.
+
+    O último campo é a fase do Host: o cliente descarta lotes de outra fase
+    (os target_id recomeçam do zero a cada fase)."""
+    return f"{player_id},enemies,{enemies_payload},{level}"
+
+
+def encode_level(player_id: str, level: int, victory: bool = False) -> str:
+    """Host -> clientes: fase atual da partida (e se a campanha terminou)."""
+    return f"{player_id},level,{level},{1 if victory else 0}"
+
+
+def encode_level_request(player_id: str, level: int) -> str:
+    """Cliente -> Host: o cliente chegou ao fim da fase `level`."""
+    return f"{player_id},levelreq,{level}"
 
 
 def encode_enemy_shoot(
@@ -116,7 +129,26 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
                     })
                 except ValueError:
                     continue
-        return {"type": "enemies", "player_id": player_id, "enemies": enemies}
+        level = 0
+        if len(parts) >= 4:
+            try:
+                level = int(parts[3])
+            except ValueError:
+                level = 0
+        return {"type": "enemies", "player_id": player_id, "enemies": enemies, "level": level}
+
+    if command == "level" and len(parts) >= 4:
+        try:
+            return {"type": "level", "player_id": player_id,
+                    "level": int(parts[2]), "victory": parts[3] == "1"}
+        except ValueError:
+            return None
+
+    if command == "levelreq" and len(parts) >= 3:
+        try:
+            return {"type": "level_request", "player_id": player_id, "level": int(parts[2])}
+        except ValueError:
+            return None
 
     if command == "eshoot" and len(parts) >= 10:
         try:

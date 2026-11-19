@@ -63,6 +63,8 @@ class PauseOverlay:
             game.state = GameState.OPTIONS
         elif self.pause_exit_btn.draw(screen):
             game.challenge_mode = False
+            if getattr(game, 'is_multiplayer', False):
+                game.clean_multiplayer()  # sair da partida LAN desconecta (e libera a porta no Host)
             game.state = GameState.LEVEL_SELECT
             game.bg_scroll = 0
             game.start_intro = True

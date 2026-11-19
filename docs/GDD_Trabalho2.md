@@ -96,11 +96,17 @@ graph TD
     Menu --> Sair[Encerrar Jogo]
 
     NovoJogo --> Playing[Gameplay Campanha]
+    NovoJogo --> Desafio[Modo Desafio: fases 1 a 5]
     MultiMenu --> Host[Criar Servidor LAN] --> PlayingMulti[Gameplay Cooperativo]
     MultiMenu --> Join[Conectar via IP LAN] --> PlayingMulti
 
     Playing --> Pause[Menu de Pausa]
     Playing --> GameOver[Tela de Game Over]
+    Playing --> Vitoria[Tela de Vitória]
+    Desafio --> GameOver
+    Desafio --> Vitoria
+    PlayingMulti --> Vitoria
+    Vitoria --> Menu
     PlayingMulti --> Pause
     PlayingMulti --> GameOver
     Pause --> Menu
@@ -112,7 +118,7 @@ graph TD
 
 #### Descrição das Telas:
 1. **Menu Principal (`MainMenuScreen`):** Tela inicial elegante com o título do jogo e acesso direto a todas as áreas (Novo Jogo, Multiplayer, Editor de Fases, Instruções, Configurações e Sair).
-2. **Seleção de Fase (`LevelSelectScreen`):** Exibe os gamepads interativos para escolha de fases da campanha (Fases 1 a 4).
+2. **Seleção de Fase (`LevelSelectScreen`):** Exibe os gamepads interativos para escolha de fases da campanha (Fases 1 a 4). As fases já vencidas ganham contorno verde e o selo **CONCLUÍDA** (progresso salvo em `save/progresso.json` por `core/progress.py`). Abaixo fica o botão **MODO DESAFIO**, liberado depois de zerar a campanha, com o recorde de tempo.
 3. **Menu Multiplayer LAN (`MultiplayerMenuScreen`):** Interface dedicada que permite:
    - **Criar Servidor (Host):** Inicializa o socket UDP local e conecta automaticamente o jogador hospedeiro como Jogador 1.
    - **Conectar via IP (Join LAN):** Campo de entrada de texto interativo com cursor piscante para informar o endereço IP do Host (padrão `127.0.0.1`, porta `5555`) e botão de conexão como Jogador 2.
@@ -120,7 +126,13 @@ graph TD
 4. **Editor de Fases (`LevelEditorScreen`):** Ambiente de edição de fases completo com grade, paleta de tiles, atalhos de teclado e botões de I/O em disco.
 5. **Configurações (`OptionsScreen`):** Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (*knobs*) proporcionais.
 6. **Pausa (`PauseOverlay`):** Overlay escurecido sobre a partida em andamento permitindo continuar ou sair para o menu.
-7. **Game Over (`GameOverScreen`):** Exibida ao esgotar os pontos de vida do soldado, permitindo reiniciar a fase imediatamente ou voltar ao menu.
+7. **Game Over (`GameOverScreen`):** Exibida ao esgotar os pontos de vida do soldado. O botão Restart renasce na última bandeira de checkpoint (campanha), recomeça o Desafio na fase 1 (mostra "DESAFIO ENCERRADO") ou, no multiplayer, renasce ao lado do parceiro sem reiniciar a fase.
+8. **Vitória (`VictoryScreen`):** Véu escuro sobre o jogo congelado com "VITÓRIA!" e o tempo da partida. Aparece ao matar os dois chefes da fase 4 (fim da campanha) ou ao terminar a fase 5 no Desafio, quando mostra também o recorde e o aviso **NOVO RECORDE**.
+
+#### Progressão, Checkpoints e Modo Desafio
+- **Campanha:** fases 1 a 4. As fases 1 a 3 terminam na placa de saída; a fase 4 é a arena dos chefes e termina 1,5 s depois que os dois chefes morrem, levando à tela de Vitória.
+- **Checkpoints:** bandeiras nas fases 1 a 3 (colunas em `config.CHECKPOINTS`). Ao passar por uma, o jogo guarda posição, munição, granadas e inimigos já mortos; o Restart renasce ali com vida cheia. Desligados no Desafio e no multiplayer.
+- **Modo Desafio:** maratona das fases 1 a 5 seguidas com uma vida só e sem checkpoints. Vida, munição e granadas passam de uma fase para a outra (vida máxima 100). O HUD mostra o cronômetro (mm:ss.d) e "FASE x/5". A fase 5 é a arena final. O melhor tempo fica salvo como recorde; o Desafio não marca a campanha como zerada.
 
 ---
 
@@ -185,6 +197,13 @@ Os pacotes são transmitidos em strings CSV de baixa sobrecarga de dados:
    $$\text{Formato: } \texttt{"player\_id,quit"}$$
 3. **Remoção pelo Servidor:**
    $$\text{Formato: } \texttt{"player\_id,remove"}$$
+4. **Dano em inimigo:** `player_id,hit,target_id,dano` — quem acertou avisa; o Host aplica o dano (é a autoridade sobre os inimigos).
+5. **Estado dos inimigos (Host → clientes):** `player_id,enemies,lote,fase`, em que o lote tem itens `target_id:x:y:ação:direção:vida:vivo:chefe` separados por `|`. O cliente descarta lotes de outra fase, já que os `target_id` recomeçam em cada fase.
+6. **Tiro de inimigo (Host → clientes):** `player_id,eshoot,tipo,x,y,direção,vx,vy,alvo_x,alvo_y`.
+7. **Fase atual (Host → clientes):** `player_id,level,fase,vitória`, repetida a cada 0,5 s. O cliente carrega a fase anunciada (mesmo na tela de Game Over) ou vai para a Vitória.
+8. **Pedido de troca de fase (cliente → Host):** `player_id,levelreq,fase`, enviado quando o cliente chega à saída; o Host troca de fase e anuncia a todos.
+
+As balas de um jogador remoto são só visuais (`Bullet(visual_only=True)`): o dano chega pela mensagem `hit` de quem atirou, o que evita dano em dobro no Host e fogo amigo.
 
 #### 1.7.2 O Servidor de Jogo (`GameServer`)
 - **Socket UDP com Timeout Seguro:** Configurado com `settimeout(1.0)` em um loop de execução contínuo numa thread *daemon*. Isso garante que a thread possa ser cancelada graciosamente ao sair da partida sem travar o processo principal do Pygame.
@@ -300,6 +319,11 @@ $$\text{Direção} = \text{Direção} \times (-1)$$
 | **RF-14** | **[T2] Hospedagem de Servidor LAN:** Criação de servidor local UDP na porta 5555 via thread em background no modo Host. |
 | **RF-15** | **[T2] Conexão Cliente LAN:** Conexão a partidas via endereço IP informado pelo usuário com recepção contínua em thread daemon. |
 | **RF-16** | **[T2] Sincronização e LERP:** Sincronização em tempo real de coordenadas, ações, direção e tiros entre jogadores em rede local com suavização por LERP. |
+| **RF-17** | **[T2] Fim da Campanha:** Vitória ao derrotar os dois chefes da fase 4, com tela de Vitória e tempo da partida. |
+| **RF-18** | **[T2] Progresso Salvo:** Fases concluídas, campanha zerada e recorde do Desafio gravados em `save/progresso.json`. |
+| **RF-19** | **[T2] Checkpoints:** Bandeiras nas fases 1 a 3; o Restart renasce na última bandeira com vida cheia. |
+| **RF-20** | **[T2] Modo Desafio:** Fases 1 a 5 seguidas com uma vida, cronômetro, "FASE x/5" e recorde de tempo. |
+| **RF-21** | **[T2] Fase sincronizada no multiplayer:** Host e cliente trocam de fase e chegam à vitória juntos (mensagens `level` e `levelreq`). |
 
 #### Requisitos Não-Funcionais (RNF)
 | ID | Descrição |

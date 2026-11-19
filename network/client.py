@@ -18,6 +18,8 @@ from .protocol import (
     encode_enemy_hit,
     encode_enemies_state,
     encode_enemy_shoot,
+    encode_level,
+    encode_level_request,
     parse_packet,
 )
 
@@ -48,6 +50,12 @@ class NetworkClient:
         self.remote_enemies: Dict[int, Dict[str, Any]] = {}
         # Fila de disparos de inimigos disparados remotamente pelo Host
         self.pending_enemy_shoots: List[Dict[str, Any]] = []
+        # Fase dos inimigos guardados em remote_enemies (lotes de outra fase limpam o dicionário)
+        self.enemies_level = 0
+        # Última fase anunciada pelo Host: (fase, vitória) ou None
+        self.host_level: tuple[int, bool] | None = None
+        # Pedidos de troca de fase recebidos dos clientes (só o Host consome)
+        self.pending_level_requests: List[int] = []
         self.lock = threading.Lock()
 
     def connect(self) -> bool:
@@ -95,7 +103,15 @@ class NetworkClient:
                             del self.remote_players[p_id]
                     elif packet["type"] == "hit":
                         self.pending_enemy_hits.append((packet["target_id"], packet["damage"]))
+                    elif packet["type"] == "level":
+                        self.host_level = (packet["level"], packet["victory"])
+                    elif packet["type"] == "level_request":
+                        self.pending_level_requests.append(packet["level"])
                     elif packet["type"] == "enemies":
+                        if packet.get("level", 0) != self.enemies_level:
+                            # Fase nova: os target_id antigos não valem mais
+                            self.remote_enemies.clear()
+                            self.enemies_level = packet.get("level", 0)
                         for enemy_data in packet["enemies"]:
                             t_id = enemy_data["target_id"]
                             target_pos = [enemy_data["world_x"], enemy_data["world_y"]]
@@ -186,17 +202,49 @@ class NetworkClient:
             self.pending_enemy_hits.clear()
             return hits
 
-    def send_enemies_state(self, enemies_list: List[str]) -> None:
+    def send_enemies_state(self, enemies_list: List[str], level: int = 0) -> None:
         """Envia o estado atualizado dos inimigos pelo Host para os clientes."""
         if not self.running or self.socket is None or not enemies_list:
             return
 
         payload = "|".join(enemies_list)
-        packet_str = encode_enemies_state(self.player_id, payload)
+        packet_str = encode_enemies_state(self.player_id, payload, level)
+        self._send(packet_str)
+
+    def _send(self, packet_str: str) -> None:
+        """Envia uma mensagem ao servidor, ignorando erros de rede."""
+        if not self.running or self.socket is None:
+            return
         try:
             self.socket.sendto(packet_str.encode("utf-8"), self.server_address)
         except Exception:
             pass
+
+    # ---------------- Sincronização de fase ----------------
+    def send_level(self, level: int, victory: bool = False) -> None:
+        """Host: anuncia a fase atual (repetido periodicamente, pois UDP pode perder pacotes)."""
+        self._send(encode_level(self.player_id, level, victory))
+
+    def send_level_request(self, level: int) -> None:
+        """Cliente: avisa o Host que chegou ao fim da fase `level`."""
+        self._send(encode_level_request(self.player_id, level))
+
+    def get_host_level(self) -> tuple[int, bool] | None:
+        """Última fase anunciada pelo Host: (fase, vitória) ou None."""
+        with self.lock:
+            return self.host_level
+
+    def pop_level_requests(self) -> List[int]:
+        """Consome os pedidos de troca de fase enviados pelos clientes."""
+        with self.lock:
+            reqs = list(self.pending_level_requests)
+            self.pending_level_requests.clear()
+            return reqs
+
+    def get_enemies_level(self) -> int:
+        """Fase a que pertencem os inimigos guardados em remote_enemies."""
+        with self.lock:
+            return self.enemies_level
 
     def send_enemy_shoot(
         self,
@@ -309,4 +357,7 @@ class NetworkClient:
             self.remote_enemies.clear()
             self.pending_enemy_shoots.clear()
             self.pending_enemy_hits.clear()
+            self.pending_level_requests.clear()
+            self.host_level = None
+            self.enemies_level = 0
         print(f"[REDE CLIENTE] Desconectado.")

@@ -13,6 +13,7 @@ from ui.screens.victory import format_time
 
 CHALLENGE_RED = (230, 50, 40)
 from core.level_loader import respawn
+from core.gameplay import respawn_multiplayer
 
 
 class GameOverScreen:
@@ -65,11 +66,19 @@ class GameOverScreen:
                     self.info_font, WHITE, SCREEN_WIDTH // 2, 110)
 
             if self.restart_button.draw(screen):
-                self.death_fade.fade_counter = 0
-                if challenge:
-                    game.start_challenge()  # Desafio recomeça da fase 1
-                    return
-                game.start_intro = True
-                game.bg_scroll = 0
-                respawn(game)  # volta na última bandeira ou, sem checkpoint, no início
-                game.state = GameState.PLAYING
+                self.restart(game)
+
+    def restart(self, game) -> None:
+        """Ação do botão Restart (também usada pelo teste automático do multiplayer)."""
+        self.death_fade.fade_counter = 0
+        if getattr(game, 'challenge_mode', False):
+            game.start_challenge()  # Desafio recomeça da fase 1
+            return
+        if getattr(game, 'is_multiplayer', False):
+            respawn_multiplayer(game)  # renasce ao lado do parceiro, fase continua
+            game.state = GameState.PLAYING
+            return
+        game.start_intro = True
+        game.bg_scroll = 0
+        respawn(game)  # volta na última bandeira ou, sem checkpoint, no início
+        game.state = GameState.PLAYING

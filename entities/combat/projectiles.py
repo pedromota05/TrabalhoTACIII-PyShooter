@@ -29,9 +29,14 @@ from asset_manager import AssetManager
 class Bullet(pygame.sprite.Sprite):
     """Projétil linear padrão disparado pelo jogador e por soldados inimigos."""
 
-    def __init__(self, x: float, y: float, direction: int, network_client=None):
+    def __init__(self, x: float, y: float, direction: int, network_client=None,
+                 visual_only: bool = False):
         super().__init__()
         self.speed = BULLET_SPEED
+        # visual_only: bala de um jogador remoto. Só aparece na tela; o dano
+        # chega pela mensagem "hit" de quem atirou (evita dano em dobro no Host
+        # e fogo amigo no jogador local).
+        self.visual_only = visual_only
         self.image = AssetManager().get_image('bullet')
         self.rect = self.image.get_rect()
         self.rect.center = (int(x), int(y))
@@ -64,6 +69,12 @@ class Bullet(pygame.sprite.Sprite):
             if tile[1].colliderect(self.rect):
                 self.has_hit = True
                 break
+
+        if self.visual_only:
+            alvos = [e for grp in (enemy_group, boss_group or ()) for e in grp if e.alive]
+            if any(pygame.sprite.collide_rect(self, e) for e in alvos):
+                self.has_hit = True
+            return
 
         # Colisão com jogador
         if not self.has_hit and pygame.sprite.collide_rect(self, player):

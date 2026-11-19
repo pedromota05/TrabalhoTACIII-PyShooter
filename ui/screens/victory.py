@@ -10,6 +10,7 @@ from config import (
 )
 from asset_manager import AssetManager
 from core import progress
+from core.gameplay import sync_multiplayer_level
 from game_state import GameState
 from ui.screens.common import draw_text_with_outline
 
@@ -42,6 +43,8 @@ class VictoryScreen:
         self.menu_button.rect.midtop = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80)
 
     def update(self, screen: pygame.Surface, game) -> None:
+        # No multiplayer o Host continua anunciando a vitória (UDP pode perder pacotes).
+        sync_multiplayer_level(game)
         # Cenário congelado ao fundo; o véu escurece até OVERLAY_MAX_ALPHA.
         game.screen_scroll = 0
         game._draw_game_entities()

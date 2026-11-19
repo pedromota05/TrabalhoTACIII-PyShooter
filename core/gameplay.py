@@ -3,7 +3,7 @@
 import pygame
 
 from asset_manager import AssetManager
-from config import BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS
+from config import BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_START_AMMO
 from core import progress
 from entities import DragonBoss, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
@@ -12,6 +12,69 @@ from game_state import GameState
 
 # Espera após a morte do último chefe antes de concluir a fase (animação de morte).
 BOSS_DEATH_DELAY_FRAMES = int(1.5 * FPS)
+# Multiplayer: o Host repete o anúncio da fase a cada LEVEL_ANNOUNCE_FRAMES
+# (UDP pode perder pacotes) e o cliente repete o pedido de troca de fase.
+LEVEL_ANNOUNCE_FRAMES = 30
+
+
+def sync_multiplayer_level(game) -> None:
+    """Mantém Host e cliente na mesma fase.
+
+    Host: anuncia a fase (mensagem "level") e atende pedidos "levelreq" dos
+    clientes que chegaram à saída. Cliente: carrega a fase anunciada pelo
+    Host (ou vai para a vitória). Chamado a cada quadro, inclusive na tela
+    de Game Over e na de vitória."""
+    net = game.network_client
+    if not getattr(game, 'is_multiplayer', False) or net is None:
+        return
+    game.net_frames = getattr(game, 'net_frames', 0) + 1
+    if game.is_host:
+        victory = game.state == GameState.VICTORY
+        if game.net_frames % LEVEL_ANNOUNCE_FRAMES == 1:
+            net.send_level(game.level, victory)
+        for level in net.pop_level_requests():
+            if level == game.level and game.state in (GameState.PLAYING, GameState.GAME_OVER):
+                game.state = GameState.LEVEL_TRANSITION
+        return
+
+    announced = net.get_host_level()
+    if announced is None or game.state == GameState.LEVEL_TRANSITION:
+        return
+    level, victory = announced
+    if victory:
+        if game.state != GameState.VICTORY:
+            game.state = GameState.VICTORY
+    elif level != game.level:
+        game.level = level
+        game.level_request_frames = 0
+        game.start_intro = True
+        game._load_level(level)
+        game.game_over_screen.death_fade.fade_counter = 0
+        game.state = GameState.PLAYING
+
+
+def respawn_multiplayer(game) -> None:
+    """Restart no multiplayer: renasce ao lado do outro jogador sem recarregar
+    a fase (os inimigos e o progresso do parceiro continuam). Sem parceiro
+    vivo, recarrega a fase."""
+    from core.level_loader import move_camera, respawn
+    partners = [r for r in game.remote_players_group if r.alive]
+    if not partners:
+        respawn(game)
+        return
+    partner = partners[0]
+    move_camera(game, partner.world_x)
+    player = game.player
+    # world_x/world_y do parceiro são o centro dele no mundo
+    player.rect.center = (int(partner.world_x - game.bg_scroll), int(partner.world_y))
+    player.vel_y = 0
+    player.in_air = True
+    player.alive = True
+    player.health = player.max_health
+    player.speed = player.base_speed
+    player.ammo = max(player.ammo, PLAYER_START_AMMO)
+    player.invincible = 120
+    player.update_action(0)
 
 
 def is_level_complete(game, touched_exit: bool) -> bool:
@@ -71,8 +134,19 @@ def update_game_entities(game) -> None:
     is_host = getattr(game, 'is_host', False)
     net_client = game.network_client if is_multiplayer else None
 
+    sync_multiplayer_level(game)
+
     # Atualiza o jogador local
     game.player.update(game.enemy_group)
+
+    # Jogador morto (tela de Game Over) continua mandando sinal de vida ao
+    # servidor; sem isso ele cai por timeout após 5 s e deixa de receber a
+    # partida (inimigos, troca de fase).
+    if is_multiplayer and net_client and not game.player.alive:
+        net_client.send_state(
+            game.player.rect.centerx + game.bg_scroll, game.player.rect.centery,
+            3, game.player.direction, False, 0,
+        )
 
     # ------------------------------------------------------------------
     # Sincronização de Inimigos e Bosses
@@ -106,8 +180,11 @@ def update_game_entities(game) -> None:
                 game.bullet_group.add(DragonFire(sx, sy, tx, ty))
 
         # 2. Interpola e sincroniza estado dos inimigos com a visão do Host
+        net_client.pop_enemy_hits()  # acertos são do Host; aqui só esvazia a fila
         net_client.update_enemy_interpolation()
         enemies_snapshot = net_client.get_remote_enemies_snapshot()
+        if net_client.get_enemies_level() != game.level:
+            enemies_snapshot = {}  # lote ainda é da fase anterior
 
         for enemy in game.enemy_group:
             t_id = getattr(enemy, 'target_id', None)
@@ -234,7 +311,7 @@ def update_game_entities(game) -> None:
                     f"{t_id}:{round(wx, 1)}:{round(wy, 1)}:{boss.action}:{boss.direction}:{boss.health}:{alive_val}:1"
                 )
             if enemies_payload_list:
-                net_client.send_enemies_state(enemies_payload_list)
+                net_client.send_enemies_state(enemies_payload_list, game.level)
 
     # ------------------------------------------------------------------
     # Atualização de grupos de projéteis e ambiente
@@ -331,7 +408,13 @@ def update_playing(game) -> None:
             )
 
         if is_level_complete(game, level_complete):
-            game.state = GameState.LEVEL_TRANSITION
+            if getattr(game, 'is_multiplayer', False) and not game.is_host and game.network_client:
+                # Cliente não troca de fase sozinho: pede ao Host, que avisa todos.
+                game.level_request_frames = getattr(game, 'level_request_frames', 0) + 1
+                if game.level_request_frames % LEVEL_ANNOUNCE_FRAMES == 1:
+                    game.network_client.send_level_request(game.level)
+            else:
+                game.state = GameState.LEVEL_TRANSITION
     else:
         game.screen_scroll = 0
         game.state = GameState.GAME_OVER
@@ -367,13 +450,20 @@ def update_level_transition(game) -> None:
         update_challenge_transition(game)
         return
     progress.marcar_fase(game.level)
+    host_net = (game.network_client
+                if getattr(game, 'is_multiplayer', False) and getattr(game, 'is_host', False) else None)
+    game.game_over_screen.death_fade.fade_counter = 0
     if game.level >= MAX_LEVELS:
         # Só conta como campanha zerada quando todas as fases já foram vencidas
         # (quem escolhe a fase 4 direto no menu não libera o Desafio).
         if set(range(1, MAX_LEVELS + 1)) <= set(progress.carregar()['fases_concluidas']):
             progress.marcar_campanha_zerada()
         game.state = GameState.VICTORY
+        if host_net:
+            host_net.send_level(game.level, True)
         return
     game.level += 1
     game._load_level(game.level)
     game.state = GameState.PLAYING
+    if host_net:
+        host_net.send_level(game.level)  # anúncio imediato; repetido a cada 0,5 s

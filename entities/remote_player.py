@@ -87,7 +87,7 @@ class RemotePlayer(pygame.sprite.Sprite):
             self.shoot_cooldown = 20
             bullet_x = self.rect.centerx + (0.75 * self.rect.size[0] * self.direction)
             bullet_y = self.rect.centery
-            bullet = Bullet(bullet_x, bullet_y, self.direction)
+            bullet = Bullet(bullet_x, bullet_y, self.direction, visual_only=True)
             bullet_group.add(bullet)
             AssetManager().get_sound('shot').play()
 
