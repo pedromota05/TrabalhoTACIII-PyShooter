@@ -144,8 +144,8 @@ class Bot:
         self.esperado = None
         self.tempo_luta = 0
         self.atual = PARADO
-        self.pulo_em = None      # quadro em que o pulo (atrasado) será apertado
-        self.hesitar = 0
+        self.pulo_em = None      # quadro em que o pulo (adiantado/atrasado) será apertado
+        self.pulo_antecipado = False  # o pulo da próxima macro-ação já foi agendado
 
     # ---------------- utilidades ----------------
     def estado(self):
@@ -202,6 +202,7 @@ class Bot:
             if saida_x is None and f % 30 == 1:
                 self.caminho = []
             if not self.caminho:
+                self.pulo_antecipado = False  # caminho novo: pulo agendado não vale mais
                 if saida_x is not None:
                     caminho, _ = self.mapa.planejar(s, saida_x)
                 else:
@@ -214,13 +215,24 @@ class Bot:
             self.esperado = st
 
         l, r, j = self.atual
-        if self.humano:
-            # Hesitação ocasional e pulo com atraso de 0 a 6 quadros.
-            if self.rng.random() < 0.08:
+        if self.humano and f % MACRO == 1:
+            # Hesitação ocasional, só no chão (ninguém solta a tecla no meio do pulo).
+            if not g.player.in_air and self.rng.random() < 0.08:
                 l = r = False
+            # Pulo com erro de -6 a +6 quadros: metade das vezes adiantado
+            # (agendado na macro-ação anterior), metade atrasado.
             if j:
-                self.pulo_em = f + self.rng.randint(0, 6)
                 j = False
+                if self.pulo_antecipado:
+                    self.pulo_antecipado = False
+                else:
+                    self.pulo_em = f + self.rng.randint(0, 6)
+            proxima = self.caminho[0] if self.caminho else None
+            if proxima and proxima[2] and self.rng.random() < 0.5:
+                self.pulo_em = f + MACRO - self.rng.randint(1, 6)
+                self.pulo_antecipado = True
+        elif self.humano:
+            j = False
         g.moving_left, g.moving_right = l, r
         if j:
             g.player.jump = True

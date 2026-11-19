@@ -11,9 +11,22 @@
 - Etapa 2 concluída (2026-11-18): fase 4 termina 1,5 s após a morte dos 2 chefes e a campanha acaba na nova tela VITÓRIA (tempo da partida + botão de voltar ao menu).
 - Etapa 3 concluída (2026-11-18): progresso salvo em save/progresso.json (fora do git) e menu de fases com selo CONCLUÍDA e botão MODO DESAFIO (bloqueado até zerar as 4 fases; o clique só funcionará na etapa 6).
 - Etapa 4 concluída (2026-11-18): checkpoints com bandeira nas fases 1 a 3 (colunas em config.CHECKPOINTS); Restart da Game Over renasce na última bandeira. Modo humano sem checkpoint: 8% / 0% / 8% de sucesso (fases 1/2/3) — mapas precisam de ajuste na etapa 5.
-- Próximos passos: registrar o resultado do modo humano com checkpoint e seguir para a etapa 5 (edição dos mapas); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
+- Etapa 5 concluída (2026-11-18): mapas 1-3 alargados nos saltos difíceis; modo humano (sem checkpoint) agora 80% / 80% / 80% (antes 8% / 0% / 8%). Fases 4 e 5 com caixas e plataforma; bot vence as fases 1-5 em sequência.
+- Próximos passos: etapa 6 (Modo Desafio) e etapa 7 (teste do multiplayer); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
 
 ---
+
+### 2026-11-18 — Etapa 5 do plano: edição dos mapas
+- Pedido: seguir para a etapa 5 enquanto o teste da etapa 4 rodava.
+- Bot (`tools/bot_fases.py`): o modo humano agora erra o pulo de -6 a +6 quadros (metade adiantado, metade atrasado; antes só atrasava) e só hesita no chão. O teste humano com `--checkpoint` iniciado na etapa 4 foi interrompido (usava o modelo e os mapas antigos) e não foi refeito.
+- Mapas editados (só tiles de terreno/caixas; spawn e saídas intactos):
+  - `levels/level1_data.csv`: col 32 virou pilar (poço de água 2→1 bloco); plataforma estendida até col 37 (buraco 2→1); blocos 61 em (10,117), (12,119), (12,137), (10,144).
+  - `levels/level2_data.csv`: pedra em (14,12); plataformas estendidas (13,18) e (11,27); degraus da escada final alargados para 2 blocos (cols 42/44, 47, 50, 53, 56); apoios em (12,85), (9,94), (8,97).
+  - `levels/level3_data.csv`: blocos de gelo alargados (10,54), (9,57), (10,154), (9,157), (8,161); degrau (11,153); pilares 98/102/106/110/114 com 2 blocos (cols 99, 103, 107, 111, 115).
+  - `levels/level4_data.csv`: munição (14,33) e (14,48), vida (14,40), granada (14,30), plataforma tile 73 em (13,44-47).
+  - `levels/level5_data.csv`: mesmas caixas e plataforma; Demônio de (14,37) trocado pelo Dragão em (10,52).
+- Resultados (modo humano, sem checkpoint): fase 1 80% (10 tentativas), fase 2 80% (10), fase 3 80% (20); nenhum trecho com mais de 30% das mortes na fase 3 final. Bot normal sementes 0 e 1: fases 1-5 passam em sequência (fase 4 vida 40/90, fase 5 vida 90/95). Capturas dos trechos editados conferidas.
+- Próximos passos: etapa 6 (Modo Desafio).
 
 ### 2026-11-18 — Etapa 4 do plano: checkpoints
 - Pedido: seguir para a etapa 4.
@@ -26,7 +39,7 @@
 - Como as colunas foram escolhidas: modo humano sem checkpoint (12 tentativas, `--max-seg 90`): fase 1 8% (mortes em x1200-1599 queda/água), fase 2 0% (quedas em x400-1199), fase 3 8% (água em x2000-2399). Script listou colunas com chão plano de 3 tiles acima da água e sem inimigo a menos de 5 colunas; escolhidas uma por volta de 1/3 e outra antes do trecho difícil seguinte. Capturas das 6 bandeiras conferidas.
 - Resultados: bot normal (sementes 0 e 1) segue passando nas fases 1-3; teste de checkpoint na fase 1 (col 60 provisória) renasceu em x=2420 com vida 100, munição salva e o inimigo morto removido.
 - Observação: nas bandeiras 1-48 e 3-83 há caixa de item no mesmo lugar; ao renascer a caixa volta.
-- Pendente: resultado do modo humano com `--checkpoint` (rodando quando o commit foi feito).
+- Pendente: resultado do modo humano com `--checkpoint` (interrompido; ver etapa 5).
 
 ### 2026-11-18 — Etapa 3 do plano: progresso salvo e menu de fases
 - Pedido: seguir para a etapa 3.
