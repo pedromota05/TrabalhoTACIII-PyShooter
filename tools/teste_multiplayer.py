@@ -22,12 +22,17 @@ Uso (na raiz do projeto):
     Opções: --porta 5555  --max-seg 900  --morte-cliente 25 (0 = não morre)
             --fase N (Host começa na fase N; o cliente deve segui-lo)
             --sem-god (bots tomam dano normal)  --saida PASTA (logs)
+            --capturas PASTA (salva a tela do host e do cliente a cada 5 s,
+                              no mesmo segundo do relógio, para comparar)
+            --ip ENDERECO (cliente conecta por esse IP em vez de 127.0.0.1;
+                           use o IPv4 do ipconfig para passar pela placa de rede)
 
 Usa subprocess (sem fork), então funciona no Windows. Na primeira vez o
 Firewall do Windows pode pedir permissão para o Python abrir a porta UDP:
 pode permitir em "Redes privadas" ou cancelar (o teste usa só 127.0.0.1).
 """
 
+import bisect
 import json
 import math
 import os
@@ -47,6 +52,7 @@ LOG_A_CADA = 6            # quadros entre registros no log (0,1 s)
 FIM_APOS_VITORIA = 3.0    # segundos que cada lado continua depois da vitória
 QUADRO_LENTO_MS = 50      # quadro mais lento que isso = travada (A* do bot)
 JANELA_TRAVADA = 1.0      # segundos descartados na comparação após uma travada
+ATRASOS_INTERP = (0, 0.05, 0.1, 0.15)  # atrasos testados no item 2 (s)
 
 
 def _opt(argv, nome, padrao):
@@ -66,6 +72,10 @@ def rodar_papel(argv):
     morte_em = _opt(argv, '--morte-cliente', 25) if papel == 'cliente' else 0
     fase_ini = _opt(argv, '--fase', 1)
     god = '--sem-god' not in argv
+    capturas = _opt(argv, '--capturas', '')
+    if capturas:
+        os.makedirs(capturas, exist_ok=True)
+    seg_capturado = None
 
     sys.path.insert(0, TOOLS)
     import bot_fases as bf  # define SDL dummy, PYSHOOTER_SAVE temporário e relógio por quadro
@@ -87,7 +97,7 @@ def rodar_papel(argv):
             game.level = fase_ini
             game._load_level(fase_ini)
     else:
-        ok = game.start_multiplayer_client('127.0.0.1', porta)
+        ok = game.start_multiplayer_client(_opt(argv, '--ip', '127.0.0.1'), porta)
     escrever({'evento': 'inicio', 'ok': ok})
     if not ok:
         log.close()
@@ -174,6 +184,12 @@ def rodar_papel(argv):
             if game.state != GameState.GAME_OVER:
                 t_game_over = None
             pygame.event.pump()
+            agora = int(time.time())
+            if (capturas and game.state == GameState.PLAYING and agora % 5 == 0
+                    and agora != seg_capturado):
+                seg_capturado = agora
+                pygame.image.save(game.screen, os.path.join(
+                    capturas, f'mp_{agora % 100000:05d}_{papel}_fase{game.level}.png'))
             lento_quadro = max(lento_quadro, (time.perf_counter() - t_quadro) * 1000)
 
             if game.state.name != estado_ant or game.level != fase_ant:
@@ -267,23 +283,44 @@ def analisar(host_log, cli_log, morte_cliente):
     # do jogo). Nesse tempo o processo para de enviar/receber e a comparação fica
     # injusta; por isso descartamos o 1 s seguinte a um quadro lento (> 50 ms).
     travadas = [r['t'] for r in fotos_h + fotos_c if r.get('ms_quadro', 0) > QUADRO_LENTO_MS]
-    pares_desc = 0
-    dif = []
-    for fh, fc in pares:
-        if fh['estado'] != 'PLAYING' or fc['estado'] != 'PLAYING':
-            continue
-        if any(0 <= fh['t'] - x <= JANELA_TRAVADA for x in travadas):
-            pares_desc += 1
-            continue
-        for tid, (hx, hy, _, hv) in fh['inimigos'].items():
-            if tid in fc['inimigos'] and hv and fc['inimigos'][tid][3]:
-                cx, cy = fc['inimigos'][tid][:2]
-                dif.append(math.hypot(hx - cx, hy - cy))
+    # O cliente desenha o inimigo com atraso (LERP de 0,2 por quadro + rede), então
+    # comparamos a foto do cliente com a do host um pouco antes e usamos o atraso
+    # (0 a 0,15 s) que deixa as posições mais próximas.
+    th = [r['t'] for r in fotos_h]
+
+    def foto_host(t):
+        k = bisect.bisect_left(th, t)
+        cand = [x for x in (k - 1, k) if 0 <= x < len(fotos_h)]
+        if not cand:
+            return None
+        m = min(cand, key=lambda x: abs(th[x] - t))
+        return fotos_h[m] if abs(th[m] - t) <= 0.03 else None
+
+    def comparar(atraso):
+        dif, desc = [], 0
+        for fc in fotos_c:
+            fh = foto_host(fc['t'] - atraso)
+            if not fh or fh['fase'] != fc['fase'] or fh['estado'] != 'PLAYING' or fc['estado'] != 'PLAYING':
+                continue
+            if any(0 <= fc['t'] - x <= JANELA_TRAVADA for x in travadas):
+                desc += 1
+                continue
+            for tid, (hx, hy, _, hv) in fh['inimigos'].items():
+                if tid in fc['inimigos'] and hv and fc['inimigos'][tid][3]:
+                    cx, cy = fc['inimigos'][tid][:2]
+                    dif.append(math.hypot(hx - cx, hy - cy))
+        return dif, desc
+
+    tentativas = [(a,) + comparar(a) for a in ATRASOS_INTERP]
+    maior = max((len(x[1]) for x in tentativas), default=0)
+    # ignora atrasos com poucas fotos coincidentes (amostra pequena engana)
+    tentativas = [x for x in tentativas if x[1] and len(x[1]) >= 0.5 * maior]
+    atraso, dif, pares_desc = min(tentativas, key=lambda x: _pct(x[1], 0.95)) if tentativas else (0, [], 0)
     p95 = _pct(dif, 0.95)
     item('2. posições dos inimigos iguais (por target_id)', dif and p95 <= 12,
          f'{len(dif)} comparações; mediana {statistics.median(dif) if dif else 0:.1f} px, '
          f'95% até {p95 if p95 is not None else 0:.1f} px, máx {max(dif) if dif else 0:.1f} px '
-         f'(tolerância 12 px, a interpolação do cliente atrasa uns quadros; '
+         f'(tolerância 12 px; atraso da interpolação do cliente: {atraso:.2f} s; '
          f'{pares_desc} fotos descartadas por {len(travadas)} travadas do bot). '
          f'Host visto pelo cliente: mediana {statistics.median(dif_jog) if dif_jog else 0:.1f} px')
 
@@ -302,21 +339,32 @@ def analisar(host_log, cli_log, morte_cliente):
          f'vida caiu no host em {confirmados} deles')
 
     # 4. morte do inimigo nos dois lados (última foto de cada fase)
-    def ultima_por_fase(fotos):
+    def ultima_por_fase(fotos, limite=None):
         d = {}
         for r in fotos:
-            if r['estado'] == 'PLAYING':
+            if r['estado'] == 'PLAYING' and (limite is None or r['t'] <= limite.get(r['fase'], 0)):
                 d[r['fase']] = r
         return d
-    uh, uc = ultima_por_fase(fotos_h), ultima_por_fase(fotos_c)
+    # Compara os dois lados no mesmo instante: 0,5 s antes de o primeiro deles
+    # sair da fase (um inimigo morto no último quadro da fase só aparece no
+    # lado que tirou a foto depois do tiro).
+    uh0, uc0 = ultima_por_fase(fotos_h), ultima_por_fase(fotos_c)
+    limite = {f: min(uh0[f]['t'], uc0[f]['t']) - 0.5 for f in set(uh0) & set(uc0)}
+    uh, uc = ultima_por_fase(fotos_h, limite), ultima_por_fase(fotos_c, limite)
+    # folga para o outro lado registrar a morte (rede + fotos a cada 0,1 s)
+    folga = {f: t + 0.4 for f, t in limite.items()}
+    uh2, uc2 = ultima_por_fase(fotos_h, folga), ultima_por_fase(fotos_c, folga)
+
+    def mortos(foto):
+        return {t for t, v in foto['inimigos'].items() if not v[3]}
     total_mortos, divergentes = 0, []
     for fase in sorted(set(uh) & set(uc)):
-        mortos_h = {t for t, v in uh[fase]['inimigos'].items() if not v[3]}
-        mortos_c = {t for t, v in uc[fase]['inimigos'].items() if not v[3]}
+        mortos_h, mortos_c = mortos(uh[fase]), mortos(uc[fase])
         total_mortos += len(mortos_h)
-        if mortos_h != mortos_c:
-            divergentes.append({'fase': fase, 'so_host': sorted(mortos_h - mortos_c),
-                                'so_cliente': sorted(mortos_c - mortos_h)})
+        so_host = sorted(mortos_h - mortos(uc2[fase]))
+        so_cliente = sorted(mortos_c - mortos(uh2[fase]))
+        if so_host or so_cliente:
+            divergentes.append({'fase': fase, 'so_host': so_host, 'so_cliente': so_cliente})
     item('4. inimigo morto aparece nos dois lados', total_mortos > 0 and not divergentes,
          f'{total_mortos} inimigos mortos no host; divergências: {divergentes or "nenhuma"}')
 
@@ -390,8 +438,9 @@ def main(argv):
 
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', PYTHONIOENCODING='utf-8')
     extras = [a for a in argv if a in ('--sem-god',)]
-    if '--fase' in argv:
-        extras += ['--fase', argv[argv.index('--fase') + 1]]
+    for opc in ('--fase', '--ip', '--capturas'):
+        if opc in argv:
+            extras += [opc, argv[argv.index(opc) + 1]]
     procs = {}
     for papel in ('host', 'cliente'):
         env_p = dict(env, PYSHOOTER_SAVE=os.path.join(pasta, f'progresso_{papel}.json'))

@@ -7,12 +7,26 @@
 - 2026-11-19 (PC de casa, pygame-ce 2.5.8), VALIDADO com testes automáticos:
   - `python tools/bot_fases.py todas`: fases 1 a 4 passam.
   - `python tools/bot_fases.py --desafio --god --capturas docs/capturas`: fases 1-5 passam, sem problemas; sem --god o bot morre para o DragonBoss na fase 4 (dificuldade, não erro).
-  - `python tools/teste_multiplayer.py`: 7 de 7 itens OK (após ajustar a medição do item 2).
+  - `python tools/teste_multiplayer.py`: 7 de 7 itens OK, também com o cliente conectando pelo IP da rede Wi-Fi (`--ip 192.168.15.8`), após ajustar a medição dos itens 2 e 4.
 - Corrigido em 2026-11-19: HUD do Desafio mostrava "FASE 6/5" atrás da tela de vitória (core/renderer.py).
-- Capturas da gameplay (HUD das 5 fases, Game Over e Vitória do Desafio) em docs/capturas/, para os slides.
+- Capturas em docs/capturas/ (campanha fases 1-4, Desafio, duas telas do multiplayer no mesmo segundo); já colocadas no deck (slides novos "Quatro fases" e "A mesma luta nas duas telas"; Desafio com capturas reais). O .pptx em docs/apresentacao/ está desatualizado: exportar de novo pelo menu Share › Export.
 - Slides: https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL e docs/apresentacao/2026-11-19_slides-pyshooter.pptx; guia de estudo em docs/2026-11-19_guia-de-estudo-apresentacao.md.
 - Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
-- Próximos passos: commit das mudanças de 2026-11-19 (casa); teste manual em 2 PCs (docs/checklist_teste_multiplayer.md); pôr as capturas nos slides; ler o guia e ensaiar antes de 2026-11-24.
+- Próximos passos: teste manual em 2 PCs com o Pedro (docs/checklist_teste_multiplayer.md); exportar o .pptx de novo; ler o guia e ensaiar antes de 2026-11-24.
+
+---
+
+### 2026-11-19 — Multiplayer pela rede e capturas nos slides
+- Pedido: testar o multiplayer e colocar as capturas nos slides.
+- Feito:
+  - `tools/teste_multiplayer.py`: opções `--ip ENDERECO` (cliente conecta pelo IP da placa de rede em vez de 127.0.0.1) e `--capturas PASTA` (salva a tela do host e do cliente a cada 5 s, no mesmo segundo do relógio).
+  - Item 2 (posição dos inimigos) agora compara o cliente com o host 0 a 0,15 s antes (atraso do LERP 0,2 + rede) e escolhe o atraso com menor erro, exigindo pelo menos metade das comparações. Atraso medido: 0,05 s; com ele a mediana cai de 7 px para 1,4-3 px.
+  - Item 4 (inimigo morto nos dois lados) compara os dois lados no mesmo instante (0,5 s antes do primeiro sair da fase) com 0,4 s de folga para o outro lado registrar a morte. Antes falhava quando o inimigo morria no último quadro da fase (foto de um lado antes do tiro, do outro depois).
+  - Rodado 2 vezes com `--ip 192.168.15.8` (IP do Wi-Fi do PC de casa): 7/7 OK. As 5 execuções salvas reanalisadas com a regra nova: 7/7 em todas.
+  - Capturas novas em docs/capturas/: campanha_fase1_checkpoint, campanha_fase2, campanha_fase3, campanha_fase4_chefes (tiradas por um script descartável com o bot em god), multiplayer_host_fase4 e multiplayer_cliente_fase4 (mesmo segundo).
+  - Deck https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL (agora 17 slides): novo slide "fases" (Quatro fases, quatro cenários) depois de "campanha"; novo slide "multitelas" (A mesma luta nas duas telas) depois de "multiplayer"; "desafio" trocou a caixa ilustrativa pelas capturas do HUD e da vitória; notas do slide "correcoes" dizem que o teste automático confirmou as correções. Conferido por prévia local (Edge headless), sem a fonte Oswald.
+- Resultados: teste pela rede do mesmo PC não substitui 2 PCs (não passa pelo firewall de outro computador nem pelo roteador entre máquinas).
+- Próximos passos: checklist manual em 2 PCs; exportar o .pptx de novo (Share › Export) para docs/apresentacao/.
 
 ---
 

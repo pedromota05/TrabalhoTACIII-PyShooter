@@ -15,7 +15,8 @@ Acadêmico
 - `ui/screens/`: Máquina de telas e interfaces de usuário.
 - `levels/`: Matrizes CSV das fases do jogo (1 a 4 da campanha; 5 é a arena do Modo Desafio).
 - `tools/bot_fases.py`: Bot sem janela que joga as fases com A* (`--humano`, `--desafio`, `--capturas PASTA`).
-- `tools/teste_multiplayer.py`: Teste automático do multiplayer com 2 processos (Host e Cliente) no mesmo PC; confere 7 itens.
+- `tools/teste_multiplayer.py`: Teste automático do multiplayer com 2 processos (Host e Cliente) no mesmo PC; confere 7 itens. `--ip IPv4` conecta pela placa de rede; `--capturas PASTA` salva as duas telas.
+- `docs/capturas/`: capturas de tela da gameplay usadas nos slides.
 - `save/progresso.json`: Progresso do jogador (gerado ao jogar; não vai para o git).
 - `docs/`: Documentação do Trabalho 2:
   - `T2.pdf`: enunciado (apresentação e relatório em 2026-11-24).

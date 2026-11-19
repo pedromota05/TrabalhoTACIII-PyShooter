@@ -57,4 +57,4 @@ Use este roteiro para testar o modo cooperativo em LAN com duas pessoas. Marque 
 |---|---|---|---|---|
 |  |  |  |  |  |
 
-Teste automático no mesmo PC (sem rede externa): `python tools/teste_multiplayer.py` (veja o cabeçalho do arquivo para as opções).
+Teste automático no mesmo PC (sem rede externa): `python tools/teste_multiplayer.py` (veja o cabeçalho do arquivo para as opções). Para passar pela placa de rede, use o IPv4 do `ipconfig`: `python tools/teste_multiplayer.py --ip 192.168.x.x`.
