@@ -10,9 +10,23 @@
 - Etapa 1 concluída (2026-11-18): bot em tools/bot_fases.py; corrigido bug de câmera ao trocar de fase (core/level_loader.py zera screen_scroll e bg_scroll). Fases 1→2→3 passam em sequência; na fase 4 o Dragão às vezes mata o bot (balanceamento fica para a etapa 5).
 - Etapa 2 concluída (2026-11-18): fase 4 termina 1,5 s após a morte dos 2 chefes e a campanha acaba na nova tela VITÓRIA (tempo da partida + botão de voltar ao menu).
 - Etapa 3 concluída (2026-11-18): progresso salvo em save/progresso.json (fora do git) e menu de fases com selo CONCLUÍDA e botão MODO DESAFIO (bloqueado até zerar as 4 fases; o clique só funcionará na etapa 6).
-- Próximos passos: seguir o plano a partir da etapa 4 (checkpoints); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
+- Etapa 4 concluída (2026-11-18): checkpoints com bandeira nas fases 1 a 3 (colunas em config.CHECKPOINTS); Restart da Game Over renasce na última bandeira. Modo humano sem checkpoint: 8% / 0% / 8% de sucesso (fases 1/2/3) — mapas precisam de ajuste na etapa 5.
+- Próximos passos: registrar o resultado do modo humano com checkpoint e seguir para a etapa 5 (edição dos mapas); depois atualizar o GDD e preparar a apresentação da aula (semana de 2026-11-23).
 
 ---
+
+### 2026-11-18 — Etapa 4 do plano: checkpoints
+- Pedido: seguir para a etapa 4.
+- Feito:
+  - `config.py`: `CHECKPOINTS = {1: [48, 95], 2: [29, 89], 3: [19, 83], 4: []}` (colunas em tiles) e `CHECKPOINT_MSG_FRAMES = 90`.
+  - `entities/checkpoint.py` (novo): `CheckpointFlag`, bandeira desenhada com pygame.draw (cinza → verde), apoiada no topo do bloco mais alto da coluna.
+  - `core/gameplay.py`: `update_checkpoints` ativa a bandeira quando o centro do jogador passa dela e guarda `game.checkpoint` (col, x, y, munição, granadas, `target_id` dos inimigos mortos).
+  - `core/level_loader.py`: `load_level(..., keep_checkpoint=False)` descarta o checkpoint (troca de fase, menu, pausa → sair); `shift_world(game, offset)` move a câmera num mundo recém-carregado; `respawn(game)` recarrega, remove inimigos já mortos, posiciona câmera (bandeira a 1/3 da tela) e jogador com vida cheia, munição salva e 1 s de invencibilidade. Checkpoints desligados no multiplayer e no Desafio (`checkpoints_enabled`).
+  - `core/renderer.py`: desenha as bandeiras e o aviso "CHECKPOINT!" por 1,5 s. `ui/screens/game_over.py`: Restart chama `respawn`.
+- Como as colunas foram escolhidas: modo humano sem checkpoint (12 tentativas, `--max-seg 90`): fase 1 8% (mortes em x1200-1599 queda/água), fase 2 0% (quedas em x400-1199), fase 3 8% (água em x2000-2399). Script listou colunas com chão plano de 3 tiles acima da água e sem inimigo a menos de 5 colunas; escolhidas uma por volta de 1/3 e outra antes do trecho difícil seguinte. Capturas das 6 bandeiras conferidas.
+- Resultados: bot normal (sementes 0 e 1) segue passando nas fases 1-3; teste de checkpoint na fase 1 (col 60 provisória) renasceu em x=2420 com vida 100, munição salva e o inimigo morto removido.
+- Observação: nas bandeiras 1-48 e 3-83 há caixa de item no mesmo lugar; ao renascer a caixa volta.
+- Pendente: resultado do modo humano com `--checkpoint` (rodando quando o commit foi feito).
 
 ### 2026-11-18 — Etapa 3 do plano: progresso salvo e menu de fases
 - Pedido: seguir para a etapa 3.

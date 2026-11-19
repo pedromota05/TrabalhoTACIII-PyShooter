@@ -3,7 +3,7 @@
 import pygame
 
 from asset_manager import AssetManager
-from config import BLACK, FPS, MAX_LEVELS
+from config import BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS
 from core import progress
 from entities import DragonBoss, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
@@ -26,6 +26,27 @@ def is_level_complete(game, touched_exit: bool) -> bool:
         return False
     game.boss_clear_frames = getattr(game, 'boss_clear_frames', 0) + 1
     return game.boss_clear_frames >= BOSS_DEATH_DELAY_FRAMES
+
+
+def update_checkpoints(game) -> None:
+    """Ativa a bandeira quando o jogador passa por ela e guarda o estado para renascer."""
+    if game.checkpoint_msg_frames > 0:
+        game.checkpoint_msg_frames -= 1
+    player_wx = game.player.rect.centerx + game.bg_scroll
+    for flag in game.checkpoint_group:
+        if flag.active or player_wx < flag.world_x:
+            continue
+        flag.activate()
+        mortos = {e.target_id for grp in (game.enemy_group, game.boss_group)
+                  for e in grp if not e.alive}
+        if game.checkpoint:
+            mortos |= game.checkpoint['inimigos_mortos']
+        game.checkpoint = {
+            'col': flag.col, 'x': flag.world_x, 'y': flag.ground_y,
+            'ammo': game.player.ammo, 'grenades': game.player.grenades,
+            'inimigos_mortos': mortos,
+        }
+        game.checkpoint_msg_frames = CHECKPOINT_MSG_FRAMES
 
 
 def get_target_player(entity, local_player, remote_players_group):
@@ -232,6 +253,7 @@ def update_game_entities(game) -> None:
     game.decoration_group.update(game.screen_scroll)
     game.water_group.update(game.screen_scroll)
     game.exit_group.update(game.screen_scroll)
+    game.checkpoint_group.update(game.screen_scroll)
 
     # ------------------------------------------------------------------
     # Sincronização e interpolação de jogadores remotos em LAN
@@ -296,6 +318,7 @@ def update_playing(game) -> None:
             game.world.ramp_list,
         )
         game.bg_scroll -= game.screen_scroll
+        update_checkpoints(game)
 
         # Envio periódico de estado via UDP em modo multiplayer
         if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):

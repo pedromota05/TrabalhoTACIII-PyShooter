@@ -1,6 +1,6 @@
 """Renderização do cenário, entidades e HUD."""
 
-from config import BG_COLOR, SCREEN_HEIGHT, WHITE, YELLOW
+from config import BG_COLOR, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
 
 
 def draw_background(game) -> None:
@@ -44,6 +44,7 @@ def draw_game_entities(game) -> None:
     """Desenha mundo, entidades ativas e HUD da sessão."""
     draw_background(game)
     game.world.draw(game.screen, game.screen_scroll)
+    game.checkpoint_group.draw(game.screen)
 
     game.player.draw(game.screen)
     if getattr(game, 'is_multiplayer', False) and hasattr(game, 'remote_players_group'):
@@ -79,3 +80,10 @@ def draw_game_entities(game) -> None:
 
     if game.player.speed_boost:
         draw_text(game, 'SPEED BOOST!', YELLOW, 10, 85, game.font_bold)
+
+    if getattr(game, 'checkpoint_msg_frames', 0) > 0:
+        msg = game.title_font.render('CHECKPOINT!', True, (60, 220, 90))
+        shadow = game.title_font.render('CHECKPOINT!', True, (0, 0, 0))
+        rect = msg.get_rect(centerx=SCREEN_WIDTH // 2, top=90)
+        game.screen.blit(shadow, rect.move(3, 3))
+        game.screen.blit(msg, rect)

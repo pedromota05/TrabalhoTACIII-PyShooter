@@ -9,6 +9,7 @@ from asset_manager import AssetManager
 from game_state import GameState
 from ui.transitions import ScreenFade
 from ui.screens.common import load_gif_frames
+from core.level_loader import respawn
 
 
 class GameOverScreen:
@@ -53,5 +54,5 @@ class GameOverScreen:
                 self.death_fade.fade_counter = 0
                 game.start_intro = True
                 game.bg_scroll = 0
-                game._load_level(game.level)
+                respawn(game)  # volta na última bandeira ou, sem checkpoint, no início
                 game.state = GameState.PLAYING

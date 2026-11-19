@@ -100,6 +100,11 @@ class Game:
         self.decoration_group = pygame.sprite.Group()
         self.water_group = pygame.sprite.Group()
         self.exit_group = pygame.sprite.Group()
+        self.checkpoint_group = pygame.sprite.Group()
+
+        # ----- Checkpoint da fase atual (dict salvo ao passar pela bandeira) -----
+        self.checkpoint = None
+        self.checkpoint_msg_frames = 0
 
         # ----- Efeitos de fade e HUD -----
         self.intro_fade = ScreenFade(1, BLACK, 4)

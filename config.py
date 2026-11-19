@@ -42,6 +42,12 @@ COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
 TILE_TYPES = 87
 MAX_LEVELS = 4
+
+# Checkpoints da campanha: colunas (tiles) das bandeiras em cada fase.
+# Escolhidas em chão firme antes dos trechos com mais mortes no bot humano
+# (tools/bot_fases.py --humano). Não valem no Modo Desafio nem no multiplayer.
+CHECKPOINTS = {1: [48, 95], 2: [29, 89], 3: [19, 83], 4: []}
+CHECKPOINT_MSG_FRAMES = 90  # aviso "CHECKPOINT!" no HUD (1,5 s)
 LEVELS_DIR = 'levels'
 
 # ---------------------------------------------------------------------------

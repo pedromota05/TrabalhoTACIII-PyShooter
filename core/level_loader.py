@@ -3,7 +3,8 @@
 import csv
 import os
 
-from config import COLS, LEVELS_DIR, ROWS
+from config import CHECKPOINTS, COLS, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE
+from entities.checkpoint import CheckpointFlag
 from world.level_builder import World
 
 
@@ -18,15 +19,28 @@ def reset_groups(game) -> None:
     game.decoration_group.empty()
     game.water_group.empty()
     game.exit_group.empty()
+    if hasattr(game, 'checkpoint_group'):
+        game.checkpoint_group.empty()
     if hasattr(game, 'remote_players_group'):
         game.remote_players_group.empty()
     if hasattr(game, 'remote_players_map'):
         game.remote_players_map.clear()
 
 
-def load_level(game, level_number: int) -> None:
-    """Carrega o CSV solicitado e recria o mundo e suas entidades."""
+def checkpoints_enabled(game) -> bool:
+    """Checkpoints valem só na campanha solo (não no Desafio nem em LAN)."""
+    return not (getattr(game, 'challenge_mode', False) or getattr(game, 'is_multiplayer', False))
+
+
+def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
+    """Carrega o CSV solicitado e recria o mundo e suas entidades.
+
+    Sem `keep_checkpoint`, o checkpoint salvo é descartado (troca de fase,
+    menu, reinício normal)."""
     reset_groups(game)
+    if not keep_checkpoint:
+        game.checkpoint = None
+    game.checkpoint_msg_frames = 0
     # Zera a câmera: sem isso, o screen_scroll do último quadro da fase
     # anterior desloca o mundo novo no primeiro quadro (bg_scroll já é 0).
     game.screen_scroll = 0
@@ -64,3 +78,59 @@ def load_level(game, level_number: int) -> None:
     for boss in game.boss_group:
         boss.target_id = target_id
         target_id += 1
+
+    if hasattr(game, 'checkpoint_group') and checkpoints_enabled(game):
+        for col in CHECKPOINTS.get(level_number, []):
+            game.checkpoint_group.add(CheckpointFlag(col, _ground_top(game.world, col)))
+
+
+def _ground_top(world, col: int) -> int:
+    """Topo do bloco sólido mais alto na coluna (mundo recém-carregado, bg_scroll = 0)."""
+    tops = [rect.top for _, rect in world.obstacle_list if rect.left // TILE_SIZE == col]
+    return min(tops) if tops else 0
+
+
+def shift_world(game, offset: int) -> None:
+    """Move a câmera `offset` px para a direita num mundo recém-carregado
+    (bg_scroll = 0): desloca blocos e sprites e ajusta bg_scroll."""
+    for _, rect in game.world.obstacle_list + game.world.ramp_list:
+        rect.x -= offset
+    groups = (game.enemy_group, game.boss_group, game.item_box_group,
+              game.decoration_group, game.water_group, game.exit_group,
+              game.checkpoint_group)
+    for group in groups:
+        for sprite in group:
+            sprite.rect.x -= offset
+    game.player.rect.x -= offset
+    game.bg_scroll = offset
+
+
+def respawn(game) -> None:
+    """Renasce no último checkpoint: recarrega a fase, remove inimigos já
+    mortos, posiciona a câmera e o jogador na bandeira com vida cheia e a
+    munição guardada. Sem checkpoint, apenas recarrega a fase."""
+    cp = getattr(game, 'checkpoint', None)
+    load_level(game, game.level, keep_checkpoint=cp is not None)
+    if cp is None:
+        return
+
+    for group in (game.enemy_group, game.boss_group):
+        for enemy in list(group):
+            if enemy.target_id in cp['inimigos_mortos']:
+                enemy.kill()
+    for flag in game.checkpoint_group:
+        if flag.col <= cp['col']:
+            flag.activate()
+
+    max_offset = max(0, game.world.level_length * TILE_SIZE - SCREEN_WIDTH)
+    offset = min(max(0, cp['x'] - SCREEN_WIDTH // 3), max_offset)
+    shift_world(game, offset)
+
+    player = game.player
+    player.rect.midbottom = (cp['x'] - offset, cp['y'])
+    player.vel_y = 0
+    player.in_air = False
+    player.health = player.max_health
+    player.ammo = cp['ammo']
+    player.grenades = cp['grenades']
+    player.invincible = 60
