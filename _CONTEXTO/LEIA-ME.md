@@ -23,7 +23,7 @@ Acadêmico
   - `GDD_Trabalho2.md` / `.pdf`: GDD atualizado.
   - `uml/`: diagramas PlantUML.
   - `checklist_teste_multiplayer.md`: teste manual em 2 PCs.
-  - `apresentacao/2026-11-19_slides-pyshooter.pptx`: slides (rascunho).
+  - `apresentacao/2026-11-19_slides-pyshooter_v2.pptx`: slides atuais (17, com capturas); o arquivo sem `_v2` é o rascunho antigo.
   - `2026-11-19_guia-de-estudo-apresentacao.md`: guia para explicar o código na aula.
 
 ## Como rodar

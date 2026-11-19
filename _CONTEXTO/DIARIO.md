@@ -9,10 +9,18 @@
   - `python tools/bot_fases.py --desafio --god --capturas docs/capturas`: fases 1-5 passam, sem problemas; sem --god o bot morre para o DragonBoss na fase 4 (dificuldade, não erro).
   - `python tools/teste_multiplayer.py`: 7 de 7 itens OK, também com o cliente conectando pelo IP da rede Wi-Fi (`--ip 192.168.15.8`), após ajustar a medição dos itens 2 e 4.
 - Corrigido em 2026-11-19: HUD do Desafio mostrava "FASE 6/5" atrás da tela de vitória (core/renderer.py).
-- Capturas em docs/capturas/ (campanha fases 1-4, Desafio, duas telas do multiplayer no mesmo segundo); já colocadas no deck (slides novos "Quatro fases" e "A mesma luta nas duas telas"; Desafio com capturas reais). O .pptx em docs/apresentacao/ está desatualizado: exportar de novo pelo menu Share › Export.
+- Capturas em docs/capturas/ (campanha fases 1-4, Desafio, duas telas do multiplayer no mesmo segundo); já colocadas no deck (slides novos "Quatro fases" e "A mesma luta nas duas telas"; Desafio com capturas reais). PowerPoint atualizado (17 slides) em docs/apresentacao/2026-11-19_slides-pyshooter_v2.pptx; o original sem capturas ficou ao lado.
 - Slides: https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL e docs/apresentacao/2026-11-19_slides-pyshooter.pptx; guia de estudo em docs/2026-11-19_guia-de-estudo-apresentacao.md.
 - Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
-- Próximos passos: teste manual em 2 PCs com o Pedro (docs/checklist_teste_multiplayer.md); exportar o .pptx de novo; ler o guia e ensaiar antes de 2026-11-24.
+- Próximos passos: teste manual em 2 PCs com o Pedro (docs/checklist_teste_multiplayer.md); ler o guia, dividir a fala e ensaiar; relatório em PDF até 2026-11-24.
+
+---
+
+### 2026-11-19 — PowerPoint v2 com as capturas
+- Pedido: exportar o .pptx de novo. O navegador do app não estava logado no claude.ai, então o .pptx foi editado direto no PowerPoint instalado (automação COM pelo PowerShell, sem instalar nada).
+- Feito: `docs/apresentacao/2026-11-19_slides-pyshooter_v2.pptx` a partir do original (que ficou intacto): slide 9 novo "Quatro fases, quatro cenários" (capturas recortadas no formato 816:290), slide 10 Desafio com as capturas do HUD e da vitória no lugar da caixa ilustrativa, slide 13 novo "A mesma luta nas duas telas", notas dos slides novos e do slide 15 (Correções) iguais às do deck no Claude. Script descartável em %TEMP%\claude_caps\montar_v2.ps1 (precisa de UTF-8 com BOM no PowerShell 5.1, senão os acentos quebram).
+- Resultados: 17 slides, conferidos por imagens exportadas pelo próprio PowerPoint; acentos e notas OK. O recorte da fase 1 não mostra o aviso CHECKPOINT (só a bandeira).
+- Próximos passos: se mudar o deck no Claude de novo, exportar pelo Share › Export (ou repetir a edição no PowerPoint).
 
 ---
 
