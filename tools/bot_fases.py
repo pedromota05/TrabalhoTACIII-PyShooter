@@ -306,6 +306,31 @@ def trazer_janela_para_frente():
         pass
 
 
+def mostrar_vitoria(game, segundos=10):
+    """Modo visual: exibe a tela de vitória real do jogo até ESC, fechar a
+    janela ou passar `segundos`."""
+    print("[Bot] Vitória! Aperte ESC ou feche a janela para sair.")
+    for _ in range(segundos * FPS):
+        game.victory_screen.update(game.screen, game)
+        pygame.display.flip()
+        game.clock.tick(FPS)
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT or (ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE):
+                return
+
+
+def vencer_campanha(game):
+    """Fecha a campanha como o jogo faz ao sair da última fase: marca as fases
+    no progresso (arquivo temporário do bot), libera o Desafio e vai para VICTORY."""
+    from core import progress
+    from config import MAX_LEVELS
+    for f in range(1, MAX_LEVELS):
+        progress.marcar_fase(f)
+    game.level = MAX_LEVELS
+    game.challenge_mode = False
+    game._update_level_transition()  # marca a última fase, campanha zerada, estado VICTORY
+
+
 def novo_jogo():
     from game import Game
     return Game()
@@ -486,6 +511,8 @@ def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=N
             problemas.append('recorde não foi gravado')
         if progress.carregar()['campanha_zerada'] and not campanha_antes:
             problemas.append('o Desafio marcou a campanha como zerada')
+        if visual:
+            mostrar_vitoria(game)
         if capturas:
             for _ in range(60):  # véu da vitória chega à opacidade final em ~30 quadros
                 FRAME[0] += 1
@@ -537,6 +564,11 @@ def main(argv):
             })
         else:
             saida.append(jogar_fase(game, fase, False, seed, god, max_seg, cp, visual=visual))
+    # Campanha inteira vencida no modo visual: mostra a vitória, como no jogo.
+    if (visual and not humano_n and sorted(fases) == [1, 2, 3, 4]
+            and all(r['resultado'] == 'passou' for r in saida)):
+        vencer_campanha(game)
+        mostrar_vitoria(game)
     print(json.dumps(saida, ensure_ascii=False, indent=1))
 
 

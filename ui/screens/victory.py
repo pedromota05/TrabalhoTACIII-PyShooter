@@ -64,6 +64,10 @@ class VictoryScreen:
             draw_text_with_outline(screen, f'Tempo: {format_time(game.run_frames)}',
                                    self.info_font, YELLOW,
                                    SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20)
+            if progress.carregar()['campanha_zerada']:
+                draw_text_with_outline(screen, 'Modo Desafio liberado no menu!', self.info_font,
+                                       GOLD, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30,
+                                       thickness=3)
 
         if self.menu_button.draw(screen):
             self.alpha = 0
