@@ -78,8 +78,22 @@ class MultiplayerMenuScreen:
                 self.ip_input = self.ip_input[:-1]
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.input_active = False
+            elif event.key == pygame.K_v and event.mod & pygame.KMOD_CTRL:
+                self._paste_ip()
             elif len(self.ip_input) < 15 and (event.unicode.isdigit() or event.unicode in ('.', ':')):
                 self.ip_input += event.unicode
+
+    def _paste_ip(self) -> None:
+        """Ctrl+V: troca o conteúdo do campo pelo IP da área de transferência.
+
+        Mantém só dígitos, '.' e ':' (ex.: copiado do Radmin com espaços)."""
+        try:
+            text = pygame.scrap.get_text() or ""
+        except Exception:
+            return
+        cleaned = "".join(ch for ch in text if ch.isdigit() or ch in ".:")[:15]
+        if cleaned:
+            self.ip_input = cleaned
 
     def update(self, screen: pygame.Surface, game) -> None:
         """Renderiza a tela de configuração multiplayer."""
