@@ -95,6 +95,8 @@ def update_checkpoints(game) -> None:
     """Ativa a bandeira quando o jogador passa por ela e guarda o estado para renascer."""
     if game.checkpoint_msg_frames > 0:
         game.checkpoint_msg_frames -= 1
+    if getattr(game, 'level_banner_frames', 0) > 0:
+        game.level_banner_frames -= 1
     player_wx = game.player.rect.centerx + game.bg_scroll
     for flag in game.checkpoint_group:
         if flag.active or player_wx < flag.world_x:

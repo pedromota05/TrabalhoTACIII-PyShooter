@@ -1,6 +1,6 @@
 """Renderização do cenário, entidades e HUD."""
 
-from config import BG_COLOR, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
+from config import BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
 
 
 def draw_background(game) -> None:
@@ -83,6 +83,11 @@ def draw_game_entities(game) -> None:
 
     if getattr(game, 'challenge_mode', False):
         draw_challenge_hud(game)
+    else:
+        fase, total = level_label(game)
+        _blit_shadowed(game, f'FASE {fase}/{total}', WHITE, game.font_bold,
+                       SCREEN_WIDTH // 2, 8)
+    draw_level_banner(game)
 
     if getattr(game, 'checkpoint_msg_frames', 0) > 0:
         msg = game.title_font.render('CHECKPOINT!', True, (60, 220, 90))
@@ -109,3 +114,23 @@ def draw_challenge_hud(game) -> None:
     fase = min(game.challenge_index + 1, total)  # após a última fase o índice passa do total
     _blit_shadowed(game, f'FASE {fase}/{total}', WHITE, game.font_bold,
                    SCREEN_WIDTH // 2, 68)
+
+
+def level_label(game) -> tuple[int, int]:
+    """(fase atual, total) para o HUD: no Desafio conta pela lista do desafio."""
+    if getattr(game, 'challenge_mode', False):
+        total = len(game.challenge_levels)
+        return min(game.challenge_index + 1, total), total
+    return game.level, MAX_LEVELS
+
+
+def draw_level_banner(game) -> None:
+    """Aviso grande 'FASE N' centralizado enquanto level_banner_frames > 0."""
+    if getattr(game, 'level_banner_frames', 0) <= 0:
+        return
+    fase, total = level_label(game)
+    _blit_shadowed(game, f'FASE {fase}', WHITE, game.title_font,
+                   SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60)
+    _blit_shadowed(game, f'de {total}', WHITE, game.font_bold,
+                   SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+

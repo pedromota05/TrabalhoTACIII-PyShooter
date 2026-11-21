@@ -48,6 +48,7 @@ MAX_LEVELS = 4
 # (tools/bot_fases.py --humano). Não valem no Modo Desafio nem no multiplayer.
 CHECKPOINTS = {1: [48, 95], 2: [29, 89], 3: [19, 83], 4: []}
 CHECKPOINT_MSG_FRAMES = 90  # aviso "CHECKPOINT!" no HUD (1,5 s)
+LEVEL_BANNER_FRAMES = 120  # aviso "FASE N" no início de cada fase (2 s)
 LEVELS_DIR = 'levels'
 
 # ---------------------------------------------------------------------------

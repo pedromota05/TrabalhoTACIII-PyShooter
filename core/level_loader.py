@@ -3,7 +3,7 @@
 import csv
 import os
 
-from config import CHECKPOINTS, COLS, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE
+from config import CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE
 from entities.checkpoint import CheckpointFlag
 from world.level_builder import World
 
@@ -41,6 +41,8 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     if not keep_checkpoint:
         game.checkpoint = None
     game.checkpoint_msg_frames = 0
+    # Aviso "FASE N" só quando a fase começa do zero (não ao renascer no checkpoint).
+    game.level_banner_frames = 0 if keep_checkpoint else LEVEL_BANNER_FRAMES
     # Zera a câmera: sem isso, o screen_scroll do último quadro da fase
     # anterior desloca o mundo novo no primeiro quadro (bg_scroll já é 0).
     game.screen_scroll = 0
