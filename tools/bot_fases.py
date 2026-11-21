@@ -16,7 +16,7 @@ Uso (na raiz do projeto):
         # seguidas, pelas transições reais (game._update_level_transition()),
         # conferindo vida/munição levadas entre fases e o recorde gravado.
         # --capturas salva PNGs do HUD de cada fase e da tela de vitória.
-    Opções: --god (invencível), --max-seg N, --seed N, --checkpoint
+    Opções: --god (invencível), --visual (abre janela a 60 FPS), --max-seg N, --seed N, --checkpoint
         (--checkpoint: ao morrer, renasce no checkpoint e continua)
 """
 
@@ -29,8 +29,14 @@ import sys
 from collections import Counter
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.environ.setdefault('SDL_VIDEODRIVER', 'dummy')
-os.environ.setdefault('SDL_AUDIODRIVER', 'dummy')
+VISUAL = '--visual' in sys.argv or '--assistir' in sys.argv
+if VISUAL:
+    os.environ.pop('SDL_VIDEODRIVER', None)
+    os.environ.pop('SDL_AUDIODRIVER', None)
+    os.environ['SDL_VIDEO_CENTERED'] = '1'
+else:
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'
+    os.environ['SDL_AUDIODRIVER'] = 'dummy'
 # Progresso do bot vai para um arquivo temporário, sem tocar em save/progresso.json.
 import tempfile  # noqa: E402
 os.environ.setdefault('PYSHOOTER_SAVE', os.path.join(tempfile.gettempdir(), 'pyshooter_bot_progresso.json'))
@@ -39,12 +45,13 @@ sys.path.insert(0, RAIZ)
 
 import pygame  # noqa: E402
 
-# Relógio determinístico: 1 quadro = 1/60 s, independente da velocidade da CPU.
+# Relógio determinístico: 1 quadro = 1/60 s, independente da velocidade da CPU (apenas no modo headless).
 FRAME = [0]
-pygame.time.get_ticks = lambda: int(FRAME[0] * 1000 / 60)
+if not VISUAL:
+    pygame.time.get_ticks = lambda: int(FRAME[0] * 1000 / 60)
 
 from config import (  # noqa: E402
-    GRAVITY, TERMINAL_VELOCITY, JUMP_VELOCITY, SCREEN_HEIGHT, TILE_SIZE,
+    FPS, GRAVITY, TERMINAL_VELOCITY, JUMP_VELOCITY, SCREEN_HEIGHT, SCREEN_WIDTH, TILE_SIZE,
 )
 from entities.player import Player  # noqa: E402
 from game_state import GameState  # noqa: E402
@@ -283,13 +290,29 @@ def causa_morte(game):
     return 'outro'
 
 
+def trazer_janela_para_frente():
+    """No modo visual, põe a janela do jogo na frente das outras.
+
+    Rodando pelo terminal da IDE, o Windows abre a janela do pygame atrás
+    do editor, e parece que ela não abriu. 'Sempre no topo' resolve isso."""
+    import warnings
+    try:
+        with warnings.catch_warnings():  # só lemos a janela; o desenho segue em pygame.display
+            warnings.simplefilter('ignore', DeprecationWarning)
+            janela = pygame.Window.from_display_module()  # pygame-ce 2.5+
+        janela.always_on_top = True
+        janela.focus()
+    except (AttributeError, pygame.error):
+        pass
+
+
 def novo_jogo():
     from game import Game
     return Game()
 
 
 def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
-               checkpoint=False):
+               checkpoint=False, visual=False):
     """Joga uma fase do início. Retorna dict com resultado e eventos."""
     random.seed(seed)  # IA dos inimigos usa `random`: semente torna o teste reproduzível
     game.level = fase
@@ -299,6 +322,22 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
         game.reset_run_state()
     game._load_level(fase)
     game.state = GameState.PLAYING
+    if visual:
+        driver = pygame.display.get_driver() if pygame.display.get_init() else "nenhum"
+        print(f"\n[Bot] Driver de vídeo atual: '{driver}'")
+        if driver == 'dummy' or not pygame.display.get_init():
+            print("[Bot] Reconfigurando janela para modo gráfico visível...")
+            pygame.display.quit()
+            os.environ.pop('SDL_VIDEODRIVER', None)
+            pygame.display.init()
+            game.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            print(f"[Bot] Novo driver ativo: '{pygame.display.get_driver()}'")
+        print(f"[Bot] Abrindo janela e carregando Fase {fase}...")
+        pygame.display.set_caption(f'PyShooter - Bot Assistido (Fase {fase})')
+        trazer_janela_para_frente()
+        game._draw_game_entities()
+        pygame.display.flip()
+        pygame.event.pump()
     bot = Bot(game, humano=humano, rng=random.Random(seed))
     inicio = FRAME[0]
     mortes = []
@@ -309,7 +348,26 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
             game.player.health = 100
         bot.tick()
         game._update_playing()
-        pygame.event.pump()
+        if visual:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return {
+                        'fase': fase, 'resultado': 'interrompido',
+                        'segundos': round((FRAME[0] - inicio) / 60, 1),
+                        'vida': game.player.health, 'municao': game.player.ammo,
+                        'mortes': mortes, 'estado_final': 'QUIT',
+                    }
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return {
+                        'fase': fase, 'resultado': 'interrompido',
+                        'segundos': round((FRAME[0] - inicio) / 60, 1),
+                        'vida': game.player.health, 'municao': game.player.ammo,
+                        'mortes': mortes, 'estado_final': 'ESCAPE',
+                    }
+            pygame.display.flip()
+            game.clock.tick(FPS)
+        else:
+            pygame.event.pump()
         if game.state == GameState.GAME_OVER:
             x = game.player.rect.centerx + game.bg_scroll
             mortes.append((x, causa_morte(game)))
@@ -319,9 +377,25 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
                 game.state = GameState.PLAYING
                 continue
             resultado = 'morreu'
+            if visual:
+                pygame.display.update()
+                print(f"[Bot] O bot morreu em x={x} ({causa_morte(game)}).")
+                for _ in range(120):
+                    game.clock.tick(FPS)
+                    for ev in pygame.event.get():
+                        if ev.type in (pygame.QUIT, pygame.KEYDOWN):
+                            break
             break
         if game.state.name in ('LEVEL_TRANSITION', 'VICTORY'):
             resultado = 'passou'
+            if visual:
+                pygame.display.update()
+                print("[Bot] Fase concluída com sucesso!")
+                for _ in range(120):
+                    game.clock.tick(FPS)
+                    for ev in pygame.event.get():
+                        if ev.type in (pygame.QUIT, pygame.KEYDOWN):
+                            break
             break
     return {
         'fase': fase, 'resultado': resultado,
@@ -331,7 +405,7 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
     }
 
 
-def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=None):
+def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=None, visual=False):
     """Joga o Modo Desafio inteiro (fases 1 a 5) com a lógica real do jogo.
 
     Em cada troca de fase confere se vida, munição e granadas do jogador
@@ -355,7 +429,16 @@ def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=N
             game.player.health = 100
         bot.tick()
         game._update_playing()
-        pygame.event.pump()
+        if visual:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                    saida = {'resultado': 'interrompido', 'segundos_total': round((FRAME[0] - inicio) / 60, 1),
+                             'cronometro': game.run_frames, 'fases': fases, 'problemas': problemas}
+                    return saida
+            pygame.display.flip()
+            game.clock.tick(FPS)
+        else:
+            pygame.event.pump()
         # Captura do HUD 3 s depois do início de cada fase.
         if (capturas and game.state == GameState.PLAYING
                 and FRAME[0] - inicio_fase == 180 and game.level not in capturou_fase):
@@ -426,16 +509,20 @@ def main(argv):
     max_seg = opt('--max-seg', 240)
     god = '--god' in argv
     cp = '--checkpoint' in argv
+    visual = '--visual' in argv or '--assistir' in argv
+    if visual:
+        print("[Bot] Modo visual ativado a 60 FPS.")
+        print("[Bot] Dica: aperte ESC ou feche a janela para parar a qualquer momento.")
     game = novo_jogo()
     if '--desafio' in argv:
         capturas = opt('--capturas', '')
-        res = jogar_desafio(game, seed, god, opt('--max-seg', 900), humano_n > 0, capturas or None)
+        res = jogar_desafio(game, seed, god, opt('--max-seg', 900), humano_n > 0, capturas or None, visual=visual)
         print(json.dumps(res, ensure_ascii=False, indent=1))
         return
     saida = []
     for fase in fases or [1]:
         if humano_n:
-            res = [jogar_fase(game, fase, True, seed + i, god, max_seg, cp)
+            res = [jogar_fase(game, fase, True, seed + i, god, max_seg, cp, visual=visual)
                    for i in range(humano_n)]
             ok = sum(r['resultado'] == 'passou' for r in res)
             mortes = [m for r in res for m in r['mortes']]
@@ -449,7 +536,7 @@ def main(argv):
                                            if r['resultado'] == 'passou') / max(ok, 1), 1),
             })
         else:
-            saida.append(jogar_fase(game, fase, False, seed, god, max_seg, cp))
+            saida.append(jogar_fase(game, fase, False, seed, god, max_seg, cp, visual=visual))
     print(json.dumps(saida, ensure_ascii=False, indent=1))
 
 
