@@ -564,8 +564,9 @@ def main(argv):
             })
         else:
             saida.append(jogar_fase(game, fase, False, seed, god, max_seg, cp, visual=visual))
-    # Campanha inteira vencida no modo visual: mostra a vitória, como no jogo.
-    if (visual and not humano_n and sorted(fases) == [1, 2, 3, 4]
+    # Última fase vencida no modo visual: mostra a vitória, como no jogo
+    # (vale também rodando só a fase 4, para ver a tela final).
+    if (visual and not humano_n and saida and saida[-1]['fase'] == 4
             and all(r['resultado'] == 'passou' for r in saida)):
         vencer_campanha(game)
         mostrar_vitoria(game)
