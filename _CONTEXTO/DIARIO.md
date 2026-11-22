@@ -1,17 +1,17 @@
 # Diário — PyShooter
 
 ## Resumo
-- Situação (2026-11-22): branch `melhorias-coop` em dia com o GitHub (último commit `570382a`). Apresentação e relatório do T2 em 2026-11-24.
-- Jogo: campanha de 4 fases (vitória ao matar Demônio e depois Dragão, em etapas); Modo Desafio = fases 1 a 5, sendo a 5 uma arena de hordas (5 ondas, chefes na última); multiplayer LAN para 2.
+- Situação (2026-11-22, noite): branch `melhorias-coop` em dia com o GitHub (último commit de código `c289acd`). Apresentação e relatório do T2 em 2026-11-24.
+- Jogo: campanha de 4 fases (vitória ao matar Demônio e depois Dragão, em etapas); Modo Desafio = fases 1 a 5, sendo a 5 uma arena de hordas (5 ondas, chefes na última; após 8 s sem matar aparece seta "Siga a seta!" para o inimigo mais próximo); multiplayer LAN para 2.
 - Combate: mira e tiro no mouse (só a arma gira, `entities/aim_pose.py`), ESPAÇO = dash, botão direito = golpe com a arma (quebra caixas de madeira: item, coração +1 vida ou aranha), granada Q/G.
 - Vidas (normal): 3 compartilhadas, "-1 VIDA" e renasce no início da fase ou logo depois da última bandeira (também em dupla). Desafio: uma vida por jogador (regras em DECISOES).
 - Diversão: pontos, combo até x5, drops, piscar e dano flutuando, tremor; músicas CC0 do MintoDog por tela/fase (`core/music.py`, `audio/musicas/`, créditos em `audio/CREDITOS.md`); tela cheia com F11.
 - Editor: Modo Mover (M), desfazer/refazer (Ctrl+Z/Ctrl+Y), checkpoint (tile 88), castelo na saída, aranha (tile 89).
 - Documentação: GDD (md/html/pdf, gerados por `tools/gerar_gdd.py`), slides `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx`, guia de estudo atualizado.
-- Testes (2026-11-22, à noite): bot campanha 1-4 OK; Desafio 1-4 OK; fase 5 conferida por script (5 ondas e vitória OK), mas o bot não termina a 5 sozinho (não sobe na plataforma alta nem pega munição); teste_multiplayer 6/7 nas duas rodadas, cada vez um item diferente no limite da medição (3 com CPU ocupada; 2 com 13 px vs 12). Golpe/caixas/tela cheia/músicas só testando na mão.
+- Testes (2026-11-22, noite): bot campanha 1-4 OK; Desafio 1-4 OK; fase 5 conferida por script (5 ondas e vitória OK), o bot não termina a 5 sozinho (limite do bot); teste_multiplayer 6/7 nas duas rodadas, falhas de medição no limite. Atalhos de teste: `python main.py --fase5` e, com recorde salvo, botões "Treino: começar na fase" 1-5 na seleção (2-5 não gravam recorde). Guilherme testou e disse "tudo ok".
 - Multiplayer pelo Radmin VPN: Host passa o IP 26.x; liberar UDP 5555 no Firewall do Host; os dois com `git pull origin melhorias-coop`.
-- Forma de trabalho: delegar ao Gemini (`ponte-agy`) com roteiros em `docs/tarefas/`; commits sem Co-Authored-By, só quando o Guilherme pede.
-- Próximos passos: Guilherme testar jogando (lista no fim da entrada de 2026-11-22); teste em dupla com o Pedro; revisar slides v3; ver se há coração demais nas caixas; "fase 2 não terminou" segue sem descrição.
+- Forma de trabalho: delegar ao Gemini (`ponte-agy`) as edições grandes, com roteiros em `docs/tarefas/`; correções pequenas (até ~20-30 linhas) o Claude faz direto; commits sem Co-Authored-By, só quando o Guilherme pede.
+- Próximos passos: testar na mão a seta e o treino do Desafio; teste em dupla com o Pedro pelo Radmin; revisar slides v3 (sem a seta e o treino ainda); ver se há coração demais nas caixas; "fase 2 não terminou" segue sem descrição.
 
 ---
 ### 2026-11-22 — Rodada de testes automáticos e bot nas hordas

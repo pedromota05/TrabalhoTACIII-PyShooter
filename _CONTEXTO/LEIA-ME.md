@@ -31,6 +31,6 @@ Acadêmico
 
 ## Como rodar
 - Dependências: `python -m pip install pygame-ce Pillow` (o PC da CLM não tem; testar no PC de casa).
-- Jogo: `python main.py`.
+- Jogo: `python main.py`. Teste da fase 5: `python main.py --fase5` (Desafio direto na fase 5, sem gravar recorde).
 - Branch de trabalho: `melhorias-coop` (desde 2026-11-21; saiu de `trabalho-parte2`); commits sem linha Co-Authored-By.
 - Controles: A/D andar, W pular, mouse mira, botão esquerdo atira, botão direito golpe, ESPAÇO dash, Q/G granada, E placa, F11 tela cheia, ESC pausa.
