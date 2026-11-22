@@ -98,7 +98,7 @@ class RemotePlayer(pygame.sprite.Sprite):
             self.shoot_cooldown = 20
             aim = data.get("aim")
             if aim is not None:
-                cx, cy = muzzle_point(self.rect, self.direction, aim)
+                cx, cy = muzzle_point(self.rect, self.direction, aim, self.action, self.frame_index, self.color)
                 bullet = Bullet(cx, cy, self.direction, visual_only=True, angle=aim)
             else:
                 bullet_x = self.rect.centerx + (0.75 * self.rect.size[0] * self.direction)
@@ -109,9 +109,11 @@ class RemotePlayer(pygame.sprite.Sprite):
 
     def draw(self, screen: pygame.Surface) -> None:
         """Renderiza o jogador remoto com tag de identificação e mini barra de HP."""
+        drawn = False
         if self.alive and getattr(self, 'aim', None) is not None and self.action != 3:
-            draw_aiming(screen, self.image, self.rect, self.direction, self.aim)
-        else:
+            drawn = draw_aiming(screen, self.rect, self.direction, self.aim,
+                                self.action, self.frame_index, self.color)
+        if not drawn:
             screen.blit(self.image, self.rect)
 
         if self.alive:

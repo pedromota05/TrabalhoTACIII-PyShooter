@@ -39,6 +39,7 @@ class Character(pygame.sprite.Sprite):
         self.base_speed = speed
         self.speed_boost = False
         self.speed_boost_timer = 0
+        self.hit_flash = 0
 
         # Carregar animações via AssetManager (com cache)
         assets = AssetManager()
@@ -58,6 +59,9 @@ class Character(pygame.sprite.Sprite):
         self.check_alive()
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
+
+        if getattr(self, 'hit_flash', 0) > 0:
+            self.hit_flash -= 1
 
         if self.speed_boost:
             self.speed_boost_timer -= 1
@@ -153,6 +157,7 @@ class Character(pygame.sprite.Sprite):
                     spawn_y,
                     self.direction,
                     network_client=network_client,
+                    owner=self,
                 )
             else:
                 cx, cy = self.rect.centerx, self.rect.centery - 5
@@ -172,6 +177,7 @@ class Character(pygame.sprite.Sprite):
                     self.direction,
                     network_client=network_client,
                     angle=angle,
+                    owner=self,
                 )
             bullet_group.add(bullet)
             self.ammo -= 1
@@ -212,5 +218,10 @@ class Character(pygame.sprite.Sprite):
     #  Renderização
     # ------------------------------------------------------------------
     def draw(self, screen: pygame.Surface):
-        screen.blit(pygame.transform.flip(self.image, self.flip, False),
-                    self.rect)
+        flipped = pygame.transform.flip(self.image, self.flip, False)
+        screen.blit(flipped, self.rect)
+        if self.char_type != 'player' and getattr(self, 'hit_flash', 0) > 0:
+            white = pygame.mask.from_surface(flipped).to_surface(
+                setcolor=(255, 255, 255, 200), unsetcolor=(0, 0, 0, 0)
+            )
+            screen.blit(white, self.rect)

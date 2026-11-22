@@ -10,7 +10,17 @@
 - 2026-11-21 (tarde): perder vida não mostra mais a tela vermelha; aparece "-1 VIDA" e o jogador renasce em 1 s ao lado do parceiro ou no último chão firme (GAME OVER só sem vidas). Saída das fases 1-3 movida para o chão plano do fim (coluna 186), com castelinho menor e linha de chegada.
 - 2026-11-21 (noite): mira no mouse (tiro no botão esquerdo, em qualquer ângulo), ESPAÇO = dash com rastro azul; renascer não cai mais no buraco; editor com Modo Mover (M), checkpoint como tile 88 e castelo/linha de chegada visíveis; cor do boneco na seleção de fases e sem cor repetida no multi; chefes da fase 4 em etapas (Demônio, depois Dragão); vidas do HUD longe da pausa. Commit 3f399d0 com push.
 - 2026-11-21 (noite, 2): arma acompanha a mira (tronco gira na cintura, até 55°; tiro sai do cano). Desafio em dupla com regra própria (uma vida por jogador, quem cai assiste, volta na fase seguinte com metade da vida; os dois caídos = DESAFIO ENCERRADO e o Host recomeça). Modo normal no multiplayer conferido com 2 processos: igual ao single.
+- 2026-11-21 (noite, 3): arma separada do corpo por cor (só a arma gira, sem cortar o boneco); bala nunca acerta quem atirou; editor com desfazer/refazer (Ctrl+Z/Ctrl+Y e botões) e castelo na paleta; pontos, combo, drops de inimigos, piscar ao levar tiro, dano flutuando e tremor de tela. Ainda sem commit.
 - Próximos passos: Guilherme testar na mão (mira, dash, editor); commit/push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD (controles mudaram: ESPAÇO não atira mais).
+
+---
+
+### 2026-11-21 — Arma sem corte, autotiro, editor desfazer/refazer, diversão
+- Pedido: sprite se cortava ao inclinar; tiro na diagonal acertava o próprio jogador; editor sem desfazer/refazer e sem castelo na paleta; deixar as fases mais divertidas e corrigir bugs.
+- Feito: `entities/aim_pose.py` reescrito — cada quadro é separado em camada da arma (cores azuis/laranja, contorno e luvas no retângulo da arma, dedos) e do corpo (buraco do peito preenchido com a cor vizinha); só a arma gira em torno da empunhadura, no ângulo exato; cache por (ação, quadro, cor, escala). `Bullet(owner=...)` ignora quem atirou. Editor (roteiro fase-13): pilhas de desfazer/refazer (um arrasto = um passo), botões e atalhos, castelo nos ids 20/41 da paleta. Diversão (roteiro fase-14): `entities/effects.py` (texto flutuante, tremor), `update_fun` em `core/gameplay.py` (pontos por tipo em `config.KILL_POINTS`, combo até x5 em 2,5 s, drops determinísticos por `target_id`), piscar branco em inimigos/chefes, HUD "PONTOS" e "COMBO".
+- Resultados: bot campanha 1-4 e Desafio OK; capturas da mira, do editor e do HUD de combo conferidas.
+- Bot `--humano 3`: fases 1-2 100%, fase 3 67% (1 queda perto da coluna 100), fase 4 33% (2 mortes na água logo após o início). Poço de água da fase 4 estreitado de 5 para 3 blocos (`levels/level4_data.csv`, colunas 14-16; rampa na 17): `--humano 5` na fase 4 passou a 100%.
+- Próximos passos: commit; testar à mão.
 
 ---
 

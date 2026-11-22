@@ -5,6 +5,7 @@ import pygame
 from config import (
     BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH,
     WHITE, YELLOW, RED, BLACK, DASH_COOLDOWN, SHARED_LIVES,
+    COMBO_WINDOW_FRAMES,
 )
 from game_state import GameState
 
@@ -75,6 +76,8 @@ def draw_game_entities(game) -> None:
     game.decoration_group.draw(game.screen)
     game.water_group.draw(game.screen)
     game.exit_group.draw(game.screen)
+    if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+        game.fun_fx_group.draw(game.screen)
 
     game.health_bar.draw(game.screen, game.player.health)
     draw_text(game, 'MUNIÇÃO: ', WHITE, 10, 35)
@@ -87,8 +90,19 @@ def draw_game_entities(game) -> None:
     for x in range(game.player.grenades):
         game.screen.blit(grenade_img, (135 + (x * 15), 60))
 
+    draw_text(game, f'PONTOS: {game.score}', WHITE, 10, 85, game.font_bold)
+    if getattr(game, 'combo', 0) >= 2:
+        score_w = game.font_bold.size(f'PONTOS: {game.score}')[0]
+        combo_x = 10 + score_w + 15
+        draw_text(game, f'COMBO x{game.combo}', YELLOW, combo_x, 85, game.font_bold)
+        timer_ratio = max(0.0, min(1.0, game.combo_timer / COMBO_WINDOW_FRAMES))
+        bar_w = int(60 * timer_ratio)
+        pygame.draw.rect(game.screen, (50, 50, 50), pygame.Rect(combo_x, 108, 60, 4))
+        if bar_w > 0:
+            pygame.draw.rect(game.screen, YELLOW, pygame.Rect(combo_x, 108, bar_w, 4))
+
     if game.player.speed_boost:
-        draw_text(game, 'SPEED BOOST!', YELLOW, 10, 85, game.font_bold)
+        draw_text(game, 'SPEED BOOST!', YELLOW, 10, 110, game.font_bold)
 
     if getattr(game, 'challenge_mode', False):
         draw_challenge_hud(game)

@@ -19,8 +19,10 @@ from config import (
     GRENADE_SPEED, GRENADE_INITIAL_VEL_Y, GRENADE_TIMER,
     GRENADE_DAMAGE, GRENADE_BLAST_RADIUS,
     EXPLOSION_SPEED, EXPLOSION_SCALE,
+    HIT_FLASH_FRAMES,
 )
 from asset_manager import AssetManager
+from entities import effects
 
 
 # ======================================================================
@@ -30,8 +32,11 @@ class Bullet(pygame.sprite.Sprite):
     """Projétil linear padrão disparado pelo jogador e por soldados inimigos."""
 
     def __init__(self, x: float, y: float, direction: int, network_client=None,
-                 visual_only: bool = False, angle: float | None = None):
+                 visual_only: bool = False, angle: float | None = None, owner=None):
         super().__init__()
+        # Quem atirou: a bala nunca acerta o próprio dono (com a mira inclinada
+        # o cano pode ficar encostado no corpo).
+        self.owner = owner
         self.speed = BULLET_SPEED
         # visual_only: bala de um jogador remoto. Só aparece na tela; o dano
         # chega pela mensagem "hit" de quem atirou (evita dano em dobro no Host
@@ -89,13 +94,17 @@ class Bullet(pygame.sprite.Sprite):
                 break
 
         if self.visual_only:
-            alvos = [e for grp in (enemy_group, boss_group or ()) for e in grp if e.alive]
-            if any(pygame.sprite.collide_rect(self, e) for e in alvos):
-                self.has_hit = True
+            alvos = [e for grp in (enemy_group, boss_group or ()) if grp for e in grp if e.alive]
+            for e in alvos:
+                if pygame.sprite.collide_rect(self, e):
+                    e.hit_flash = HIT_FLASH_FRAMES
+                    self.has_hit = True
+                    break
             return
 
         # Colisão com jogador
-        if not self.has_hit and pygame.sprite.collide_rect(self, player):
+        if (not self.has_hit and player is not self.owner
+                and pygame.sprite.collide_rect(self, player)):
             if player.alive and getattr(player, 'invincible', 0) == 0:
                 player.health -= BULLET_DAMAGE_TO_PLAYER
                 player.invincible = 60  # Garante frames de invencibilidade para o player
@@ -104,9 +113,11 @@ class Bullet(pygame.sprite.Sprite):
         # Colisão com inimigos
         if not self.has_hit:
             for enemy in enemy_group:
-                if pygame.sprite.collide_rect(self, enemy):
+                if enemy is not self.owner and pygame.sprite.collide_rect(self, enemy):
                     if enemy.alive:
                         enemy.health -= BULLET_DAMAGE_TO_ENEMY
+                        enemy.hit_flash = HIT_FLASH_FRAMES
+                        effects.damage_text(enemy.rect.centerx, enemy.rect.top, BULLET_DAMAGE_TO_ENEMY)
                         if self.network_client and hasattr(enemy, 'target_id'):
                             self.network_client.send_enemy_hit(enemy.target_id, BULLET_DAMAGE_TO_ENEMY)
                         # Feedback visual de hit (se a animação 4 "Hurt" existir)
@@ -122,6 +133,8 @@ class Bullet(pygame.sprite.Sprite):
                 if boss.alive:
                     self.kill()  # Bala some
                     boss.health -= 25
+                    boss.hit_flash = HIT_FLASH_FRAMES
+                    effects.damage_text(boss.rect.centerx, boss.rect.top, 25)
                     if self.network_client and hasattr(boss, 'target_id'):
                         self.network_client.send_enemy_hit(boss.target_id, 25)
                     if boss.health <= 0:
@@ -213,6 +226,7 @@ class Grenade(pygame.sprite.Sprite):
             AssetManager().get_sound('grenade').play()
             explosion = Explosion(self.rect.x, self.rect.y, EXPLOSION_SCALE)
             explosion_group.add(explosion)
+            effects.shake(12, 6)
             # Dano em área
             if (abs(self.rect.centerx - player.rect.centerx) < GRENADE_BLAST_RADIUS
                     and abs(self.rect.centery - player.rect.centery) < GRENADE_BLAST_RADIUS):
@@ -220,26 +234,32 @@ class Grenade(pygame.sprite.Sprite):
             for enemy in enemy_group:
                 if (abs(self.rect.centerx - enemy.rect.centerx) < GRENADE_BLAST_RADIUS
                         and abs(self.rect.centery - enemy.rect.centery) < GRENADE_BLAST_RADIUS):
-                    enemy.health -= GRENADE_DAMAGE
-                    if self.network_client and hasattr(enemy, 'target_id'):
-                        self.network_client.send_enemy_hit(enemy.target_id, GRENADE_DAMAGE)
-                    if enemy.health <= 0:
-                        enemy.health = 0
-                        enemy.alive = False
-                        if hasattr(enemy, 'update_action'):
-                            enemy.update_action(3)
+                    if enemy.alive:
+                        enemy.health -= GRENADE_DAMAGE
+                        enemy.hit_flash = HIT_FLASH_FRAMES
+                        effects.damage_text(enemy.rect.centerx, enemy.rect.top, GRENADE_DAMAGE)
+                        if self.network_client and hasattr(enemy, 'target_id'):
+                            self.network_client.send_enemy_hit(enemy.target_id, GRENADE_DAMAGE)
+                        if enemy.health <= 0:
+                            enemy.health = 0
+                            enemy.alive = False
+                            if hasattr(enemy, 'update_action'):
+                                enemy.update_action(3)
             if boss_group:
                 for boss in boss_group:
                     if (abs(self.rect.centerx - boss.rect.centerx) < GRENADE_BLAST_RADIUS
                             and abs(self.rect.centery - boss.rect.centery) < GRENADE_BLAST_RADIUS):
-                        boss.health -= GRENADE_DAMAGE
-                        if self.network_client and hasattr(boss, 'target_id'):
-                            self.network_client.send_enemy_hit(boss.target_id, GRENADE_DAMAGE)
-                        if boss.health <= 0:
-                            boss.health = 0
-                            boss.alive = False
-                            if hasattr(boss, 'update_action'):
-                                boss.update_action(3)
+                        if boss.alive:
+                            boss.health -= GRENADE_DAMAGE
+                            boss.hit_flash = HIT_FLASH_FRAMES
+                            effects.damage_text(boss.rect.centerx, boss.rect.top, GRENADE_DAMAGE)
+                            if self.network_client and hasattr(boss, 'target_id'):
+                                self.network_client.send_enemy_hit(boss.target_id, GRENADE_DAMAGE)
+                            if boss.health <= 0:
+                                boss.health = 0
+                                boss.alive = False
+                                if hasattr(boss, 'update_action'):
+                                    boss.update_action(3)
 
 
 # ======================================================================

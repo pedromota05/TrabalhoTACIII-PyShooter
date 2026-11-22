@@ -156,3 +156,13 @@ YELLOW = (255, 255, 0)
 # ---------------------------------------------------------------------------
 FONT_NAME = None  # Fonte padrão nativa do Pygame (mesma aparência original, sem UserWarning)
 FONT_SIZE = 30
+
+# ---------------------------------------------------------------------------
+#  Diversão (Pontos, Combo, Drops, Efeitos)
+# ---------------------------------------------------------------------------
+KILL_POINTS = {'Enemy': 100, 'Sniper': 200, 'RobotEnemy': 150, 'SkeletonEnemy': 150, 'Boss': 1500, 'DragonBoss': 2000}
+COMBO_WINDOW_FRAMES = 150   # 2,5 s para a próxima morte manter o combo
+COMBO_MAX = 5               # multiplicador máximo
+DROP_CHANCES = (('Ammo', 0.25), ('Health', 0.10), ('Grenade', 0.08))  # chance por morte, em ordem
+HIT_FLASH_FRAMES = 6
+

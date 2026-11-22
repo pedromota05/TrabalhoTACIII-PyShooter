@@ -1,15 +1,18 @@
 """Atualização de entidades, combate e transições de fase."""
 
+import random
 import pygame
 
 from asset_manager import AssetManager
 from config import (
     BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_COLORS, PLAYER_START_AMMO, SIGN_RANGE_X,
     SHARED_LIVES, LIVES_RESET_FRAMES, TILE_SIZE, SCREEN_WIDTH,
+    KILL_POINTS, COMBO_WINDOW_FRAMES, COMBO_MAX, DROP_CHANCES,
 )
 from core import progress
-from entities import DragonBoss, Explosion, Grenade, RemotePlayer
+from entities import DragonBoss, Explosion, Grenade, RemotePlayer, effects
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
+from entities.items import ItemBox
 from game_state import GameState
 
 # Quantos quadros de chão firme a posição de renascimento fica "atrasada".
@@ -272,6 +275,56 @@ def update_signs(game) -> None:
             game.open_sign = None if game.open_sign is near else near
 
 
+def update_fun(game) -> None:
+    """Atualiza pontuação, combo, drops e efeitos visuais a cada quadro."""
+    all_enemies = list(game.enemy_group) + list(game.boss_group)
+    for s in all_enemies:
+        if not s.alive and not getattr(s, '_counted', False):
+            s._counted = True
+            base = KILL_POINTS.get(type(s).__name__, 100)
+            if getattr(game, 'combo_timer', 0) > 0:
+                game.combo = min(COMBO_MAX, getattr(game, 'combo', 0) + 1)
+            else:
+                game.combo = 1
+            game.combo_timer = COMBO_WINDOW_FRAMES
+            ganho = base * game.combo
+            game.score += ganho
+            game.level_score += ganho
+
+            if game.combo >= 2:
+                txt = f"+{ganho}  x{game.combo}"
+                cor = (255, 230, 90)
+            else:
+                txt = f"+{ganho}"
+                cor = (255, 255, 255)
+            game.fun_fx_group.add(effects.FloatingText(txt, s.rect.centerx, s.rect.top, cor, 20))
+
+            if s in game.boss_group:
+                effects.shake(30, 10)
+            elif hasattr(s, 'target_id'):
+                rng = random.Random(s.target_id * 7919 + game.level)
+                r = rng.random()
+                cum = 0.0
+                for tipo, chance in DROP_CHANCES:
+                    cum += chance
+                    if r < cum:
+                        box = ItemBox(tipo, s.rect.x, s.rect.y)
+                        box.rect.midbottom = s.rect.midbottom
+                        box.base_y = box.rect.y
+                        box.dropped = True
+                        game.item_box_group.add(box)
+                        break
+
+    if getattr(game, 'combo_timer', 0) > 0:
+        game.combo_timer -= 1
+        if game.combo_timer == 0:
+            game.combo = 0
+
+    for txt in effects.pop_texts():
+        game.fun_fx_group.add(txt)
+    game.fun_fx_group.update(game.screen_scroll)
+
+
 def update_boss_stages(game) -> None:
     """Avança as etapas dos chefes em fases com múltiplos chefes sequenciais."""
     if getattr(game, 'boss_stage_banner', 0) > 0:
@@ -522,10 +575,14 @@ def update_game_entities(game) -> None:
             if lvl != game.level:
                 continue
             for box in list(game.item_box_group):
+                if getattr(box, 'dropped', False):
+                    continue
                 if box.item_id == item_id:
                     box.kill()
     fx_group = getattr(game, 'item_fx_group', None)
-    game.item_box_group.update(game.screen_scroll, game.player, net_items, game.level, fx_group)
+    for box in list(game.item_box_group):
+        box_net = None if getattr(box, 'dropped', False) else net_items
+        box.update(game.screen_scroll, game.player, box_net, game.level, fx_group)
     if fx_group is not None:
         fx_group.update(game.screen_scroll)
     game.decoration_group.update(game.screen_scroll)
@@ -634,6 +691,7 @@ def update_playing(game) -> None:
         update_boss_stages(game)
         track_safe_position(game)
         update_signs(game)
+        update_fun(game)
 
         # Envio periódico de estado via UDP em modo multiplayer
         if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
@@ -658,6 +716,7 @@ def update_playing(game) -> None:
                 game.state = GameState.LEVEL_TRANSITION
     else:
         game.screen_scroll = 0
+        update_fun(game)
         challenge_mp = (getattr(game, 'challenge_mode', False)
                         and getattr(game, 'is_multiplayer', False))
         partner_alive = any(r.alive for r in game.remote_players_group)             if getattr(game, 'is_multiplayer', False) else False

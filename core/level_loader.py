@@ -6,6 +6,7 @@ import os
 import pygame
 
 from config import CHECKPOINT_TILE, CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE, SIGN_TEXTS, SIGN_DEFAULT_TEXT
+from entities import effects
 from entities.castle import Castle, CASTLE_THEMES, FinishLine
 from entities.checkpoint import CheckpointFlag
 from entities.sign import Sign
@@ -27,6 +28,8 @@ def reset_groups(game) -> None:
     fx_grp = getattr(game, 'item_fx_group', None)
     if fx_grp is not None:
         fx_grp.empty()
+    if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+        game.fun_fx_group.empty()
     game.decoration_group.empty()
     game.water_group.empty()
     game.exit_group.empty()
@@ -49,6 +52,14 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     Sem `keep_checkpoint`, o checkpoint salvo é descartado (troca de fase,
     menu, reinício normal)."""
     reset_groups(game)
+    if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+        game.fun_fx_group.empty()
+    else:
+        game.fun_fx_group = pygame.sprite.Group()
+    game.combo = 0
+    game.combo_timer = 0
+    game.level_score = 0
+    effects.reset_shake()
     if not keep_checkpoint:
         game.checkpoint = None
     game.checkpoint_msg_frames = 0

@@ -42,6 +42,11 @@ class LevelEditorScreen:
         self.dragging: tuple[int, int, int] | None = None
         self._prev_left = False
 
+        # Histórico de ações (Desfazer / Refazer)
+        self.undo_stack: list[list[list[int]]] = []
+        self.redo_stack: list[list[list[int]]] = []
+        self._stroke_active = False
+
         self.font = pygame.font.SysFont(FONT_NAME, 24)
         self.font_bold = pygame.font.SysFont(FONT_NAME, 26, bold=True)
         self.font_small = pygame.font.SysFont(FONT_NAME, 18)
@@ -67,6 +72,9 @@ class LevelEditorScreen:
     def _reset_grid(self) -> None:
         """Reinicia o grid vazio com chão na base."""
         self._castle_cache.clear()
+        self.undo_stack.clear()
+        self.redo_stack.clear()
+        self._stroke_active = False
         self.world_data = []
         for _ in range(ROWS):
             self.world_data.append([-1] * COLS)
@@ -152,6 +160,13 @@ class LevelEditorScreen:
         self.move_button_rect = pygame.Rect(EDITOR_VIEWPORT_WIDTH // 2 - 260, base_y, 120, 36)
         self.move_button_rect.centery = self.save_button.rect.centery
 
+        # Botões Desfazer e Refazer no painel inferior
+        self.undo_button_rect = pygame.Rect(585, base_y, 95, 36)
+        self.undo_button_rect.centery = self.save_button.rect.centery
+
+        self.redo_button_rect = pygame.Rect(690, base_y, 95, 36)
+        self.redo_button_rect.centery = self.save_button.rect.centery
+
     def toggle_move_mode(self) -> None:
         """Alterna o modo mover e cancela arrastos pendentes."""
         self.move_mode = not self.move_mode
@@ -167,6 +182,53 @@ class LevelEditorScreen:
             self.world_data[orig_r][orig_c] = tile_id
             self.dragging = None
             self._castle_cache.clear()
+            if self.undo_stack:
+                self.undo_stack.pop()
+
+    def _snapshot(self) -> None:
+        """Salva o estado atual do mapa no histórico de desfazer e limpa o refazer."""
+        self.undo_stack.append([row[:] for row in self.world_data])
+        if len(self.undo_stack) > 100:
+            self.undo_stack.pop(0)
+        self.redo_stack.clear()
+
+    def undo(self) -> None:
+        """Desfaz a última alteração no mapa."""
+        if self.dragging is not None:
+            self._cancel_drag()
+
+        if not self.undo_stack:
+            self.notification_msg = "Nada para desfazer"
+            self.notification_timer = 120
+            return
+
+        self.redo_stack.append([row[:] for row in self.world_data])
+        if len(self.redo_stack) > 100:
+            self.redo_stack.pop(0)
+
+        self.world_data = self.undo_stack.pop()
+        self._castle_cache.clear()
+        self.notification_msg = "Desfeito"
+        self.notification_timer = 120
+
+    def redo(self) -> None:
+        """Refaz a última alteração desfeita no mapa."""
+        if self.dragging is not None:
+            self._cancel_drag()
+
+        if not self.redo_stack:
+            self.notification_msg = "Nada para refazer"
+            self.notification_timer = 120
+            return
+
+        self.undo_stack.append([row[:] for row in self.world_data])
+        if len(self.undo_stack) > 100:
+            self.undo_stack.pop(0)
+
+        self.world_data = self.redo_stack.pop()
+        self._castle_cache.clear()
+        self.notification_msg = "Refeito"
+        self.notification_timer = 120
 
     def _init_palette_buttons(self) -> None:
         """Cria botões em grade (7 colunas) na barra lateral direita (cabem os 89 tiles)."""
@@ -174,8 +236,15 @@ class LevelEditorScreen:
         col = 0
         row = 0
         start_x = EDITOR_VIEWPORT_WIDTH + 15
+        dummy_door = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
         for i, tile_img in enumerate(self.img_list):
-            btn_img = tile_img
+            if i == 20:
+                btn_img = Castle(1, dummy_door).image
+            elif i == 41:
+                btn_img = Castle(3, dummy_door).image
+            else:
+                btn_img = tile_img
+
             scale = min(36 / max(1, btn_img.get_width()), 36 / max(1, btn_img.get_height()))
             scaled_img = pygame.transform.scale(btn_img, (max(1, int(btn_img.get_width() * scale)), max(1, int(btn_img.get_height() * scale))))
             
@@ -223,6 +292,9 @@ class LevelEditorScreen:
     def load_level_data(self, level_num: int) -> None:
         """Carrega a matriz do arquivo CSV correspondente."""
         self._castle_cache.clear()
+        self.undo_stack.clear()
+        self.redo_stack.clear()
+        self._stroke_active = False
         level_file = os.path.join('levels', f'level{level_num}_data.csv')
         if not os.path.exists(level_file):
             self.notification_msg = f"Fase {level_num} não encontrada (grid resetado)."
@@ -249,7 +321,17 @@ class LevelEditorScreen:
     def handle_event(self, event: pygame.event.Event, game) -> None:
         """Processa eventos de teclado exclusivos do editor."""
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
+            ctrl_held = bool(event.mod & pygame.KMOD_CTRL)
+            shift_held = bool(event.mod & pygame.KMOD_SHIFT)
+
+            if ctrl_held and event.key == pygame.K_z:
+                if shift_held:
+                    self.redo()
+                else:
+                    self.undo()
+            elif ctrl_held and event.key == pygame.K_y:
+                self.redo()
+            elif event.key == pygame.K_UP:
                 self._cancel_drag()
                 self.level += 1
                 self.load_level_data(self.level)
@@ -313,6 +395,9 @@ class LevelEditorScreen:
         if mouse_buttons[0] == 0:
             self._mouse_held_from_enter = False
 
+        if mouse_buttons[0] == 0 and mouse_buttons[2] == 0:
+            self._stroke_active = False
+
         left = mouse_buttons[0] == 1
         pressed = left and not self._prev_left
         released = (not left) and self._prev_left
@@ -331,6 +416,7 @@ class LevelEditorScreen:
             # pressed sobre célula válida com tile != -1 e sem arrasto
             if not self._mouse_held_from_enter and pressed and self.dragging is None:
                 if valid_cell and self.world_data[tile_row][tile_col] != -1:
+                    self._snapshot()
                     tile_id = self.world_data[tile_row][tile_col]
                     self.dragging = (tile_id, tile_row, tile_col)
                     self.world_data[tile_row][tile_col] = -1
@@ -339,14 +425,17 @@ class LevelEditorScreen:
             if released and self.dragging is not None:
                 if valid_cell:
                     tile_id, orig_r, orig_c = self.dragging
-                    dest_tile = self.world_data[tile_row][tile_col]
-                    self.world_data[tile_row][tile_col] = tile_id
-                    if dest_tile != -1:
-                        self.world_data[orig_r][orig_c] = dest_tile
-                    self.dragging = None
-                    self._castle_cache.clear()
-                    self.notification_msg = f"Objeto movido para ({tile_row}, {tile_col})"
-                    self.notification_timer = 120
+                    if (tile_row, tile_col) == (orig_r, orig_c):
+                        self._cancel_drag()
+                    else:
+                        dest_tile = self.world_data[tile_row][tile_col]
+                        self.world_data[tile_row][tile_col] = tile_id
+                        if dest_tile != -1:
+                            self.world_data[orig_r][orig_c] = dest_tile
+                        self.dragging = None
+                        self._castle_cache.clear()
+                        self.notification_msg = f"Objeto movido para ({tile_row}, {tile_col})"
+                        self.notification_timer = 120
                 else:
                     self._cancel_drag()
         else:
@@ -354,10 +443,16 @@ class LevelEditorScreen:
             if not self._mouse_held_from_enter and valid_cell:
                 if mouse_buttons[0] == 1:  # Botão esquerdo: Pintar
                     if self.world_data[tile_row][tile_col] != self.current_tile:
+                        if not self._stroke_active:
+                            self._snapshot()
+                            self._stroke_active = True
                         self.world_data[tile_row][tile_col] = self.current_tile
                         self._castle_cache.clear()
                 elif mouse_buttons[2] == 1:  # Botão direito: Apagar
                     if self.world_data[tile_row][tile_col] != -1:
+                        if not self._stroke_active:
+                            self._snapshot()
+                            self._stroke_active = True
                         self.world_data[tile_row][tile_col] = -1
                         self._castle_cache.clear()
 
@@ -397,12 +492,48 @@ class LevelEditorScreen:
             self._cancel_drag()
             self.load_level_data(self.level)
 
+        # Botão Desfazer
+        undo_has_history = len(self.undo_stack) > 0
+        undo_bg = (70, 75, 80) if undo_has_history else (45, 48, 52)
+        undo_border = (120, 130, 140) if undo_has_history else (70, 75, 80)
+        undo_text_color = WHITE if undo_has_history else (130, 135, 140)
+        pygame.draw.rect(screen, undo_bg, self.undo_button_rect, border_radius=4)
+        pygame.draw.rect(screen, undo_border, self.undo_button_rect, 2, border_radius=4)
+        undo_text = self.font.render("Desfazer", True, undo_text_color)
+        undo_text_rect = undo_text.get_rect(center=self.undo_button_rect.center)
+        screen.blit(undo_text, undo_text_rect)
+
+        if self.undo_button_rect.collidepoint(mouse_pos):
+            button.Button._cursor_hovered = True
+
+        if pressed and not self._mouse_held_from_enter and self.undo_button_rect.collidepoint(mouse_pos):
+            self.undo()
+
+        # Botão Refazer
+        redo_has_history = len(self.redo_stack) > 0
+        redo_bg = (70, 75, 80) if redo_has_history else (45, 48, 52)
+        redo_border = (120, 130, 140) if redo_has_history else (70, 75, 80)
+        redo_text_color = WHITE if redo_has_history else (130, 135, 140)
+        pygame.draw.rect(screen, redo_bg, self.redo_button_rect, border_radius=4)
+        pygame.draw.rect(screen, redo_border, self.redo_button_rect, 2, border_radius=4)
+        redo_text = self.font.render("Refazer", True, redo_text_color)
+        redo_text_rect = redo_text.get_rect(center=self.redo_button_rect.center)
+        screen.blit(redo_text, redo_text_rect)
+
+        if self.redo_button_rect.collidepoint(mouse_pos):
+            button.Button._cursor_hovered = True
+
+        if pressed and not self._mouse_held_from_enter and self.redo_button_rect.collidepoint(mouse_pos):
+            self.redo()
+
         # Informações de Nível e Atalhos
-        info_x = EDITOR_VIEWPORT_WIDTH // 2 + 200
+        info_x = 810
         lvl_text = self.font_bold.render(f"Fase Atual: {self.level}", True, WHITE)
-        screen.blit(lvl_text, (info_x, SCREEN_HEIGHT + 18))
-        hint_text = self.font_small.render("Setas Cima/Baixo: Mudar Fase | Shift: Scroll Rápido | M: Mover objeto", True, (200, 200, 200))
-        screen.blit(hint_text, (info_x, SCREEN_HEIGHT + 48))
+        screen.blit(lvl_text, (info_x, SCREEN_HEIGHT + 14))
+        hint_text_1 = self.font_small.render("Setas Cima/Baixo: Mudar Fase | Shift: Scroll Rápido", True, (200, 200, 200))
+        screen.blit(hint_text_1, (info_x, SCREEN_HEIGHT + 40))
+        hint_text_2 = self.font_small.render("M: Mover objeto | Ctrl+Z/Ctrl+Y: Desfazer/Refazer", True, (200, 200, 200))
+        screen.blit(hint_text_2, (info_x, SCREEN_HEIGHT + 64))
 
         # Mensagem temporária de notificação
         if self.notification_timer > 0:

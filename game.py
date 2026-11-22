@@ -32,7 +32,7 @@ from core.input_handler import handle_events
 from core.level_loader import load_level, reset_groups
 from core.renderer import draw_background, draw_game_entities, draw_text, draw_crosshair
 from game_state import GameState
-from entities import ScreenFade
+from entities import ScreenFade, effects
 from network import GameServer, NetworkClient
 from ui.screens import (
     MainMenuScreen,
@@ -118,6 +118,11 @@ class Game:
         self.explosion_group = pygame.sprite.Group()
         self.item_box_group = pygame.sprite.Group()
         self.item_fx_group = pygame.sprite.Group()
+        self.fun_fx_group = pygame.sprite.Group()
+        self.score = 0
+        self.combo = 0
+        self.combo_timer = 0
+        self.level_score = 0
         self.decoration_group = pygame.sprite.Group()
         self.water_group = pygame.sprite.Group()
         self.exit_group = pygame.sprite.Group()
@@ -218,6 +223,7 @@ class Game:
     def start_challenge(self) -> None:
         """Começa o Modo Desafio: fases 1 a 5 seguidas, sem checkpoints,
         com vida e munição levadas de uma fase para a outra."""
+        self.score = 0
         self.challenge_mode = True
         self.challenge_index = 0
         self.challenge_new_record = False
@@ -233,6 +239,7 @@ class Game:
     # ==================================================================
     def start_multiplayer_host(self, port: int = 5555, level: int = 1, challenge: bool = False) -> bool:
         """Inicia servidor local em LAN e conecta o jogador como Host (P1)."""
+        self.score = 0
         self.clean_multiplayer()
         self.network_server = GameServer(host="0.0.0.0", port=port)
         if not self.network_server.start():
@@ -264,6 +271,7 @@ class Game:
 
     def start_multiplayer_client(self, server_ip: str, port: int = 5555) -> bool:
         """Conecta ao servidor remoto em LAN como Cliente (P2)."""
+        self.score = 0
         self.clean_multiplayer()
         self.network_client = NetworkClient(player_id="P2 (Cliente)", server_ip=server_ip, server_port=port)
         if not self.network_client.connect():
@@ -311,6 +319,8 @@ class Game:
 
             if self.state != prev_state:
                 button.Button.reset_click_state()
+                if prev_state == GameState.LEVEL_SELECT and self.state == GameState.PLAYING:
+                    self.score = 0
                 prev_state = self.state
 
             # Despacho conforme estado atual
@@ -339,6 +349,10 @@ class Game:
 
             self._handle_events()
             button.Button.update_cursor()
+            if self.state == GameState.PLAYING:
+                dx, dy = effects.shake_offset()
+                if (dx, dy) != (0, 0):
+                    self.screen.scroll(dx, dy)
             draw_crosshair(self)
             pygame.display.update()
 

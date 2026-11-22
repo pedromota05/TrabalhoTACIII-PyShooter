@@ -61,7 +61,8 @@ class Player(Character):
         """Ponta do cano na tela, com a arma inclinada para a mira."""
         if not self.aim_pose:
             return (self.rect.centerx + self.rect.width * 0.9 * self.direction, self.rect.centery - 5)
-        return muzzle_point(self.rect, self.direction, self.aim_angle, self.scale_used)
+        return muzzle_point(self.rect, self.direction, self.aim_angle,
+                            self.action, self.frame_index, self.color, self.scale_used)
 
     def start_dash(self, moving_left: bool, moving_right: bool) -> bool:
         if not (self.alive and self.dash_cooldown == 0 and self.dash_timer == 0):
@@ -147,8 +148,9 @@ class Player(Character):
         if self.dash_timer <= 0 and self.invincible > 0 and (self.invincible // 5) % 2 == 0:
             return  # Pula o frame, fazendo o personagem sumir
         if self.aim_pose and self.alive and self.action != 3:
-            image = pygame.transform.flip(self.image, self.flip, False)
-            draw_aiming(screen, image, self.rect, self.direction, self.aim_angle, self.scale_used)
+            if not draw_aiming(screen, self.rect, self.direction, self.aim_angle,
+                               self.action, self.frame_index, self.color, self.scale_used):
+                super().draw(screen)
         else:
             super().draw(screen)
 

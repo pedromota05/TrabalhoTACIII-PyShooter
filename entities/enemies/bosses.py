@@ -24,6 +24,7 @@ class DragonBoss(pygame.sprite.Sprite):
         self.max_health = 150
         self.health = self.max_health
         self.alive = True
+        self.hit_flash = 0
         self.last_shot_time = 0
         self.shot_frame_fired = False
 
@@ -150,6 +151,12 @@ class DragonBoss(pygame.sprite.Sprite):
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
+        if getattr(self, 'hit_flash', 0) > 0:
+            self.hit_flash -= 1
+            white = pygame.mask.from_surface(self.image).to_surface(
+                setcolor=(255, 255, 255, 200), unsetcolor=(0, 0, 0, 0)
+            )
+            screen.blit(white, self.rect)
 
     def draw_health_bar(self, surface: pygame.Surface):
         if self.health > 0:
@@ -188,6 +195,7 @@ class Boss(pygame.sprite.Sprite):
         self.max_health = 100
         self.health = self.max_health
         self.alive = True
+        self.hit_flash = 0
         self.last_hit_time = 0
 
         self.animation_list = []
@@ -290,6 +298,12 @@ class Boss(pygame.sprite.Sprite):
 
     def draw(self, screen: pygame.Surface):
         screen.blit(self.image, self.rect)
+        if getattr(self, 'hit_flash', 0) > 0:
+            self.hit_flash -= 1
+            white = pygame.mask.from_surface(self.image).to_surface(
+                setcolor=(255, 255, 255, 200), unsetcolor=(0, 0, 0, 0)
+            )
+            screen.blit(white, self.rect)
 
     def draw_health_bar(self, surface: pygame.Surface):
         if self.health > 0:
