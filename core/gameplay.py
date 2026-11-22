@@ -926,7 +926,7 @@ def update_challenge_transition(game) -> None:
     Não marca fases nem a campanha como concluídas."""
     game.challenge_index += 1
     if game.challenge_index >= len(game.challenge_levels):
-        game.challenge_new_record = progress.registrar_tempo_desafio(game.run_frames / FPS)
+        game.challenge_new_record = False if getattr(game, 'challenge_cheat', False) else progress.registrar_tempo_desafio(game.run_frames / FPS)
         game.state = GameState.VICTORY
         return
     old = game.player

@@ -17,6 +17,7 @@ Controles:
     F11     — tela cheia (liga/desliga)
 """
 
+import sys
 import pygame
 from pygame import mixer
 
@@ -101,6 +102,7 @@ class Game:
         self.challenge_levels = [1, 2, 3, 4, 5]
         self.challenge_index = 0
         self.challenge_new_record = False  # resultado do último Desafio concluído
+        self.challenge_cheat = False  # Desafio aberto por atalho de teste: não grava recorde
 
         # ----- Volume -----
         self.music_vol = round(pygame.mixer.music.get_volume() * 12)
@@ -267,14 +269,16 @@ class Game:
     # ==================================================================
     #  Modo Desafio
     # ==================================================================
-    def start_challenge(self) -> None:
+    def start_challenge(self, start_index: int = 0) -> None:
         """Começa o Modo Desafio: fases 1 a 5 seguidas, sem checkpoints,
-        com vida e munição levadas de uma fase para a outra."""
+        com vida e munição levadas de uma fase para a outra.
+        O parâmetro start_index permite iniciar a partir de uma fase específica (atalho de teste)."""
         self.score = 0
         self.challenge_mode = True
-        self.challenge_index = 0
+        self.challenge_index = start_index
         self.challenge_new_record = False
-        self.level = self.challenge_levels[0]
+        self.challenge_cheat = start_index > 0
+        self.level = self.challenge_levels[start_index]
         self.run_frames = 0
         self.bg_scroll = 0
         self.start_intro = True
@@ -415,4 +419,7 @@ class Game:
 def main() -> None:
     """Cria e executa uma sessão do jogo."""
     game = Game()
+    if '--fase5' in sys.argv:
+        game.start_challenge(start_index=game.challenge_levels.index(5))
+        print('[atalho] Desafio direto na fase 5 (recorde não é gravado)')
     game.run()

@@ -19,6 +19,7 @@
 - Feito: compilação OK; `python tools/bot_fases.py 1 2 3 4` = 4 fases "passou"; `--desafio --god` passa fases 1-4 e estoura 900 s na 5. Causa: o bot não sabia jogar hordas (sem saída, só atirava para frente). Gemini (`ponte-agy`, roteiro `docs/tarefas/2026-11-22_bot-hordas.md`, 2 rodadas) mudou `tools/bot_fases.py`: caça inimigos/aranhas na fase 5, mira para os dois lados, e no `--god` resgata o jogador que cai na água (conta `quedas_god`). Agora o bot vence as ondas 1-2 e trava na 3 (não sobe na plataforma alta da esquerda, munição acaba). Script de conferência (scratch) matando os inimigos à força: ondas 1-5 nascem certas (5ª com Boss e DragonBoss) e a fase termina (`horde_done`).
 - `python tools/teste_multiplayer.py`: rodada 1 (com outro teste rodando junto) 6/7, item 3 falhou por poucas fotos do host; rodada 2 (sozinho) 6/7, item 3 OK (43/46) e item 2 no limite (p95 13 px, tolerância 12). Variação de medição, não regressão.
 - Não commitado: `tools/bot_fases.py` e o roteiro.
+- Atalho de teste (Gemini, roteiro `docs/tarefas/2026-11-22_atalho-fase5.md`): `python main.py --fase5` abre o Desafio direto na fase 5; `Game.start_challenge(start_index)` e `challenge_cheat` evitam gravar recorde. Verificado headless (nível 5, hordas ligadas) e bot fase 1 OK.
 - Próximos passos: Guilherme testar na mão a fase 5 e as novidades; teste em dupla com o Pedro; opcional: ensinar o bot a pegar munição e subir plataformas na fase 5.
 
 ---
