@@ -113,6 +113,10 @@ def draw_game_entities(game) -> None:
         _blit_shadowed(game, f'CHEFE {game.boss_stage}/{game.boss_stage_total}', WHITE,
                        game.font_bold, SCREEN_WIDTH // 2, 40)
 
+    if getattr(game, 'challenge_spectating', False):
+        _blit_shadowed(game, 'VOCÊ CAIU!', (235, 60, 50), game.title_font, SCREEN_WIDTH // 2, 150)
+        _blit_shadowed(game, 'Desafio: uma vida só. Aguardando o parceiro terminar a fase...',
+                       WHITE, game.font_bold, SCREEN_WIDTH // 2, 210)
     if getattr(game, 'color_msg_frames', 0) > 0:
         _blit_shadowed(game, getattr(game, 'color_msg', ''), YELLOW, game.font_bold,
                        SCREEN_WIDTH // 2, 120)

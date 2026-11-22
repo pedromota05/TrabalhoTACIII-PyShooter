@@ -62,6 +62,7 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     # Renascer na posição segura só vale dentro da mesma fase
     game.safe_pos = None
     game.respawn_pending = False
+    game.challenge_spectating = False
     world_data = [[-1] * COLS for _ in range(ROWS)]
 
     level_file = os.path.join(LEVELS_DIR, f'level{level_number}_data.csv')

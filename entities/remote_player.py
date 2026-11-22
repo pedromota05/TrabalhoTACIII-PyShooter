@@ -10,6 +10,7 @@ import pygame
 from config import PLAYER_SCALE, ANIMATION_COOLDOWN, WHITE, GREEN, RED, BLACK, FONT_NAME
 from asset_manager import AssetManager
 from entities.combat.projectiles import Bullet
+from entities.aim_pose import draw_aiming, muzzle_point
 
 
 class RemotePlayer(pygame.sprite.Sprite):
@@ -62,6 +63,7 @@ class RemotePlayer(pygame.sprite.Sprite):
         self.direction = data.get("direction", 1)
         self.health = data.get("health", 100)
         self.alive = self.health > 0
+        self.aim = data.get("aim")
 
         # Atualiza a ação da animação se mudou
         if new_action != self.action and new_action < len(self.animation_list):
@@ -96,8 +98,7 @@ class RemotePlayer(pygame.sprite.Sprite):
             self.shoot_cooldown = 20
             aim = data.get("aim")
             if aim is not None:
-                cx = self.rect.centerx + math.cos(aim) * self.rect.width * 0.75
-                cy = self.rect.centery - 5 + math.sin(aim) * self.rect.width * 0.75
+                cx, cy = muzzle_point(self.rect, self.direction, aim)
                 bullet = Bullet(cx, cy, self.direction, visual_only=True, angle=aim)
             else:
                 bullet_x = self.rect.centerx + (0.75 * self.rect.size[0] * self.direction)
@@ -108,7 +109,10 @@ class RemotePlayer(pygame.sprite.Sprite):
 
     def draw(self, screen: pygame.Surface) -> None:
         """Renderiza o jogador remoto com tag de identificação e mini barra de HP."""
-        screen.blit(self.image, self.rect)
+        if self.alive and getattr(self, 'aim', None) is not None and self.action != 3:
+            draw_aiming(screen, self.image, self.rect, self.direction, self.aim)
+        else:
+            screen.blit(self.image, self.rect)
 
         if self.alive:
             # Tag com nome / ID do jogador (ex: "P2" ou player_id)

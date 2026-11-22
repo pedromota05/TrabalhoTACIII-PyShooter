@@ -8,8 +8,19 @@
 - "Fase 2 não terminou" (relato do Guilherme em 2026-11-21): não reproduzido; bot passa a fase 2 sozinho e no multiplayer. Falta saber o que aconteceu.
 - Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
 - 2026-11-21 (tarde): perder vida não mostra mais a tela vermelha; aparece "-1 VIDA" e o jogador renasce em 1 s ao lado do parceiro ou no último chão firme (GAME OVER só sem vidas). Saída das fases 1-3 movida para o chão plano do fim (coluna 186), com castelinho menor e linha de chegada.
-- 2026-11-21 (noite): mira no mouse (tiro no botão esquerdo, em qualquer ângulo), ESPAÇO = dash com rastro azul; renascer não cai mais no buraco; editor com Modo Mover (M), checkpoint como tile 88 e castelo/linha de chegada visíveis; cor do boneco na seleção de fases e sem cor repetida no multi; chefes da fase 4 em etapas (Demônio, depois Dragão); vidas do HUD longe da pausa. Ainda sem commit.
+- 2026-11-21 (noite): mira no mouse (tiro no botão esquerdo, em qualquer ângulo), ESPAÇO = dash com rastro azul; renascer não cai mais no buraco; editor com Modo Mover (M), checkpoint como tile 88 e castelo/linha de chegada visíveis; cor do boneco na seleção de fases e sem cor repetida no multi; chefes da fase 4 em etapas (Demônio, depois Dragão); vidas do HUD longe da pausa. Commit 3f399d0 com push.
+- 2026-11-21 (noite, 2): arma acompanha a mira (tronco gira na cintura, até 55°; tiro sai do cano). Desafio em dupla com regra própria (uma vida por jogador, quem cai assiste, volta na fase seguinte com metade da vida; os dois caídos = DESAFIO ENCERRADO e o Host recomeça). Modo normal no multiplayer conferido com 2 processos: igual ao single.
 - Próximos passos: Guilherme testar na mão (mira, dash, editor); commit/push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD (controles mudaram: ESPAÇO não atira mais).
+
+---
+
+### 2026-11-21 — Arma na mira e regras do Desafio em dupla
+- Pedido: a arma acompanhar a mira na diagonal; no multiplayer as vidas não apareciam no HUD e aparecia a tela vermelha ao cair; garantir que o Desafio e o modo normal sigam as regras definidas.
+- Diagnóstico: teste com Host e Cliente em 2 processos (script temporário) mostrou o modo normal igual ao single (aviso "-1 VIDA", renascer, vidas 3-2-1 nos dois). Os sintomas são do Desafio em multiplayer, que não tinha regra: HUD mostra o cronômetro (sem vidas, por regra) e a morte caía na tela "VOCÊ CAIU!" com Restart ao lado do parceiro. Outra causa possível: PC do parceiro com versão antiga.
+- Feito: `entities/aim_pose.py` (corte na cintura, giro limitado a 55°, `muzzle_point`), usado em `entities/player.py` e `entities/remote_player.py`; `Character.shoot` sai do cano. Desafio em dupla: `game.challenge_spectating` em `core/gameplay.py` (câmera segue o parceiro), `restart_challenge_multiplayer` (Host recomeça e o Cliente segue pelo contador `reset` do anúncio "lives"), `ui/screens/game_over.py` mostra DESAFIO ENCERRADO também em dupla (só o Host tem Restart), aviso no HUD em `core/renderer.py`.
+- Regras (registradas em DECISOES): normal = 3 vidas compartilhadas, aviso e renascer, sem vidas = GAME OVER; Desafio = uma vida por jogador, sem checkpoints, cronômetro no HUD.
+- Resultados: bot campanha e Desafio OK; teste Desafio em dupla OK (cair, voltar na fase 2, os dois caídos, Restart do Host); teste_multiplayer: itens 2 e 3 oscilaram numa rodada com o PC carregado.
+- Próximos passos: Guilherme e Pedro testarem com a mesma versão (`git pull`).
 
 ---
 

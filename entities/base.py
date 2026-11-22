@@ -157,8 +157,15 @@ class Character(pygame.sprite.Sprite):
             else:
                 cx, cy = self.rect.centerx, self.rect.centery - 5
                 angle = math.atan2(target[1] - cy, target[0] - cx)
-                spawn_x = cx + math.cos(angle) * self.rect.width * 0.9
-                spawn_y = cy + math.sin(angle) * self.rect.width * 0.9
+                if hasattr(self, 'muzzle_pos'):
+                    # Sai da ponta do cano (arma inclinada para a mira) e vai
+                    # até o alvo; com o alvo colado no cano, usa o ângulo da mira.
+                    spawn_x, spawn_y = self.muzzle_pos()
+                    if math.hypot(target[0] - spawn_x, target[1] - spawn_y) > 25:
+                        angle = math.atan2(target[1] - spawn_y, target[0] - spawn_x)
+                else:
+                    spawn_x = cx + math.cos(angle) * self.rect.width * 0.9
+                    spawn_y = cy + math.sin(angle) * self.rect.width * 0.9
                 bullet = Bullet(
                     spawn_x,
                     spawn_y,

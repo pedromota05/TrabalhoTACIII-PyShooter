@@ -5,7 +5,7 @@ import pygame
 from asset_manager import AssetManager
 from config import (
     BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_COLORS, PLAYER_START_AMMO, SIGN_RANGE_X,
-    SHARED_LIVES, LIVES_RESET_FRAMES, TILE_SIZE,
+    SHARED_LIVES, LIVES_RESET_FRAMES, TILE_SIZE, SCREEN_WIDTH,
 )
 from core import progress
 from entities import DragonBoss, Explosion, Grenade, RemotePlayer
@@ -71,7 +71,11 @@ def sync_multiplayer_level(game) -> None:
         game.lives, reset = lives_info
         if reset > game.lives_reset_seen:
             game.lives_reset_seen = reset
-            restart_level_with_lives(game)
+            if net.get_host_challenge():
+                game.start_challenge()  # Host recomeçou o Desafio da fase 1
+                game.game_over_screen.death_fade.fade_counter = 0
+            else:
+                restart_level_with_lives(game)
 
     announced = net.get_host_level()
     if announced is None or game.state == GameState.LEVEL_TRANSITION:
@@ -122,6 +126,17 @@ def restart_level_with_lives(game) -> None:
     game._load_level(game.level)
     game.game_over_screen.death_fade.fade_counter = 0
     game.state = GameState.PLAYING
+
+
+def restart_challenge_multiplayer(game) -> None:
+    """Host: recomeça o Desafio da fase 1 para os dois jogadores."""
+    game.start_challenge()
+    game.game_over_screen.death_fade.fade_counter = 0
+    net = game.network_client
+    if net is not None:
+        game.lives_reset_counter += 1
+        net.send_lives(game.lives, game.lives_reset_counter)
+        net.send_level(game.level, challenge=True)
 
 
 def respawn_multiplayer(game) -> None:
@@ -643,9 +658,28 @@ def update_playing(game) -> None:
                 game.state = GameState.LEVEL_TRANSITION
     else:
         game.screen_scroll = 0
-        if not getattr(game, 'respawn_pending', False):
+        challenge_mp = (getattr(game, 'challenge_mode', False)
+                        and getattr(game, 'is_multiplayer', False))
+        partner_alive = any(r.alive for r in game.remote_players_group)             if getattr(game, 'is_multiplayer', False) else False
+        if getattr(game, 'challenge_spectating', False):
+            # Desafio em dupla: quem caiu assiste; se o parceiro também cair,
+            # o Desafio acaba para os dois.
+            if not partner_alive:
+                game.challenge_spectating = False
+                game.state = GameState.GAME_OVER
+            else:
+                # Câmera acompanha o parceiro aos poucos (o corpo caído vai junto)
+                from core.level_loader import move_camera
+                partner = next(r for r in game.remote_players_group if r.alive)
+                focus = game.bg_scroll + SCREEN_WIDTH // 3
+                move_camera(game, focus + (partner.world_x - focus) * 0.12)
+        elif not getattr(game, 'respawn_pending', False):
             register_death(game)
-            if game.death_had_life and not getattr(game, 'challenge_mode', False):
+            if challenge_mp and partner_alive:
+                # Desafio = uma vida só: sem renascer e sem tela vermelha;
+                # volta na próxima fase se o parceiro terminar esta.
+                game.challenge_spectating = True
+            elif game.death_had_life and not getattr(game, 'challenge_mode', False):
                 # Ainda tem vida: só um aviso e renasce sozinho em 1 s.
                 game.respawn_pending = True
                 game.respawn_frames = RESPAWN_DELAY_FRAMES
@@ -680,6 +714,8 @@ def update_challenge_transition(game) -> None:
     game._load_level(game.level)
     new = game.player
     new.health = min(carried[0], new.max_health)  # vida máxima continua 100
+    if not old.alive or carried[0] <= 0:
+        new.health = new.max_health // 2  # caiu no Desafio em dupla: volta com metade
     new.ammo, new.grenades = carried[1], carried[2]
     game.state = GameState.PLAYING
 

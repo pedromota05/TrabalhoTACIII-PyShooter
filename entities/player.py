@@ -12,6 +12,7 @@ from config import (
     DASH_SPEED, DASH_FRAMES, DASH_COOLDOWN, DASH_TRAIL,
 )
 from asset_manager import AssetManager
+from .aim_pose import draw_aiming, muzzle_point
 from .base import Character
 
 
@@ -25,6 +26,7 @@ class Player(Character):
         self.scale_used = scale
         self.invincible = 0
         self.aim_angle = 0.0
+        self.aim_pose = False  # liga no primeiro face_point (mira no mouse)
         self.dash_timer = 0
         self.dash_cooldown = 0
         self.dash_dir = 1
@@ -53,6 +55,13 @@ class Player(Character):
         self.direction = 1 if x >= self.rect.centerx else -1
         self.flip = self.direction == -1
         self.aim_angle = math.atan2(y - (self.rect.centery - 5), x - self.rect.centerx)
+        self.aim_pose = True
+
+    def muzzle_pos(self) -> tuple[float, float]:
+        """Ponta do cano na tela, com a arma inclinada para a mira."""
+        if not self.aim_pose:
+            return (self.rect.centerx + self.rect.width * 0.9 * self.direction, self.rect.centery - 5)
+        return muzzle_point(self.rect, self.direction, self.aim_angle, self.scale_used)
 
     def start_dash(self, moving_left: bool, moving_right: bool) -> bool:
         if not (self.alive and self.dash_cooldown == 0 and self.dash_timer == 0):
@@ -137,7 +146,11 @@ class Player(Character):
         # Efeito visual de piscar durante a invencibilidade (no dash ele aparece sempre)
         if self.dash_timer <= 0 and self.invincible > 0 and (self.invincible // 5) % 2 == 0:
             return  # Pula o frame, fazendo o personagem sumir
-        super().draw(screen)
+        if self.aim_pose and self.alive and self.action != 3:
+            image = pygame.transform.flip(self.image, self.flip, False)
+            draw_aiming(screen, image, self.rect, self.direction, self.aim_angle, self.scale_used)
+        else:
+            super().draw(screen)
 
     def _check_environment(self, water_group):
         """Verifica perigos ambientais com hitbox perdoável para água.

@@ -13,7 +13,7 @@ from ui.screens.victory import format_time
 
 CHALLENGE_RED = (230, 50, 40)
 from core.level_loader import respawn
-from core.gameplay import respawn_multiplayer, restart_level_with_lives
+from core.gameplay import respawn_multiplayer, restart_level_with_lives, restart_challenge_multiplayer
 
 
 class GameOverScreen:
@@ -57,7 +57,7 @@ class GameOverScreen:
         game._draw_game_entities()
 
         if self.death_fade.fade(screen):
-            if getattr(game, 'challenge_mode', False) and not getattr(game, 'is_multiplayer', False):
+            if getattr(game, 'challenge_mode', False):
                 self._draw_gif(screen)
                 draw_text_with_outline(screen, 'DESAFIO ENCERRADO', self.challenge_font, CHALLENGE_RED,
                                        SCREEN_WIDTH // 2, 40, thickness=3)
@@ -65,8 +65,16 @@ class GameOverScreen:
                 draw_text_with_outline(
                     screen, f'Fase {game.challenge_index + 1}/{total}  -  {format_time(game.run_frames)}',
                     self.info_font, WHITE, SCREEN_WIDTH // 2, 110)
-                if self.restart_button.draw(screen):
-                    self.restart(game)
+                if not getattr(game, 'is_multiplayer', False):
+                    if self.restart_button.draw(screen):
+                        self.restart(game)
+                elif game.is_host:
+                    # Os dois caíram: só o Host recomeça (da fase 1, para ambos)
+                    if self.restart_button.draw(screen):
+                        restart_challenge_multiplayer(game)
+                else:
+                    draw_text_with_outline(screen, 'Aguardando o Host recomeçar...', self.info_font,
+                                           WHITE, SCREEN_WIDTH // 2, (SCREEN_HEIGHT // 2) + 50)
             elif getattr(game, 'death_had_life', False):
                 draw_text_with_outline(screen, 'VOCÊ CAIU!', self.challenge_font, WHITE,
                                        SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 120)
