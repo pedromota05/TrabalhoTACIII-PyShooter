@@ -1,5 +1,5 @@
 """
-ui/screens/options.py — Tela de Opções (ajustes de volume e áudio).
+ui/screens/options.py — Tela de Opções (volume de música/efeitos e tela cheia).
 """
 
 import pygame
@@ -59,6 +59,20 @@ class OptionsScreen:
         sfx_icon_rect = sfx_icon.get_rect(center=(bar_x - 50, sfx_y + 20))
         screen.blit(sfx_icon, sfx_icon_rect)
 
+        # TELA CHEIA (liga/desliga; o F11 faz o mesmo em qualquer tela)
+        ligada = getattr(game, 'fullscreen', False)
+        fs_rect = pygame.Rect(0, 0, 500, 44)
+        fs_rect.center = (center_x, bg_y + 340)
+        mouse_sobre = fs_rect.collidepoint(pygame.mouse.get_pos())
+        cor_fundo = (60, 140, 70) if ligada else (110, 50, 50)
+        if mouse_sobre:
+            cor_fundo = tuple(min(255, c + 30) for c in cor_fundo)
+        pygame.draw.rect(screen, cor_fundo, fs_rect, border_radius=8)
+        pygame.draw.rect(screen, WHITE, fs_rect, 2, border_radius=8)
+        fs_txt = self.font_bold.render(
+            f"TELA CHEIA: {'LIGADA' if ligada else 'DESLIGADA'} (F11)", True, WHITE)
+        screen.blit(fs_txt, fs_txt.get_rect(center=fs_rect.center))
+
         # Lógica de interação com mouse
         pos = pygame.mouse.get_pos()
         left_click = pygame.mouse.get_pressed()[0]
@@ -83,6 +97,8 @@ class OptionsScreen:
                 elif sfx_icon_rect.collidepoint(pos):
                     game.sfx_vol = 0 if game.sfx_vol > 0 else 12
                     self.assets.set_sfx_volume(game.sfx_vol / 12.0)
+                elif fs_rect.collidepoint(pos) and hasattr(game, 'toggle_fullscreen'):
+                    game.toggle_fullscreen()
         else:
             self._click_lock = False
 

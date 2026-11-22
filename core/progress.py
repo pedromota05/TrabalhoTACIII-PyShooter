@@ -19,7 +19,7 @@ _cache = {'mtime': None, 'dados': None}
 
 
 def _vazio() -> dict:
-    return {'fases_concluidas': [], 'campanha_zerada': False, 'recorde_desafio': None, 'cor_jogador': 0}
+    return {'fases_concluidas': [], 'campanha_zerada': False, 'recorde_desafio': None, 'cor_jogador': 0, 'tela_cheia': False}
 
 
 def carregar() -> dict:
@@ -39,6 +39,7 @@ def carregar() -> dict:
         recorde = lido.get('recorde_desafio')
         dados['recorde_desafio'] = float(recorde) if recorde is not None else None
         dados['cor_jogador'] = int(lido.get('cor_jogador', 0))
+        dados['tela_cheia'] = bool(lido.get('tela_cheia', False))
     except (OSError, ValueError, TypeError, AttributeError):
         dados = _vazio()
     _cache['mtime'], _cache['dados'] = mtime, dados
@@ -75,6 +76,13 @@ def salvar_cor(indice: int) -> None:
     """Registra a cor do soldado escolhida pelo jogador."""
     dados = carregar()
     dados['cor_jogador'] = int(indice)
+    _salvar(dados)
+
+
+def salvar_tela_cheia(ligada: bool) -> None:
+    """Registra se o jogo abre em tela cheia (F11 ou opção nas Configurações)."""
+    dados = carregar()
+    dados['tela_cheia'] = bool(ligada)
     _salvar(dados)
 
 

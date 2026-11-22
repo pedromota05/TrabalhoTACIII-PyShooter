@@ -127,9 +127,24 @@ def draw_game_entities(game) -> None:
                 pygame.draw.circle(game.screen, RED, (cx, 22), 8)
             pygame.draw.circle(game.screen, BLACK, (cx, 22), 8, 2)
 
-    if getattr(game, 'boss_stage_total', 0) >= 2:
+    if getattr(game, 'boss_stage_total', 0) >= 2 and not getattr(game, 'horde_active', False):
         _blit_shadowed(game, f'CHEFE {game.boss_stage}/{game.boss_stage_total}', WHITE,
                        game.font_bold, SCREEN_WIDTH // 2, 40)
+
+    if getattr(game, 'horde_active', False):
+        total = getattr(game, 'horde_total', 5)
+        wave = getattr(game, 'horde_wave', 0)
+        _blit_shadowed(game, f'ONDA {wave}/{total}', WHITE, game.font_bold,
+                       SCREEN_WIDTH // 2, 92)
+        has_alive = (
+            any(e.alive for e in game.enemy_group)
+            or any(b.alive for b in game.boss_group)
+            or (hasattr(game, 'spider_group') and any(s.alive for s in game.spider_group))
+        )
+        if not has_alive and wave < total and getattr(game, 'horde_pause', 0) > 0:
+            secs = max(1, (game.horde_pause + 59) // 60)
+            _blit_shadowed(game, f'PRÓXIMA ONDA EM {secs}s', YELLOW, game.font_bold,
+                           SCREEN_WIDTH // 2, 114)
 
     if getattr(game, 'challenge_spectating', False):
         _blit_shadowed(game, 'VOCÊ CAIU!', (235, 60, 50), game.title_font, SCREEN_WIDTH // 2, 150)
@@ -140,10 +155,20 @@ def draw_game_entities(game) -> None:
                        SCREEN_WIDTH // 2, 120)
     draw_level_banner(game)
 
-    if getattr(game, 'boss_stage_banner', 0) > 0:
+    if getattr(game, 'boss_stage_banner', 0) > 0 and not getattr(game, 'horde_active', False):
         _blit_shadowed(game, f'ETAPA {game.boss_stage}/{game.boss_stage_total}', (235, 60, 50),
                        game.title_font, SCREEN_WIDTH // 2, 150)
         _blit_shadowed(game, 'Um novo chefe apareceu!', WHITE,
+                       game.font_bold, SCREEN_WIDTH // 2, 210)
+
+    if getattr(game, 'horde_active', False) and getattr(game, 'horde_banner', 0) > 0:
+        total = getattr(game, 'horde_total', 5)
+        wave = getattr(game, 'horde_wave', 0)
+        title = 'ONDA FINAL!' if wave >= total else f'ONDA {wave}'
+        _blit_shadowed(game, title, (235, 60, 50),
+                       game.title_font, SCREEN_WIDTH // 2, 150)
+        sub = 'Prepare-se!' if wave < total else 'Derrote os chefes!'
+        _blit_shadowed(game, sub, WHITE,
                        game.font_bold, SCREEN_WIDTH // 2, 210)
 
     if getattr(game, 'life_lost_frames', 0) > 0:

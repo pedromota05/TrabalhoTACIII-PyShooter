@@ -267,7 +267,8 @@ class LevelEditorScreen:
 
     def on_enter(self, game) -> None:
         """Configura a janela para dimensões estendidas do editor."""
-        game.screen = pygame.display.set_mode((EDITOR_TOTAL_WIDTH, EDITOR_TOTAL_HEIGHT))
+        # Mantém o modo atual (tela cheia ou janela): Game.set_display_mode decide.
+        game.set_display_mode((EDITOR_TOTAL_WIDTH, EDITOR_TOTAL_HEIGHT))
         pygame.display.set_caption("PyShooter - Editor de Fases")
         self.scroll = 0
         self._mouse_held_from_enter = pygame.mouse.get_pressed()[0] == 1
@@ -278,7 +279,7 @@ class LevelEditorScreen:
     def on_exit(self, game) -> None:
         """Restaura as dimensões originais da janela do jogo."""
         self._cancel_drag()
-        game.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        game.set_display_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("PyShooter - TACIII")
 
     def save_level_data(self) -> None:

@@ -177,3 +177,23 @@ DROP_CHANCES = (('Ammo', 0.25), ('Health', 0.10), ('Grenade', 0.08))  # chance p
 CRATE_DROPS = [('Ammo', 0.3), ('Grenade', 0.15), ('Health', 0.2), ('Life', 0.1), ('Spider', 0.25)]
 HIT_FLASH_FRAMES = 6
 
+# ---------------------------------------------------------------------------
+#  Hordas (Fase 5 - Modo Desafio)
+# ---------------------------------------------------------------------------
+HORDE_LEVEL = 5
+HORDE_PAUSE_FRAMES = 180  # 3 s entre ondas
+HORDE_BANNER_FRAMES = 120
+
+HORDE_WAVES = [
+    # Onda 1: 3 Enemy
+    [('Enemy', -1), ('Enemy', 1), ('Enemy', -1)],
+    # Onda 2: 2 Enemy + 2 SkeletonEnemy + 2 Spider
+    [('Enemy', -1), ('Enemy', 1), ('SkeletonEnemy', -1), ('SkeletonEnemy', 1), ('Spider', -1), ('Spider', 1)],
+    # Onda 3: 2 RobotEnemy + 2 Enemy + 1 Sniper + 2 Spider
+    [('RobotEnemy', -1), ('RobotEnemy', 1), ('Enemy', -1), ('Enemy', 1), ('Sniper', -1), ('Spider', 1), ('Spider', -1)],
+    # Onda 4: 3 RobotEnemy + 3 SkeletonEnemy + 2 Sniper + 3 Spider
+    [('RobotEnemy', -1), ('RobotEnemy', 1), ('RobotEnemy', -1), ('SkeletonEnemy', 1), ('SkeletonEnemy', -1), ('SkeletonEnemy', 1), ('Sniper', -1), ('Sniper', 1), ('Spider', -1), ('Spider', 1), ('Spider', -1)],
+    # Onda 5: Boss + DragonBoss + 2 Enemy
+    [('Boss', -1), ('DragonBoss', 1), ('Enemy', -1), ('Enemy', 1)],
+]
+

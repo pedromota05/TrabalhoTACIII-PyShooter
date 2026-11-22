@@ -157,6 +157,13 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     game.open_sign = None
     game.sign_toggle = False
 
+    from config import HORDE_LEVEL
+    from core.horde import start_horde
+    if level_number == HORDE_LEVEL:
+        start_horde(game)
+    else:
+        game.horde_active = False
+
 
 def _ground_top(world, col: int) -> int:
     """Topo do bloco sólido mais alto na coluna (mundo recém-carregado, bg_scroll = 0)."""

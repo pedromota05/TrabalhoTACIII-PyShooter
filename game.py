@@ -14,6 +14,7 @@ Controles:
     Espaço  — atirar
     Q / G   — lançar granada
     ESC     — pausar / voltar
+    F11     — tela cheia (liga/desliga)
 """
 
 import pygame
@@ -28,7 +29,9 @@ from config import (
 )
 from asset_manager import AssetManager
 from core.gameplay import update_game_entities, update_level_transition, update_playing
+from core import progress
 from core.input_handler import handle_events
+from core.music import MusicPlayer
 from core.level_loader import load_level, reset_groups
 from core.renderer import draw_background, draw_game_entities, draw_text, draw_crosshair
 from game_state import GameState
@@ -58,7 +61,9 @@ class Game:
         pygame.init()
 
         # ----- Display & Clock -----
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.fullscreen = progress.carregar().get('tela_cheia', False)
+        self.screen = None
+        self.set_display_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption('PyShooter - TACIII')
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(FONT_NAME, FONT_SIZE)
@@ -68,6 +73,7 @@ class Game:
         # ----- Assets -----
         self.assets = AssetManager()
         self.assets.load_all()
+        self.music = MusicPlayer()
 
         # ----- Estado do jogo -----
         self.state = GameState.MENU
@@ -167,6 +173,45 @@ class Game:
         self.health_bar = None
         self.world = None
         self._load_level(self.level)
+
+    # ==================================================================
+    #  Janela / tela cheia
+    # ==================================================================
+    def set_display_mode(self, size: tuple = None) -> pygame.Surface:
+        """Único ponto que troca o modo de vídeo (jogo 1200x640, editor 1200x740).
+
+        Em tela cheia usa SCALED | FULLSCREEN: a resolução lógica continua
+        `size` e o pygame estica a imagem para o monitor (com faixas pretas).
+        Sem `size`, mantém o tamanho atual (usado pelo F11)."""
+        if size is None:
+            size = self.screen.get_size() if self.screen else (SCREEN_WIDTH, SCREEN_HEIGHT)
+        flags = (pygame.SCALED | pygame.FULLSCREEN) if self.fullscreen else 0
+        try:
+            self.screen = pygame.display.set_mode(size, flags)
+        except pygame.error:
+            # Sem suporte a tela cheia (ex.: driver de vídeo dummy): volta para janela.
+            self.fullscreen = False
+            self.screen = pygame.display.set_mode(size)
+        return self.screen
+
+    def toggle_fullscreen(self, ligada: bool = None) -> None:
+        """Liga/desliga a tela cheia (F11 ou Configurações) e salva a escolha."""
+        self.fullscreen = (not self.fullscreen) if ligada is None else bool(ligada)
+        self.set_display_mode()
+        progress.salvar_tela_cheia(self.fullscreen)
+
+    def _handle_fullscreen_key(self) -> None:
+        """Trata o F11 antes do manipulador de entrada e devolve os outros
+        eventos à fila na mesma ordem."""
+        eventos = pygame.event.get()
+        trocar = False
+        for ev in eventos:
+            if ev.type == pygame.KEYDOWN and ev.key == pygame.K_F11:
+                trocar = not trocar
+            elif not (ev.type == pygame.KEYUP and ev.key == pygame.K_F11):
+                pygame.event.post(ev)
+        if trocar:
+            self.toggle_fullscreen()
 
     # ==================================================================
     #  Carregamento / Reset de nível  (DRY)
@@ -349,7 +394,9 @@ class Game:
             elif self.state == GameState.VICTORY:
                 self.victory_screen.update(self.screen, self)
 
+            self._handle_fullscreen_key()
             self._handle_events()
+            self.music.update(self)
             button.Button.update_cursor()
             if self.state == GameState.PLAYING:
                 dx, dy = effects.shake_offset()

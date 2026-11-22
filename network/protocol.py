@@ -99,6 +99,11 @@ def encode_lives(player_id: str, lives: int, reset: int) -> str:
     return f"{player_id},lives,{lives},{reset}"
 
 
+def encode_wave(player_id: str, level: int, n: int, base_x: int) -> str:
+    """Host -> clientes: início da onda `n` na fase `level` com `base_x` (scroll do Host)."""
+    return f"{player_id},wave,{level},{n},{base_x}"
+
+
 def encode_crate(player_id: str, level: int, col: int, row: int) -> str:
     """Notifica que uma caixa de madeira foi quebrada na fase `level`, coluna `col`, linha `row`."""
     return f"{player_id},crate,{level},{col},{row}"
@@ -244,6 +249,18 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     if command == "lifeup" and len(parts) >= 3:
         try:
             return {"type": "lifeup", "player_id": player_id, "seq": int(parts[2])}
+        except ValueError:
+            return None
+
+    if command == "wave" and len(parts) >= 5:
+        try:
+            return {
+                "type": "wave",
+                "player_id": player_id,
+                "level": int(parts[2]),
+                "n": int(parts[3]),
+                "base_x": int(float(parts[4])),
+            }
         except ValueError:
             return None
 

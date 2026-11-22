@@ -26,6 +26,7 @@ from .protocol import (
     encode_lives,
     encode_crate,
     encode_lifeup,
+    encode_wave,
     parse_packet,
 )
 
@@ -69,6 +70,7 @@ class NetworkClient:
         self.seen_lifeups: set = set()
         self.lifeup_seq = 0
         self.pending_deaths: List[tuple[str, int]] = []
+        self.pending_waves: List[tuple[int, int, int]] = []
         self.host_lives: tuple[int, int] | None = None
         self.remote_colors: Dict[str, int] = {}
         self.lock = threading.Lock()
@@ -165,6 +167,8 @@ class NetworkClient:
                         self.pending_item_pickups.append((packet["level"], packet["item_id"]))
                     elif packet["type"] == "crate":
                         self.pending_crates.append((packet["level"], packet["col"], packet["row"]))
+                    elif packet["type"] == "wave":
+                        self.pending_waves.append((packet["level"], packet["n"], packet["base_x"]))
                     elif packet["type"] == "lifeup":
                         key = (packet["player_id"], packet["seq"])
                         if key not in self.seen_lifeups:
@@ -346,6 +350,19 @@ class NetworkClient:
             self.pending_lifeups.clear()
             return lifeups
 
+    def send_wave(self, level: int, n: int, base_x: int) -> None:
+        """Host avisa o início da onda `n`. Envia 3 vezes por redundância UDP."""
+        msg = encode_wave(self.player_id, level, n, base_x)
+        for _ in range(3):
+            self._send(msg)
+
+    def pop_waves(self) -> List[tuple[int, int, int]]:
+        """Consome e limpa a lista de ondas recebidas do Host."""
+        with self.lock:
+            waves = list(self.pending_waves)
+            self.pending_waves.clear()
+            return waves
+
     def send_color(self, color: int) -> None:
         """Envia a cor escolhida pelo jogador."""
         self._send(encode_color(self.player_id, color))
@@ -482,6 +499,7 @@ class NetworkClient:
             self.pending_crates.clear()
             self.pending_lifeups.clear()
             self.pending_deaths.clear()
+            self.pending_waves.clear()
             self.host_lives = None
             self.host_level = None
             self.host_challenge = False

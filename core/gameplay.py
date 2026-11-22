@@ -16,6 +16,7 @@ from entities.spider import Spider
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from entities.items import ItemBox
 from game_state import GameState
+from core.horde import update_horde
 
 # Quantos quadros de chão firme a posição de renascimento fica "atrasada".
 
@@ -212,6 +213,10 @@ def _revive_at(game, world_x: float, center_y: float | None = None,
 def is_level_complete(game, touched_exit: bool) -> bool:
     """A fase termina ao tocar a saída ou, numa fase de chefes sem saída,
     cerca de 1,5 s depois que todos os chefes morrem."""
+    if getattr(game, 'horde_active', False):
+        if getattr(game, 'is_multiplayer', False) and not getattr(game, 'is_host', False):
+            return False
+        return getattr(game, 'horde_done', False)
     if touched_exit:
         return True
     if len(game.exit_group) or not len(game.boss_group):
@@ -434,6 +439,9 @@ def update_melee(game) -> None:
 
 def update_boss_stages(game) -> None:
     """Avança as etapas dos chefes em fases com múltiplos chefes sequenciais."""
+    if getattr(game, 'horde_active', False):
+        return
+
     if getattr(game, 'boss_stage_banner', 0) > 0:
         game.boss_stage_banner -= 1
 
@@ -812,6 +820,7 @@ def update_playing(game) -> None:
         game.bg_scroll -= game.screen_scroll
         update_checkpoints(game)
         update_boss_stages(game)
+        update_horde(game)
         update_signs(game)
         update_fun(game)
         update_melee(game)
