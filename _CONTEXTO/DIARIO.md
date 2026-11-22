@@ -8,10 +8,18 @@
 - Diversão: pontos, combo até x5, drops, piscar e dano flutuando, tremor; músicas CC0 do MintoDog por tela/fase (`core/music.py`, `audio/musicas/`, créditos em `audio/CREDITOS.md`); tela cheia com F11.
 - Editor: Modo Mover (M), desfazer/refazer (Ctrl+Z/Ctrl+Y), checkpoint (tile 88), castelo na saída, aranha (tile 89).
 - Documentação: GDD (md/html/pdf, gerados por `tools/gerar_gdd.py`), slides `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx`, guia de estudo atualizado.
-- Testes: os itens de 2026-11-22 (golpe/caixas/aranha, hordas, tela cheia, músicas) só passaram na conferência rápida (compila e carrega); bot humano e teste_multiplayer não rodaram neles.
+- Testes (2026-11-22, à noite): bot campanha 1-4 OK; Desafio 1-4 OK; fase 5 conferida por script (5 ondas e vitória OK), mas o bot não termina a 5 sozinho (não sobe na plataforma alta nem pega munição); teste_multiplayer 6/7 nas duas rodadas, cada vez um item diferente no limite da medição (3 com CPU ocupada; 2 com 13 px vs 12). Golpe/caixas/tela cheia/músicas só testando na mão.
 - Multiplayer pelo Radmin VPN: Host passa o IP 26.x; liberar UDP 5555 no Firewall do Host; os dois com `git pull origin melhorias-coop`.
 - Forma de trabalho: delegar ao Gemini (`ponte-agy`) com roteiros em `docs/tarefas/`; commits sem Co-Authored-By, só quando o Guilherme pede.
 - Próximos passos: Guilherme testar jogando (lista no fim da entrada de 2026-11-22); teste em dupla com o Pedro; revisar slides v3; ver se há coração demais nas caixas; "fase 2 não terminou" segue sem descrição.
+
+---
+### 2026-11-22 — Rodada de testes automáticos e bot nas hordas
+- Pedido: o Guilherme perguntou se faltou rodar testes; pediu para delegar ao Gemini o que der.
+- Feito: compilação OK; `python tools/bot_fases.py 1 2 3 4` = 4 fases "passou"; `--desafio --god` passa fases 1-4 e estoura 900 s na 5. Causa: o bot não sabia jogar hordas (sem saída, só atirava para frente). Gemini (`ponte-agy`, roteiro `docs/tarefas/2026-11-22_bot-hordas.md`, 2 rodadas) mudou `tools/bot_fases.py`: caça inimigos/aranhas na fase 5, mira para os dois lados, e no `--god` resgata o jogador que cai na água (conta `quedas_god`). Agora o bot vence as ondas 1-2 e trava na 3 (não sobe na plataforma alta da esquerda, munição acaba). Script de conferência (scratch) matando os inimigos à força: ondas 1-5 nascem certas (5ª com Boss e DragonBoss) e a fase termina (`horde_done`).
+- `python tools/teste_multiplayer.py`: rodada 1 (com outro teste rodando junto) 6/7, item 3 falhou por poucas fotos do host; rodada 2 (sozinho) 6/7, item 3 OK (43/46) e item 2 no limite (p95 13 px, tolerância 12). Variação de medição, não regressão.
+- Não commitado: `tools/bot_fases.py` e o roteiro.
+- Próximos passos: Guilherme testar na mão a fase 5 e as novidades; teste em dupla com o Pedro; opcional: ensinar o bot a pegar munição e subir plataformas na fase 5.
 
 ---
 ### 2026-11-22 — Fechamento do plano e push

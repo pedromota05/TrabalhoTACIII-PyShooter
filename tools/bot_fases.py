@@ -4,6 +4,7 @@ tools/bot_fases.py — Bot headless que joga as fases do PyShooter para teste.
 O bot planeja o caminho até a saída com A*, usando a MESMA colisão do Player
 (Character._check_tile_collisions), e joga o loop real do jogo
 (update_playing), atirando nos inimigos que estiverem à frente.
+No Desafio, o bot caça os inimigos das hordas na Fase 5.
 
 Uso (na raiz do projeto):
     python tools/bot_fases.py 1               # joga a fase 1 uma vez
@@ -178,6 +179,13 @@ class Bot:
     def _chefes_vivos(self):
         return [b for b in self.g.boss_group if b.alive]
 
+    def _alvos_vivos(self):
+        grupos = (self.g.enemy_group, self.g.boss_group, getattr(self.g, 'spider_group', ()))
+        return [e for grp in grupos for e in grp if e.alive]
+
+    def _modo_horda(self):
+        return bool(getattr(self.g, 'horde_active', False))
+
     # ---------------- decisão ----------------
     def tick(self):
         """Chamar uma vez por quadro, ANTES de game._update_playing()."""
@@ -255,16 +263,24 @@ class Bot:
             g.grenade_input, g.grenade_thrown = True, False
         else:
             g.grenade_input = False
-        if saida_x is None and chefes:
-            b = min(chefes, key=lambda b: abs(b.rect.centerx - g.player.rect.centerx))
+        alvos = self._alvos_vivos() if self._modo_horda() else chefes
+        if saida_x is None and alvos:
+            b = min(alvos, key=lambda b: abs(b.rect.centerx - g.player.rect.centerx))
             g.player.direction = 1 if b.rect.centerx > g.player.rect.centerx else -1
             g.player.flip = g.player.direction == -1
             mira = 15 if self.humano else 5
-            g.shoot = (g.player.ammo > 0
-                       and b.rect.top < g.player.rect.centery - mira < b.rect.bottom)
+            centery = g.player.rect.centery
+            na_altura = (b.rect.top < centery - mira < b.rect.bottom
+                         or abs(b.rect.centery - centery) < 40)
+            g.shoot = g.player.ammo > 0 and na_altura
+        elif self._modo_horda() and not alvos:
+            self.atual = PARADO
+            self.caminho = []
+            g.moving_left, g.moving_right = False, False
+            g.shoot = False
 
     def _caminho_chefe(self, s, no_chao):
-        chefes = self._chefes_vivos()
+        chefes = self._alvos_vivos() if self._modo_horda() else self._chefes_vivos()
         if not chefes:
             return [PARADO]
         b = min(chefes, key=lambda b: abs(b.rect.centerx - self.g.player.rect.centerx))
@@ -275,6 +291,27 @@ class Bot:
             return [PARADO]
         caminho, _ = self.mapa.planejar(s, alvo, max_nos=4000, alcance=30)
         return caminho[:4] if caminho else [PARADO]
+
+
+def resgatar_god(game, bot, seguro):
+    """Resgata o jogador em modo god caso caia do mapa ou na água."""
+    if seguro is None:
+        return False
+    p = game.player
+    em_perigo = p.rect.bottom > SCREEN_HEIGHT or any(
+        w.rect.colliderect(p.rect) and p.rect.centery > w.rect.top for w in game.water_group
+    )
+    if em_perigo:
+        x_salvo, y_salvo, bg_scroll_salvo = seguro
+        p.rect.x = int(x_salvo + (bg_scroll_salvo - game.bg_scroll))
+        p.rect.y = int(y_salvo)
+        p.vel_y = 0
+        p.in_air = False
+        p.alive = True
+        bot.caminho = []
+        bot.esperado = None
+        return True
+    return False
 
 
 def causa_morte(game):
@@ -369,28 +406,43 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
     inicio = FRAME[0]
     mortes = []
     resultado = 'tempo_esgotado'
+    seguro = None
+    quedas_god = 0
     while FRAME[0] - inicio < max_seg * 60:
         FRAME[0] += 1
         if god:
             game.player.health = 100
         bot.tick()
         game._update_playing()
+        if god:
+            p = game.player
+            if not p.in_air and p.vel_y == 0 and p.rect.bottom <= SCREEN_HEIGHT:
+                if not any(w.rect.colliderect(p.rect) for w in game.water_group):
+                    seguro = (p.rect.x, p.rect.y, game.bg_scroll)
+            if resgatar_god(game, bot, seguro):
+                quedas_god += 1
         if visual:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    return {
+                    saida = {
                         'fase': fase, 'resultado': 'interrompido',
                         'segundos': round((FRAME[0] - inicio) / 60, 1),
                         'vida': game.player.health, 'municao': game.player.ammo,
                         'mortes': mortes, 'estado_final': 'QUIT',
                     }
+                    if god:
+                        saida['quedas_god'] = quedas_god
+                    return saida
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return {
+                    saida = {
                         'fase': fase, 'resultado': 'interrompido',
                         'segundos': round((FRAME[0] - inicio) / 60, 1),
                         'vida': game.player.health, 'municao': game.player.ammo,
                         'mortes': mortes, 'estado_final': 'ESCAPE',
                     }
+                    if god:
+                        saida['quedas_god'] = quedas_god
+                    return saida
             pygame.display.flip()
             game.clock.tick(FPS)
         else:
@@ -424,12 +476,15 @@ def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,
                         if ev.type in (pygame.QUIT, pygame.KEYDOWN):
                             break
             break
-    return {
+    saida = {
         'fase': fase, 'resultado': resultado,
         'segundos': round((FRAME[0] - inicio) / 60, 1),
         'vida': game.player.health, 'municao': game.player.ammo,
         'mortes': mortes, 'estado_final': game.state.name,
     }
+    if god:
+        saida['quedas_god'] = quedas_god
+    return saida
 
 
 def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=None, visual=False):
@@ -450,12 +505,21 @@ def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=N
     fases, problemas = [], []
     capturou_fase = set()
     resultado = 'tempo_esgotado'
+    seguro = None
+    quedas_god = 0
     while FRAME[0] - inicio < max_seg * 60:
         FRAME[0] += 1
         if god:
             game.player.health = 100
         bot.tick()
         game._update_playing()
+        if god:
+            p = game.player
+            if not p.in_air and p.vel_y == 0 and p.rect.bottom <= SCREEN_HEIGHT:
+                if not any(w.rect.colliderect(p.rect) for w in game.water_group):
+                    seguro = (p.rect.x, p.rect.y, game.bg_scroll)
+            if resgatar_god(game, bot, seguro):
+                quedas_god += 1
         if visual:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
@@ -472,9 +536,12 @@ def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=N
             capturou_fase.add(game.level)
             pygame.image.save(game.screen, os.path.join(capturas, f'desafio_hud_fase{game.level}.png'))
         if game.state == GameState.GAME_OVER:
-            fases.append({'fase': game.level, 'resultado': 'morreu',
-                          'causa': causa_morte(game),
-                          'segundos': round((FRAME[0] - inicio_fase) / 60, 1)})
+            dados_morte = {'fase': game.level, 'resultado': 'morreu',
+                           'causa': causa_morte(game),
+                           'segundos': round((FRAME[0] - inicio_fase) / 60, 1)}
+            if god:
+                dados_morte['quedas_god'] = quedas_god
+            fases.append(dados_morte)
             resultado = 'morreu'
             if capturas:
                 for _ in range(120):  # fade + texto "DESAFIO ENCERRADO"
@@ -486,12 +553,18 @@ def jogar_desafio(game, seed=0, god=False, max_seg=900, humano=False, capturas=N
             p = game.player
             antes = (min(p.health, p.max_health), p.ammo, p.grenades)
             fase_antes = game.level
-            fases.append({'fase': fase_antes, 'resultado': 'passou',
+            dados_fase = {'fase': fase_antes, 'resultado': 'passou',
                           'segundos': round((FRAME[0] - inicio_fase) / 60, 1),
-                          'vida': p.health, 'municao': p.ammo, 'granadas': p.grenades})
+                          'vida': p.health, 'municao': p.ammo, 'granadas': p.grenades}
+            if god:
+                dados_fase['quedas_god'] = quedas_god
+            fases.append(dados_fase)
             game._update_level_transition()
             game.start_intro = False
             inicio_fase = FRAME[0]
+            if god:
+                quedas_god = 0
+                seguro = None
             if game.state == GameState.VICTORY:
                 resultado = 'venceu'
                 break
