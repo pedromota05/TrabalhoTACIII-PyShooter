@@ -49,6 +49,23 @@ MAX_LEVELS = 4
 CHECKPOINTS = {1: [48, 95], 2: [29, 89], 3: [19, 83], 4: []}
 CHECKPOINT_MSG_FRAMES = 90  # aviso "CHECKPOINT!" no HUD (1,5 s)
 LEVEL_BANNER_FRAMES = 120  # aviso "FASE N" no início de cada fase (2 s)
+SIGN_RANGE_X = 50   # distância horizontal (px) para interagir com a placa
+SIGN_TEXTS = {
+    1: [
+        'Água funda mata na hora! Pule com W ou seta para cima. Caixas de munição recarregam seus tiros.',
+        'Soldados à frente. Atire com ESPAÇO e jogue granadas com Q ou G.',
+        'Logo adiante tem uma bandeira: é um checkpoint. Se morrer, você volta nela.',
+        'Robôs aguentam mais tiros. Mantenha distância e use granadas.',
+        'A saída está perto. Siga em frente!',
+    ],
+    2: ['Pântano! A água mata. Pule de plataforma em plataforma.'],
+    3: [
+        'Fase de gelo: a água gelada também é mortal.',
+        'Snipers atiram de longe. Avance pulando e use granadas.',
+        'Últimos inimigos antes da saída. Pegue a munição!',
+    ],
+}
+SIGN_DEFAULT_TEXT = 'Continue em frente e cuidado com os inimigos!'
 LEVELS_DIR = 'levels'
 
 # ---------------------------------------------------------------------------

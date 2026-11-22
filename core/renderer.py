@@ -1,5 +1,7 @@
 """Renderização do cenário, entidades e HUD."""
 
+import pygame
+
 from config import BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
 
 
@@ -99,6 +101,8 @@ def draw_game_entities(game) -> None:
         game.screen.blit(shadow, rect.move(3, 3))
         game.screen.blit(msg, rect)
 
+    draw_sign_ui(game)
+
 
 def _blit_shadowed(game, text: str, color: tuple, font, center_x: int, top: int) -> None:
     """Texto centralizado com sombra preta (legível sobre qualquer cenário)."""
@@ -136,4 +140,44 @@ def draw_level_banner(game) -> None:
                    SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60)
     _blit_shadowed(game, f'de {total}', WHITE, game.font_bold,
                    SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+
+
+def draw_sign_ui(game) -> None:
+    """'E' sobre a placa próxima; balão com a dica quando aberta."""
+    sign = getattr(game, 'near_sign', None)
+    if sign is None:
+        return
+    if getattr(game, 'open_sign', None) is not sign:
+        key = game.font_bold.render('E', True, WHITE)
+        box = key.get_rect(midbottom=(sign.rect.centerx, sign.rect.top - 6)).inflate(12, 6)
+        pygame.draw.rect(game.screen, (20, 20, 30), box, border_radius=5)
+        pygame.draw.rect(game.screen, WHITE, box, 2, border_radius=5)
+        game.screen.blit(key, key.get_rect(center=box.center))
+        return
+    # Balão no topo da tela com quebra de linha
+    width = 620
+    words, lines, line = sign.text.split(), [], ''
+    for w in words:
+        test = (line + ' ' + w).strip()
+        if game.font.size(test)[0] > width - 30:
+            lines.append(line)
+            line = w
+        else:
+            line = test
+    if line:
+        lines.append(line)
+    lh = game.font.get_height() + 4
+    height = 20 + lh * len(lines) + lh
+    rect = pygame.Rect(0, 0, width, height)
+    rect.midtop = (SCREEN_WIDTH // 2, 70)
+    pygame.draw.rect(game.screen, (245, 232, 200), rect, border_radius=10)
+    pygame.draw.rect(game.screen, (90, 60, 30), rect, 3, border_radius=10)
+    y = rect.top + 10
+    for text in lines:
+        surf = game.font.render(text, True, (40, 25, 10))
+        game.screen.blit(surf, surf.get_rect(midtop=(rect.centerx, y)))
+        y += lh
+    hint = game.font.render('E para fechar', True, (110, 80, 50))
+    game.screen.blit(hint, hint.get_rect(midtop=(rect.centerx, y)))
+
 

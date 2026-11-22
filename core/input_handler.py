@@ -27,6 +27,8 @@ def handle_events(game) -> None:
                 game.shoot = True
             if event.key in (pygame.K_q, pygame.K_g):
                 game.grenade_input = True
+            if event.key == pygame.K_e and game.state == GameState.PLAYING:
+                game.sign_toggle = True
             if event.key in (pygame.K_w, pygame.K_UP) and game.player and game.player.alive:
                 game.player.jump = True
                 game.assets.get_sound('jump').play()

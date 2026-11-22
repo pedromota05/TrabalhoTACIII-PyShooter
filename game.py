@@ -77,6 +77,10 @@ class Game:
         self.start_intro = False
         self.run_frames = 0  # quadros jogados na partida (tempo na tela de vitória)
         self.previous_state = None
+        self.signs = []
+        self.near_sign = None
+        self.open_sign = None
+        self.sign_toggle = False
 
         # ----- Modo Desafio (maratona das fases 1 a 5 com uma vida) -----
         self.challenge_mode = False

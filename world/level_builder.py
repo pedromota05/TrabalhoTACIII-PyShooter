@@ -9,6 +9,7 @@ from entities.player import Player
 from entities.enemies import Enemy, Sniper, RobotEnemy, SkeletonEnemy, DragonBoss, Boss
 from entities.items import ItemBox
 from entities.environment import Decoration, Water, Exit
+from entities.sign import Sign
 from ui.hud import HealthBar
 
 
@@ -109,9 +110,12 @@ class World:
                         item_box = ItemBox('Speed', x * TILE_SIZE, y * TILE_SIZE)
                         item_box_group.add(item_box)
                     elif tile == 23:                 # Placa de Aviso (Warning Sign)
-                        decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
+                        decoration = Sign(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
-                    elif tile in (36, 40, 42, 49):   # Decorações de neve (boneco, placa, árvores)
+                    elif tile == 40:
+                        decoration = Sign(img, x * TILE_SIZE, y * TILE_SIZE)
+                        decoration_group.add(decoration)
+                    elif tile in (36, 42, 49):   # Decorações de neve (boneco, árvores)
                         decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
                     elif tile in (37, 38, 43, 44, 45):  # Água gelada de superfície

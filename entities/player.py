@@ -62,7 +62,7 @@ class Player(Character):
 
     def move(self, moving_left: bool, moving_right: bool, obstacle_list: list,
              water_group, exit_group, bg_scroll: int, level_length: int,
-             ramp_list: list = None):
+             ramp_list: list = None, remote_players=None):
         if ramp_list is None:
             ramp_list = []
 
@@ -96,6 +96,22 @@ class Player(Character):
 
         # Colisão com tiles
         dx, dy = self._check_tile_collisions(dx, dy, obstacle_list, ramp_list)
+
+        # Colisão com o parceiro do multiplayer (hitbox estreita: ignora a arma).
+        if remote_players:
+            for other in remote_players:
+                if not other.alive:
+                    continue
+                body = other.rect.inflate(-other.rect.width // 2, -6)
+                if self.rect.colliderect(body):
+                    continue  # já sobrepostos (ex.: renasceu ao lado): deixa sair
+                if dx and self.rect.move(dx, 0).colliderect(body):
+                    dx = 0
+                # Cai em cima da cabeça do parceiro
+                if dy > 0 and self.rect.bottom <= body.top and self.rect.move(dx, dy).colliderect(body):
+                    dy = body.top - self.rect.bottom
+                    self.vel_y = 0
+                    self.in_air = False
 
         # Perigos ambientais
         self._check_environment(water_group)

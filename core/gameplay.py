@@ -3,7 +3,7 @@
 import pygame
 
 from asset_manager import AssetManager
-from config import BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_START_AMMO
+from config import BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_START_AMMO, SIGN_RANGE_X
 from core import progress
 from entities import DragonBoss, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
@@ -112,6 +112,24 @@ def update_checkpoints(game) -> None:
             'inimigos_mortos': mortos,
         }
         game.checkpoint_msg_frames = CHECKPOINT_MSG_FRAMES
+
+
+def update_signs(game) -> None:
+    """Marca a placa perto do jogador e abre/fecha o balão com a tecla E."""
+    player = game.player
+    near = None
+    for sign in getattr(game, 'signs', []):
+        if (abs(sign.rect.centerx - player.rect.centerx) <= SIGN_RANGE_X
+                and abs(sign.rect.bottom - player.rect.bottom) <= 80):
+            near = sign
+            break
+    game.near_sign = near
+    if near is None:
+        game.open_sign = None
+    if getattr(game, 'sign_toggle', False):
+        game.sign_toggle = False
+        if near is not None:
+            game.open_sign = None if game.open_sign is near else near
 
 
 def get_target_player(entity, local_player, remote_players_group):
@@ -407,9 +425,11 @@ def update_playing(game) -> None:
             game.world.obstacle_list, game.water_group,
             game.exit_group, game.bg_scroll, game.world.level_length,
             game.world.ramp_list,
+            game.remote_players_group if getattr(game, 'is_multiplayer', False) else None,
         )
         game.bg_scroll -= game.screen_scroll
         update_checkpoints(game)
+        update_signs(game)
 
         # Envio periódico de estado via UDP em modo multiplayer
         if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
