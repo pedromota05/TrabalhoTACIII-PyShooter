@@ -129,7 +129,7 @@ blockquote {
 2. <strong>Editor de Fases Integrado</strong>: Ferramenta modular que permite criar, inspecionar, salvar e carregar mapas personalizados diretamente na matriz de arquivos CSV (<code>levels/</code>).<br />
 3. <strong>Multiplayer em LAN (Cliente e Servidor)</strong>: Partidas cooperativas locais em tempo real via sockets UDP não-bloqueantes com threads em background, controle de <em>heartbeat/timeout</em>, sincronização de combate e interpolação linear (LERP) para eliminar saltos visuais.<br />
 4. <strong>Formalização de Padrões de Projeto (GoF e Arquiteturais)</strong>: Aplicação explícita dos padrões Singleton, State, Factory Method, Facade, Observer e Remote Proxy.<br />
-5. <strong>Combate e Diversão</strong>: Mira e disparo com o mouse em qualquer ângulo (só a arma gira; o corpo fica parado), mecânica de <em>dash</em> com invencibilidade, sistema de vidas compartilhadas com renascimento automático, pontuação dinâmica com multiplicador de combo e batalhas de chefes em etapas sequenciais.</p>
+5. <strong>Combate e Diversão</strong>: Mira e disparo com o mouse em qualquer ângulo (só a arma gira; o corpo fica parado), mecânica de <em>dash</em> com invencibilidade, sistema de vidas compartilhadas com renascimento automático, pontuação dinâmica com multiplicador de combo, batalhas de chefes em etapas sequenciais, golpe corpo a corpo com a arma, caixas de madeira quebráveis, inimigos aranha, vida extra, arena de hordas na fase 5 do Desafio, tela cheia e trilha sonora por fase.</p>
 <hr />
 <h3 id="12-estilo-e-genero">1.2 Estilo e Gênero</h3>
 <table>
@@ -187,7 +187,7 @@ blockquote {
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Periféricos</strong></td>
-<td style="text-align: left;">Teclado (movimento, pulo, dash, granada, placas) e Mouse (mira, tiro, menus e editor)</td>
+<td style="text-align: left;">Teclado (movimento, pulo, dash, granada, placas, tela cheia) e Mouse (mira, tiro, golpe, menus e editor)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Rede</strong></td>
@@ -232,6 +232,10 @@ blockquote {
 <td style="text-align: left;">Atirar na direção da mira (segurar para tiro contínuo)</td>
 </tr>
 <tr>
+<td style="text-align: left;"><strong>Botão Direito do Mouse</strong></td>
+<td style="text-align: left;">Golpe com a arma (curto alcance; fere inimigos e quebra caixas de madeira)</td>
+</tr>
+<tr>
 <td style="text-align: left;"><strong>Q</strong> ou <strong>G</strong></td>
 <td style="text-align: left;">Lançar granada (arco parabólico com dano em área)</td>
 </tr>
@@ -242,6 +246,10 @@ blockquote {
 <tr>
 <td style="text-align: left;"><strong>ESC</strong></td>
 <td style="text-align: left;">Pausar partida / Retornar ao menu</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>F11</strong></td>
+<td style="text-align: left;">Ligar/desligar tela cheia (em qualquer tela, inclusive no editor)</td>
 </tr>
 </tbody>
 </table>
@@ -358,18 +366,18 @@ blockquote {
 <li><strong>Seletor de Cor do Personagem:</strong> Escolha de cor individual (VERDE, AZUL, VERMELHO, AMARELO, ROXO); caso o Cliente selecione a mesma cor do Host, o sistema avança automaticamente para a próxima cor livre e exibe um aviso em tela (mensagem <code>color</code>).</li>
 <li>Exibição em tempo real de mensagens de status da rede.</li>
 <li><strong>Editor de Fases (<code>LevelEditorScreen</code>):</strong> Ambiente de edição de fases completo com grade, paleta de tiles, atalhos de teclado (Modo Mover, Desfazer/Refazer) e botões de I/O em disco.</li>
-<li><strong>Configurações (<code>OptionsScreen</code>):</strong> Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (<em>knobs</em>) proporcionais.</li>
+<li><strong>Configurações (<code>OptionsScreen</code>):</strong> Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (<em>knobs</em>) proporcionais e botão <strong>TELA CHEIA: LIGADA/DESLIGADA (F11)</strong>, com a escolha salva no progresso.</li>
 <li><strong>Pausa (<code>PauseOverlay</code>):</strong> Overlay escurecido sobre a partida em andamento permitindo continuar ou sair para o menu.</li>
-<li><strong>Tela de Jogo Ativo / HUD:</strong> O cursor padrão é substituído por uma mira visual própria, com uma barra de recarga do dash logo abaixo. No canto superior direito, antes do botão de pausa, o HUD exibe o contador <strong>VIDAS</strong> com marcadores circulares. O HUD exibe também o mostrador <strong>PONTOS</strong> e o indicador <strong>COMBO xN</strong> com barra de tempo. Ao sofrer queda com vidas restantes, a tela exibe o aviso central <strong>"-1 VIDA / Restam N"</strong>, renascendo o combatente após 1 segundo.</li>
+<li><strong>Tela de Jogo Ativo / HUD:</strong> O cursor padrão é substituído por uma mira visual própria, com uma barra de recarga do dash logo abaixo. No canto superior direito, antes do botão de pausa, o HUD exibe o contador <strong>VIDAS</strong> com marcadores circulares. O HUD exibe também o mostrador <strong>PONTOS</strong> e o indicador <strong>COMBO xN</strong> com barra de tempo. No Desafio, a fase 5 mostra também "ONDA x/5" e a contagem "PRÓXIMA ONDA EM Ns". Ao perder uma vida com vidas restantes, a tela exibe o aviso central <strong>"-1 VIDA / Restam N"</strong>, renascendo o combatente após 1 segundo.</li>
 <li><strong>Game Over (<code>GameOverScreen</code>):</strong> Exibida quando as vidas do soldado se esgotam. No modo solo, o botão Restart recomeça a fase com as 3 vidas cheias. Em dupla cooperativa normal, o jogador que esgota as vidas aguarda como espectador enquanto o parceiro estiver vivo; caso ambos morram, o Host recomeça a fase automaticamente após 3 segundos. No Modo Desafio em dupla (vida única por jogador), o jogador derrotado não renasce na fase e visualiza o aviso <em>"VOCÊ CAIU! Desafio: uma vida só. Aguardando o parceiro terminar a fase…"</em> com a câmera acompanhando o parceiro (se o parceiro terminar a fase, quem caiu retorna na fase seguinte com 50% de HP); se ambos caírem, a tela exibe <em>"DESAFIO ENCERRADO"</em> em ambos os PCs e apenas o Host tem acesso ao botão Restart, que reinicia o Modo Desafio a partir da fase 1 para ambos.</li>
 <li><strong>Vitória (<code>VictoryScreen</code>):</strong> Véu escuro sobre o jogo congelado com "VITÓRIA!" e o tempo da partida. Aparece ao matar os dois chefes da fase 4 (fim da campanha) ou ao terminar a fase 5 no Desafio, quando mostra também o recorde e o aviso <strong>NOVO RECORDE</strong>.</li>
 </ol>
 <h4 id="progressao-checkpoints-e-modo-desafio">Progressão, Checkpoints e Modo Desafio</h4>
 <ul>
 <li><strong>Campanha e Saída das Fases 1 a 3:</strong> A campanha é estruturada nas fases 1 a 4. As fases 1 a 3 são finalizadas em um castelo temático desenhado no encerramento do mapa (castelo de pedra na fase 1, forte de madeira na fase 2 e castelo de gelo na fase 3), com a linha de chegada posicionada 6 blocos antes, no terreno plano final.</li>
-<li><strong>Checkpoints:</strong> Mapeados através do tile <code>88</code> (bandeira de checkpoint) configurado diretamente na matriz CSV da fase (a lista em <code>config.CHECKPOINTS</code> é utilizada apenas se a fase não possuir nenhum tile de bandeira). Ao alcançar uma bandeira, o jogo registra as coordenadas, a contagem de munição, granadas e a lista de inimigos derrotados; o reinício via checkpoint recupera o soldado no local com vida cheia. Os checkpoints são desativados no Modo Desafio e no multiplayer.</li>
-<li><strong>Sistema de Vidas (Campanha Solo e Co-op):</strong> A equipe possui 3 vidas compartilhadas (com o Host atuando como autoridade central no multiplayer via mensagens <code>death</code> e <code>lives</code>). Ao morrer (queda ou vida zerada) com vidas restantes, surge o aviso "-1 VIDA / Restam N" e o personagem renasce em 1 s: ao lado do parceiro vivo (no co-op) ou na última posição segura (com ambos os pés no chão, cerca de 1 s antes da queda, no modo solo). Se não houver posição segura nem parceiro, volta à última bandeira de checkpoint ou ao início da fase. O esgotamento das 3 vidas resulta em Game Over.</li>
-<li><strong>Modo Desafio:</strong> Maratona ininterrupta das fases 1 a 5 com vida única por combatente e checkpoints desativados. Vida, munição e granadas transitam entre fases (vida máxima limitada a 100). O HUD exibe o cronômetro (mm:ss.d) e o marcador "FASE x/5". A fase 5 é a arena final; ao terminá-la, o melhor tempo fica salvo como recorde. O Desafio não marca a campanha como zerada. Em partidas em dupla, a queda de um jogador o mantém como espectador acompanhando a câmera do parceiro vivo; se o parceiro concluir a fase, o jogador caído renasce na fase subsequente com metade da vida. A queda de ambos encerra a maratona com o aviso "DESAFIO ENCERRADO", permitindo que o Host reinicie o Desafio a partir da fase 1.</li>
+<li><strong>Checkpoints:</strong> Mapeados através do tile <code>88</code> (bandeira de checkpoint) configurado diretamente na matriz CSV da fase (a lista em <code>config.CHECKPOINTS</code> é utilizada apenas se a fase não possuir nenhum tile de bandeira). Ao alcançar uma bandeira, o jogo registra as coordenadas, a contagem de munição, granadas e a lista de inimigos derrotados; ao perder uma vida, o soldado renasce um bloco depois da última bandeira ativada. Os checkpoints ficam desligados no Modo Desafio; no multiplayer aparecem nos dois PCs e são ativados quando qualquer jogador da dupla passa por eles.</li>
+<li><strong>Sistema de Vidas (Campanha Solo e Co-op):</strong> A equipe possui 3 vidas compartilhadas (com o Host atuando como autoridade central no multiplayer via mensagens <code>death</code> e <code>lives</code>). Ao morrer (queda ou vida zerada) com vidas restantes, surge o aviso "-1 VIDA / Restam N" e o personagem renasce em 1 s no início da fase ou um bloco depois da última bandeira ativada, sem recarregar a fase (inimigos mortos continuam mortos). A mesma regra vale no multiplayer. Corações (+1 vida) podem elevar o total até 5 vidas (<code>config.MAX_LIVES</code>). O esgotamento das vidas resulta em Game Over.</li>
+<li><strong>Modo Desafio:</strong> Maratona ininterrupta das fases 1 a 5 com vida única por combatente e checkpoints desativados. Vida, munição e granadas transitam entre fases (vida máxima limitada a 100). O HUD exibe o cronômetro (mm:ss.d) e o marcador "FASE x/5". A fase 5 é a arena de hordas (ver abaixo); ao terminá-la, o melhor tempo fica salvo como recorde. O Desafio não marca a campanha como zerada. Em partidas em dupla, a queda de um jogador o mantém como espectador acompanhando a câmera do parceiro vivo; se o parceiro concluir a fase, o jogador caído renasce na fase subsequente com metade da vida. A queda de ambos encerra a maratona com o aviso "DESAFIO ENCERRADO", permitindo que o Host reinicie o Desafio a partir da fase 1.</li>
 <li><strong>Chefes em Etapas (Fase 4):</strong> A arena da fase 4 ocorre em duas etapas sucessivas: enfrenta-se primeiro o Demônio terrestre (<em>Demon Boss</em>); exatamente 1,5 s após sua derrota, o Dragão voador (<em>Dragon Boss</em>) surge em meio a explosões e ao aviso na tela "ETAPA 2/2" (com o HUD registrando "CHEFE x/2"). A tela de Vitória da campanha é ativada apenas após a morte do último chefe.</li>
 <li><strong>Sistema de Pontuação, Combo e Drops:</strong></li>
 <li><strong>Pontos por Inimigo (<code>config.KILL_POINTS</code>):</strong> Soldado: 100 pts, Robô: 150 pts, Esqueleto: 150 pts, Sniper: 200 pts, Demônio: 1500 pts, Dragão: 2000 pts.</li>
@@ -378,8 +386,16 @@ blockquote {
 <li><strong>Efeitos de Impacto:</strong> Inimigos e chefes piscam em branco e exibem texto de dano flutuante ao serem alvejados; detonações de granadas e mortes de chefes geram tremor de tela (<em>screen shake</em>).</li>
 <li><strong>Interatividade de Cenário e Colisão Co-op:</strong> Caixas de itens flutuam no terreno e apresentam texto informativo ao serem coletadas (com sincronização de remoção imediata no cliente parceiro via mensagem <code>item</code>). Placas no cenário (tile 23) exibem caixas de diálogo com instruções e dicas ao pressionar a tecla <strong>E</strong>. Jogadores em rede possuem colisão física recíproca, permitindo subir na cabeça do companheiro de equipe para alcançar plataformas elevadas.</li>
 </ul>
-<h4 id="em-desenvolvimento-apos-2026-11-21">Em Desenvolvimento (após 2026-11-21)</h4>
-<p>As novidades abaixo estão sendo implementadas e ainda não fazem parte desta versão do documento: renascer no início da fase ou logo após a última bandeira, golpe corpo a corpo com a arma, caixas quebráveis, inimigos aranha, vida extra, tela cheia, músicas por fase e uma fase 5 de hordas.</p>
+<h4 id="golpe-caixas-aranhas-hordas-tela-cheia-e-musica">Golpe, Caixas, Aranhas, Hordas, Tela Cheia e Música</h4>
+<ul>
+<li><strong>Golpe com a Arma (Botão Direito):</strong> O soldado gira a arma num golpe de curto alcance (retângulo de 60 px à frente), desenhado com um arco branco. Dura 14 quadros, recarrega em 24 quadros e tira 35 de vida (<code>config.MELEE_*</code>). Além de ferir inimigos, é o modo de quebrar caixas de madeira.</li>
+<li><strong>Caixas de Madeira Quebráveis (tile 12):</strong> Espalhadas nas fases 1 a 3, bloqueiam a passagem até serem quebradas pelo golpe. Ao quebrar, soltam lascas e um conteúdo sorteado (<code>config.CRATE_DROPS</code>): munição 30%, granada 15%, vida 20%, coração 10% ou uma aranha 25%. O sorteio usa a posição da caixa (coluna, linha e fase) como semente, então o resultado é igual nos dois PCs; no multiplayer a quebra é avisada pela mensagem <code>crate</code>.</li>
+<li><strong>Vida Extra (Coração):</strong> Item "+1 VIDA" que aumenta as vidas da equipe até o máximo de 5. No multiplayer, o Cliente avisa o Host pela mensagem <code>lifeup</code> (repetida por causa do UDP, com número de sequência para não contar duas vezes).</li>
+<li><strong>Aranhas:</strong> Inimigo pequeno desenhado pelo próprio código (sem sprite), com 30 de vida, 10 de dano por contato e 50 pontos. Surgem de caixas, das ondas da fase 5 ou do tile 89 colocado no editor. Cada PC simula as suas aranhas localmente.</li>
+<li><strong>Fase 5 do Desafio: Arena de Hordas (<code>core/horde.py</code>):</strong> Em vez de um mapa a percorrer, a fase 5 é uma arena com 5 ondas de inimigos que surgem pelos dois lados (<code>config.HORDE_WAVES</code>): 3 soldados; 2 soldados, 2 esqueletos e 2 aranhas; 2 robôs, 2 soldados, 1 sniper e 2 aranhas; 3 robôs, 3 esqueletos, 2 snipers e 3 aranhas; e, na última, o Demônio e o Dragão com 2 soldados. Entre as ondas há 3 s de pausa ("PRÓXIMA ONDA EM Ns"), uma caixa de munição e, nas ondas pares, uma de vida. Vencer a última onda conclui o Desafio. No multiplayer o Host comanda as ondas pela mensagem <code>wave</code>.</li>
+<li><strong>Tela Cheia:</strong> Tecla <strong>F11</strong> ou botão nas Configurações; a escolha fica salva no progresso e é mantida ao entrar e sair do editor.</li>
+<li><strong>Música e Vinhetas (<code>core/music.py</code>):</strong> 14 faixas CC0 do autor MintoDog (OpenGameArt) em <code>audio/musicas/</code>, uma por tela/fase: menu, fases 1 a 3, batalha de chefes (com a versão <em>Climax</em> na etapa 2 da fase 4), hordas da fase 5, vitória, Game Over (vinheta e loop) e vinhetas de perder vida e de fase concluída. A troca é feita com <em>fade</em> e o volume segue o slider de música. Cada PC toca a sua música (nada vai pela rede). Créditos completos em <code>audio/CREDITOS.md</code>.</li>
+</ul>
 <hr />
 <h3 id="16-o-editor-de-fases-level-editor">1.6 O Editor de Fases (Level Editor)</h3>
 <p>O editor de fases foi refatorado de um script procedural legado (<code>level-editor.py</code>) para uma classe modular de alta coesão (<code>LevelEditorScreen</code> em <code>ui/screens/level_editor.py</code>), perfeitamente integrada ao ciclo de vida do jogo.</p>
@@ -388,15 +404,17 @@ blockquote {
 <li><strong>Resolução de Tela Estendida:</strong> Ao entrar no editor, a janela é redimensionada dinamicamente para <code>1200 × 740</code> pixels (oferecendo 900 pixels de largura de visão de mapa, 300 pixels de barra lateral direita para a paleta de blocos e 100 pixels de margem inferior para a barra de ferramentas). Ao retornar ao menu, a resolução nativa de <code>1200 × 640</code> é restabelecida sem falhas.</li>
 <li><strong>Estrutura Matricial:</strong> O mapa é composto por uma matriz bidimensional de dimensões fixas:<br />
   $$\text{Linhas} = 16, \quad \text{Colunas} = 200, \quad \text{Tamanho do Bloco} = 40 \times 40\text{ px}$$</li>
-<li><strong>Paleta de 89 Tiles Mapeados (em 7 Colunas):</strong></li>
+<li><strong>Paleta de 90 Tiles Mapeados (em 7 Colunas):</strong></li>
 <li><code>0 a 8, 24 a 35, 47 a 48, 50, 58 a 61, 65 a 66, 73 a 77, 83 a 84</code>: Terrenos e plataformas sólidas (terra, grama, pedra e neve).</li>
 <li><code>85</code>: Rampa com colisão diagonal/inclinada.</li>
 <li><code>9 a 10, 37 a 39, 42 a 46, 51 a 57, 62 a 64, 67 a 68</code>: Água profunda (perigo ambiental letal).</li>
-<li><code>11 a 14, 36, 40, 49, 71 a 72, 78 a 82</code>: Decorações visuais sem colisão física (árvores gigantes, pinheiros, grama decorativa).</li>
+<li><code>11, 13, 14, 36, 40, 49, 71 a 72, 78 a 82</code>: Decorações visuais sem colisão física (árvores gigantes, pinheiros, grama decorativa).</li>
 <li><code>20, 41</code>: Castelo de saída / término da fase (exibido como castelo na paleta e no mapa, integrando a linha de chegada).</li>
 <li><code>22</code>: Propulsor de velocidade (<em>Speed Boost</em>).</li>
 <li><code>23</code>: Placa de dica e instruções (interagível no jogo via tecla E).</li>
-<li><code>88</code>: Bandeira de Checkpoint (salvamento de estado na fase).</li>
+<li><code>12</code>: Caixa de madeira quebrável (sólida até levar um golpe da arma).</li>
+<li><code>88</code>: Bandeira de Checkpoint (ponto de renascimento na fase).</li>
+<li><code>89</code>: Spawn de Aranha (inimigo desenhado pelo código).</li>
 <li><code>15</code>: Ponto de geração (<em>Spawn</em>) do Jogador.</li>
 <li><code>16</code>: Spawn de Soldado patrulheiro básico.</li>
 <li><code>69</code>: Spawn de Inimigo Robô atirador.</li>
@@ -452,7 +470,10 @@ blockquote {
 9. <strong>Coleta de Suprimento:</strong> <code>player_id,item,fase,item_id</code>, transmitido quando um jogador recolhe uma caixa de suprimento, sincronizando sua remoção imediata no mapa do parceiro.<br />
 10. <strong>Sincronização de Cor do Soldado:</strong> <code>player_id,color,indice</code>, informando o índice de cor escolhido para renderização das texturas customizadas.<br />
 11. <strong>Aviso de Morte do Cliente (cliente → Host):</strong> <code>player_id,death,seq</code>, emitido pelo cliente ao cair em abismo ou ter a vida zerada (enviado 3 vezes consecutivas para garantir recepção sobre UDP).<br />
-12. <strong>Saldo de Vidas Compartilhadas (Host → clientes):</strong> <code>player_id,lives,vidas,reset</code>, transmitido pelo Host para anunciar o total de vidas da equipe; o incremento sequencial de <code>reset</code> comanda o reinício da fase ou do Desafio no cliente.</p>
+12. <strong>Saldo de Vidas Compartilhadas (Host → clientes):</strong> <code>player_id,lives,vidas,reset</code>, transmitido pelo Host para anunciar o total de vidas da equipe; o incremento sequencial de <code>reset</code> comanda o reinício da fase ou do Desafio no cliente.<br />
+13. <strong>Caixa Quebrada:</strong> <code>player_id,crate,fase,coluna,linha</code>, para a caixa sumir e soltar o mesmo conteúdo no parceiro.<br />
+14. <strong>Vida Extra (cliente → Host):</strong> <code>player_id,lifeup,seq</code>, quando o Cliente pega um coração; o Host soma a vida e anuncia o novo saldo com <code>lives</code>.<br />
+15. <strong>Onda da Arena (Host → clientes):</strong> <code>player_id,wave,fase,n,base_x</code>, que inicia a onda <code>n</code> da fase 5 com a posição de câmera do Host (<code>base_x</code>), para os inimigos surgirem no mesmo lugar nos dois PCs.</p>
 <p>As balas disparadas por um jogador remoto são estritamente visuais (<code>Bullet(visual_only=True)</code>): o dano real é processado exclusivamente pela mensagem <code>hit</code> de quem atirou, o que evita duplicação de dano no Host e fogo amigo.</p>
 <h4 id="172-o-servidor-de-jogo-gameserver">1.7.2 O Servidor de Jogo (<code>GameServer</code>)</h4>
 <ul>
@@ -646,7 +667,7 @@ onde $c \in {1, 2, 3, 4, 5}$. O combo é iniciado com $c=1$ na primeira baixa. C
 </tr>
 <tr>
 <td style="text-align: left; white-space: nowrap;"><strong>RF-19</strong></td>
-<td style="text-align: left;"><strong>[T2] Checkpoints:</strong> Bandeiras (tile 88 no CSV da fase) guardam posição, munição, granadas e inimigos mortos; usadas para renascer quando não há posição segura nem parceiro.</td>
+<td style="text-align: left;"><strong>[T2] Checkpoints:</strong> Bandeiras (tile 88 no CSV da fase) marcam o ponto de renascimento: ao perder uma vida, o jogador volta um bloco depois da última bandeira ativada (no multiplayer, ativada por qualquer um da dupla).</td>
 </tr>
 <tr>
 <td style="text-align: left; white-space: nowrap;"><strong>RF-20</strong></td>
@@ -666,7 +687,7 @@ onde $c \in {1, 2, 3, 4, 5}$. O combo é iniciado com $c=1$ na primeira baixa. C
 </tr>
 <tr>
 <td style="text-align: left; white-space: nowrap;"><strong>RF-24</strong></td>
-<td style="text-align: left;"><strong>[T2] Sistema de Vidas Compartilhadas:</strong> 3 vidas compartilhadas na campanha (solo e co-op com autoridade do Host); renascimento automático em 1 s ao lado do parceiro vivo ou na última posição segura de solo firme.</td>
+<td style="text-align: left;"><strong>[T2] Sistema de Vidas Compartilhadas:</strong> 3 vidas compartilhadas na campanha (solo e co-op com autoridade do Host); renascimento automático em 1 s no início da fase ou um bloco depois da última bandeira, sem recarregar a fase; coração dá +1 vida (até 5).</td>
 </tr>
 <tr>
 <td style="text-align: left; white-space: nowrap;"><strong>RF-25</strong></td>
@@ -695,6 +716,26 @@ onde $c \in {1, 2, 3, 4, 5}$. O combo é iniciado com $c=1$ na primeira baixa. C
 <tr>
 <td style="text-align: left; white-space: nowrap;"><strong>RF-31</strong></td>
 <td style="text-align: left;"><strong>[T2] Ferramentas Avançadas do Editor:</strong> Modo Mover (tecla M) para realocação/troca de blocos, sistema de histórico com Desfazer/Refazer (Ctrl+Z / Ctrl+Y até 100 passos) e posicionamento de checkpoints pelo tile 88.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-32</strong></td>
+<td style="text-align: left;"><strong>[T2] Golpe com a Arma:</strong> Ataque corpo a corpo no botão direito do mouse (alcance 60 px, 35 de dano, recarga de 24 quadros) que fere inimigos e quebra caixas.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-33</strong></td>
+<td style="text-align: left;"><strong>[T2] Caixas Quebráveis e Vida Extra:</strong> Caixas de madeira (tile 12) com conteúdo sorteado pela posição (munição, granada, vida, coração ou aranha), iguais nos dois PCs (mensagens <code>crate</code> e <code>lifeup</code>); até 5 vidas.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-34</strong></td>
+<td style="text-align: left;"><strong>[T2] Inimigo Aranha:</strong> Inimigo desenhado por código, colocado pelo tile 89, solto por caixas ou pelas ondas da arena.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-35</strong></td>
+<td style="text-align: left;"><strong>[T2] Arena de Hordas:</strong> Fase 5 do Desafio com 5 ondas, pausa de 3 s, suprimentos entre ondas e os dois chefes na última; Host comanda as ondas no multiplayer (mensagem <code>wave</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-36</strong></td>
+<td style="text-align: left;"><strong>[T2] Tela Cheia e Trilha Sonora:</strong> F11 ou opção nas Configurações (salva no progresso); música por tela/fase com <em>fade</em>, versão <em>Climax</em> na etapa 2 dos chefes e vinhetas de perder vida e de fase concluída.</td>
 </tr>
 </tbody>
 </table>
@@ -760,5 +801,7 @@ onde $c \in {1, 2, 3, 4, 5}$. O combo é iniciado com $c=1$ na primeira baixa. C
 <h2 id="3-repositorio-do-projeto">3. Repositório do Projeto</h2>
 <p>O código-fonte integral, histórico de commits e documentações estão disponíveis no repositório oficial do projeto:<br />
 - <strong>Repositório GitHub:</strong> <a href="https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git">https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git</a></p>
+<h3 id="31-creditos-das-musicas">3.1 Créditos das Músicas</h3>
+<p>Todas as músicas são do autor <strong>MintoDog</strong>, baixadas do OpenGameArt (opengameart.org) em 2026-11-21, com licença <strong>CC0 1.0</strong> (domínio público). Faixas usadas: <em>8bit Action Title</em>, <em>Forest Stage</em>, <em>Underground Stage</em>, <em>Snow Stage</em>, <em>8bit Action Boss Battle</em> (normal e <em>Climax</em>), <em>Heavy Battle 1</em>, <em>8bit Action Ending</em> e o pacote <em>8bit Action Jingle &amp; Mini Loop</em> (Game Over, Miss, Stage Clear e Invincible). A tabela completa, com arquivos e links, está em <code>audio/CREDITOS.md</code>.</p>
 </body>
 </html>

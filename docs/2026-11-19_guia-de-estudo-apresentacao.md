@@ -200,10 +200,10 @@ O ângulo vem de `Player.face_point`: `aim_angle = atan2(y_cursor − y_ombro, x
 **Vidas** ([core/gameplay.py](../core/gameplay.py)):
 
 - `register_death`: gasta uma das 3 vidas (`config.SHARED_LIVES`). No multiplayer o Cliente não decide sozinho: manda `death` ao Host (3 vezes, porque é UDP) e o Host anuncia o saldo com `lives`.
-- Com vida sobrando aparece "-1 VIDA / Restam N" e, 1 s depois, `respawn_after_life_lost` põe o jogador de volta: ao lado do parceiro vivo ou na **última posição segura**. `track_safe_position` guarda, a cada quadro, onde o jogador estava com os dois pés no chão; o ponto usado é o de cerca de 1 s antes da queda (para não renascer na beira do buraco).
+- Com vida sobrando aparece "-1 VIDA / Restam N" e, 1 s depois, `respawn_after_life_lost` põe o jogador de volta **sem recarregar a fase**: `respawn_point` devolve o ponto um bloco depois da última bandeira ativada ou, sem bandeira, o início da fase (`level_start`); `_revive_at` move a câmera até lá e coloca o jogador em pé no chão. A mesma regra vale no multiplayer: as bandeiras aparecem nos dois PCs e ativam quando **qualquer um** da dupla passa (`update_checkpoints` usa o x mais à frente entre os jogadores).
 - Sem vidas: Game Over. Sozinho, o Restart chama `restart_level_with_lives` (fase do zero, vidas cheias). Em dupla, quem fica sem vida espera; com todos mortos o Host recomeça a fase em 3 s (`LIVES_RESET_FRAMES`) e aumenta o contador `reset` da mensagem `lives`, que faz o Cliente recomeçar junto.
 - **Desafio em dupla:** uma vida por jogador e nada de renascer na fase. Quem cai vê "VOCÊ CAIU!" e a câmera segue o parceiro; se o parceiro terminar a fase, quem caiu volta na próxima com metade da vida. Se os dois caírem, "DESAFIO ENCERRADO" e só o Host tem o Restart (`restart_challenge_multiplayer`).
-- *Em desenvolvimento (outra sessão, 2026-11-21):* trocar a posição segura por "início da fase ou logo depois da última bandeira". Conferir no código antes de apresentar qual regra ficou.
+- **Vida extra:** o coração (item `Life`) soma 1 vida até `MAX_LIVES` = 5. No multiplayer o Cliente avisa o Host com `lifeup` (número de sequência para não contar o mesmo aviso duas vezes).
 
 **Chefes em etapas** (`update_boss_stages`): o `level_loader` guarda os chefes em ordem; 1,5 s depois que o Demônio morre o Dragão surge com explosões e o aviso "ETAPA 2/2". A vitória só vem com o último chefe morto.
 
@@ -213,7 +213,22 @@ O ângulo vem de `Player.face_point`: `aim_angle = atan2(y_cursor − y_ombro, x
 
 **Cor do boneco:** 5 cores (`config.PLAYER_COLORS`), escolhidas na Seleção de Fases e no Menu Multiplayer e salvas no progresso. Se o Cliente escolher a cor do Host, troca sozinho para a próxima livre (mensagem `color`).
 
-**Editor:** paleta com 89 blocos; o 88 é a bandeira de checkpoint (os checkpoints agora vêm do CSV) e 20/41 aparecem como castelo. **M** liga o Modo Mover; **Ctrl+Z / Ctrl+Y** desfazem e refazem até 100 passos (cada passo é uma cópia da grade, guardada em `undo_stack` / `redo_stack`).
+**Editor:** paleta com 90 blocos (o 89 é a aranha); o 88 é a bandeira de checkpoint (os checkpoints agora vêm do CSV) e 20/41 aparecem como castelo. **M** liga o Modo Mover; **Ctrl+Z / Ctrl+Y** desfazem e refazem até 100 passos (cada passo é uma cópia da grade, guardada em `undo_stack` / `redo_stack`).
+
+
+### 4.10 O que entrou em 2026-11-22 (golpe, caixas, aranhas, hordas, tela cheia, música)
+
+**Golpe com a arma** (`Player.start_melee` / `melee_rect` e `update_melee` em [core/gameplay.py](../core/gameplay.py)): botão direito. Cria um retângulo de 60 px à frente do soldado (`MELEE_RANGE`) por 14 quadros, com recarga de 24 e 35 de dano. Tudo que encosta nesse retângulo leva dano: inimigos, chefes, aranhas e **caixas de madeira**. No multiplayer, o Cliente manda o dano ao Host pela mesma mensagem `hit` do tiro (o Host continua sendo a autoridade sobre os inimigos).
+
+**Caixas quebráveis** (`break_crate`): o tile 12 virou caixa sólida (o `level_builder` guarda cada uma em `world.crates`). Ao quebrar, a caixa sai da lista de obstáculos, solta lascas (`effects.Debris`) e sorteia o conteúdo com `random.Random(coluna*1000 + linha + fase*7)`: munição 30%, granada 15%, vida 20%, coração 10%, aranha 25% (`config.CRATE_DROPS`). Como a semente é a posição, os dois PCs sorteiam a mesma coisa; a mensagem `crate` só avisa o parceiro de qual caixa quebrou.
+
+**Aranhas** ([entities/spider.py](../entities/spider.py)): inimigo desenhado com `pygame.draw` (corpo, olhos e pernas que mexem com o tempo), sem imagem. 30 de vida, 10 de dano por contato, 50 pontos. Nasce do tile 89, de caixa ou das ondas da fase 5. Cada PC simula as suas (não vão pela rede), o que é aceitável por serem fracas e curtas.
+
+**Arena de hordas** ([core/horde.py](../core/horde.py)): a fase 5 do Desafio virou uma arena. `start_horde` zera o contador; `update_horde` espera não haver nenhum inimigo vivo, conta 3 s (`HORDE_PAUSE_FRAMES`) e chama `spawn_wave` com a próxima onda de `config.HORDE_WAVES` (5 ondas; a última traz o Demônio e o Dragão). Entre as ondas aparece uma caixa de munição e, nas ondas pares, uma de vida. O HUD mostra "ONDA x/5" e "PRÓXIMA ONDA EM Ns". No multiplayer só o Host decide a onda e manda `wave,fase,n,base_x`; o `base_x` (câmera do Host) faz os inimigos surgirem no mesmo lugar do mundo nos dois PCs.
+
+**Tela cheia:** F11 em qualquer tela ou o botão das Opções. A escolha fica salva no progresso e é refeita ao entrar e sair do editor (que muda o tamanho da janela).
+
+**Música** ([core/music.py](../core/music.py)): `MusicPlayer.update(game)` roda a cada quadro, descobre qual música combina com o estado e a fase e só troca quando muda, com *fade*. Na etapa 2 dos chefes toca a versão *Climax*. Perder vida e concluir fase tocam vinhetas curtas como efeito sonoro. O volume vem do slider de música. Cada PC toca a sua música; nada vai pela rede. As 14 faixas são CC0 do MintoDog (OpenGameArt), com créditos em `audio/CREDITOS.md`.
 
 ---
 
@@ -276,6 +291,9 @@ Arquivo: [network/protocol.py](../network/protocol.py). São textos curtos separ
 | `color` | `P2 (Cliente),color,1` (minha cor é a 1, AZUL) | cada jogador |
 | `death` | `P2 (Cliente),death,3` (morri; número de sequência, enviado 3 vezes) | Cliente |
 | `lives` | `P1 (Host),lives,2,0` (restam 2 vidas; `reset` crescente manda recomeçar) | Host |
+| `crate` | `P1 (Host),crate,1,40,14` (quebrei a caixa da coluna 40, linha 14, fase 1) | quem quebrou |
+| `lifeup` | `P2 (Cliente),lifeup,1` (peguei um coração) | Cliente |
+| `wave` | `P1 (Host),wave,5,3,1200` (começou a onda 3 da fase 5, câmera do Host em 1200) | Host |
 | `quit` / `remove` | saiu por vontade própria / caiu por inatividade | jogador / servidor |
 
 Quem recebe usa `parse_packet` para transformar o texto num dicionário.
@@ -446,6 +464,12 @@ O `_initialized` evita que o `__init__` rode de novo e apague o cache. Qualquer 
     O Host. O Cliente avisa a morte com `death` e o Host anuncia o saldo com `lives`.
 19. **O que o combo faz?**
     Mortes seguidas em até 2,5 s multiplicam os pontos, até x5.
+20. **Por que a caixa solta a mesma coisa nos dois PCs?**
+    O sorteio usa a posição da caixa (coluna, linha e fase) como semente do `random.Random`.
+21. **Como as ondas ficam iguais nos dois PCs?**
+    Só o Host decide quando começa cada onda e manda `wave` com o número da onda e a posição da câmera dele.
+22. **De onde vêm as músicas?**
+    São 14 faixas CC0 (domínio público) do MintoDog, no OpenGameArt; os créditos estão em `audio/CREDITOS.md`.
 
 ---
 

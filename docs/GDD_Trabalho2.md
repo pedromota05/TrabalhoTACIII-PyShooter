@@ -21,7 +21,7 @@ No **Trabalho 2**, o jogo expandiu suas fronteiras com a inclusão de:
 2. **Editor de Fases Integrado**: Ferramenta modular que permite criar, inspecionar, salvar e carregar mapas personalizados diretamente na matriz de arquivos CSV (`levels/`).
 3. **Multiplayer em LAN (Cliente e Servidor)**: Partidas cooperativas locais em tempo real via sockets UDP não-bloqueantes com threads em background, controle de *heartbeat/timeout*, sincronização de combate e interpolação linear (LERP) para eliminar saltos visuais.
 4. **Formalização de Padrões de Projeto (GoF e Arquiteturais)**: Aplicação explícita dos padrões Singleton, State, Factory Method, Facade, Observer e Remote Proxy.
-5. **Combate e Diversão**: Mira e disparo com o mouse em qualquer ângulo (só a arma gira; o corpo fica parado), mecânica de *dash* com invencibilidade, sistema de vidas compartilhadas com renascimento automático, pontuação dinâmica com multiplicador de combo e batalhas de chefes em etapas sequenciais.
+5. **Combate e Diversão**: Mira e disparo com o mouse em qualquer ângulo (só a arma gira; o corpo fica parado), mecânica de *dash* com invencibilidade, sistema de vidas compartilhadas com renascimento automático, pontuação dinâmica com multiplicador de combo, batalhas de chefes em etapas sequenciais, golpe corpo a corpo com a arma, caixas de madeira quebráveis, inimigos aranha, vida extra, arena de hordas na fase 5 do Desafio, tela cheia e trilha sonora por fase.
 
 ---
 
@@ -46,7 +46,7 @@ O foco do jogo é a precisão de movimento, agilidade de esquiva e combate estra
 | **Linguagem / Versão** | Python 3.10+ (compatível com 3.12+) |
 | **Dependências Principais** | `pygame` (2.5+), `Pillow` |
 | **Resolução de Tela** | 1200 × 640 pixels (Modo Editor: 1200 × 740 pixels) |
-| **Periféricos** | Teclado (movimento, pulo, dash, granada, placas) e Mouse (mira, tiro, menus e editor) |
+| **Periféricos** | Teclado (movimento, pulo, dash, granada, placas, tela cheia) e Mouse (mira, tiro, golpe, menus e editor) |
 | **Rede** | Conexão Ethernet ou Wi-Fi em LAN (UDP porta 5555) |
 
 ---
@@ -64,9 +64,11 @@ O foco do jogo é a precisão de movimento, agilidade de esquiva e combate estra
 | **Espaço** | Dash (impulso rápido com invencibilidade; recarga de ~0,8 s) |
 | **Mouse** | Mirar (a arma acompanha o cursor) |
 | **Botão Esquerdo do Mouse** | Atirar na direção da mira (segurar para tiro contínuo) |
+| **Botão Direito do Mouse** | Golpe com a arma (curto alcance; fere inimigos e quebra caixas de madeira) |
 | **Q** ou **G** | Lançar granada (arco parabólico com dano em área) |
 | **E** | Ler placa próxima |
 | **ESC** | Pausar partida / Retornar ao menu |
+| **F11** | Ligar/desligar tela cheia (em qualquer tela, inclusive no editor) |
 
 ##### Controles do Editor de Fases (Level Editor)
 | Controle | Ação |
@@ -135,17 +137,17 @@ graph TD
    - **Seletor de Cor do Personagem:** Escolha de cor individual (VERDE, AZUL, VERMELHO, AMARELO, ROXO); caso o Cliente selecione a mesma cor do Host, o sistema avança automaticamente para a próxima cor livre e exibe um aviso em tela (mensagem `color`).
    - Exibição em tempo real de mensagens de status da rede.
 4. **Editor de Fases (`LevelEditorScreen`):** Ambiente de edição de fases completo com grade, paleta de tiles, atalhos de teclado (Modo Mover, Desfazer/Refazer) e botões de I/O em disco.
-5. **Configurações (`OptionsScreen`):** Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (*knobs*) proporcionais.
+5. **Configurações (`OptionsScreen`):** Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (*knobs*) proporcionais e botão **TELA CHEIA: LIGADA/DESLIGADA (F11)**, com a escolha salva no progresso.
 6. **Pausa (`PauseOverlay`):** Overlay escurecido sobre a partida em andamento permitindo continuar ou sair para o menu.
-7. **Tela de Jogo Ativo / HUD:** O cursor padrão é substituído por uma mira visual própria, com uma barra de recarga do dash logo abaixo. No canto superior direito, antes do botão de pausa, o HUD exibe o contador **VIDAS** com marcadores circulares. O HUD exibe também o mostrador **PONTOS** e o indicador **COMBO xN** com barra de tempo. Ao sofrer queda com vidas restantes, a tela exibe o aviso central **"-1 VIDA / Restam N"**, renascendo o combatente após 1 segundo.
+7. **Tela de Jogo Ativo / HUD:** O cursor padrão é substituído por uma mira visual própria, com uma barra de recarga do dash logo abaixo. No canto superior direito, antes do botão de pausa, o HUD exibe o contador **VIDAS** com marcadores circulares. O HUD exibe também o mostrador **PONTOS** e o indicador **COMBO xN** com barra de tempo. No Desafio, a fase 5 mostra também "ONDA x/5" e a contagem "PRÓXIMA ONDA EM Ns". Ao perder uma vida com vidas restantes, a tela exibe o aviso central **"-1 VIDA / Restam N"**, renascendo o combatente após 1 segundo.
 8. **Game Over (`GameOverScreen`):** Exibida quando as vidas do soldado se esgotam. No modo solo, o botão Restart recomeça a fase com as 3 vidas cheias. Em dupla cooperativa normal, o jogador que esgota as vidas aguarda como espectador enquanto o parceiro estiver vivo; caso ambos morram, o Host recomeça a fase automaticamente após 3 segundos. No Modo Desafio em dupla (vida única por jogador), o jogador derrotado não renasce na fase e visualiza o aviso *"VOCÊ CAIU! Desafio: uma vida só. Aguardando o parceiro terminar a fase…"* com a câmera acompanhando o parceiro (se o parceiro terminar a fase, quem caiu retorna na fase seguinte com 50% de HP); se ambos caírem, a tela exibe *"DESAFIO ENCERRADO"* em ambos os PCs e apenas o Host tem acesso ao botão Restart, que reinicia o Modo Desafio a partir da fase 1 para ambos.
 9. **Vitória (`VictoryScreen`):** Véu escuro sobre o jogo congelado com "VITÓRIA!" e o tempo da partida. Aparece ao matar os dois chefes da fase 4 (fim da campanha) ou ao terminar a fase 5 no Desafio, quando mostra também o recorde e o aviso **NOVO RECORDE**.
 
 #### Progressão, Checkpoints e Modo Desafio
 - **Campanha e Saída das Fases 1 a 3:** A campanha é estruturada nas fases 1 a 4. As fases 1 a 3 são finalizadas em um castelo temático desenhado no encerramento do mapa (castelo de pedra na fase 1, forte de madeira na fase 2 e castelo de gelo na fase 3), com a linha de chegada posicionada 6 blocos antes, no terreno plano final.
-- **Checkpoints:** Mapeados através do tile `88` (bandeira de checkpoint) configurado diretamente na matriz CSV da fase (a lista em `config.CHECKPOINTS` é utilizada apenas se a fase não possuir nenhum tile de bandeira). Ao alcançar uma bandeira, o jogo registra as coordenadas, a contagem de munição, granadas e a lista de inimigos derrotados; o reinício via checkpoint recupera o soldado no local com vida cheia. Os checkpoints são desativados no Modo Desafio e no multiplayer.
-- **Sistema de Vidas (Campanha Solo e Co-op):** A equipe possui 3 vidas compartilhadas (com o Host atuando como autoridade central no multiplayer via mensagens `death` e `lives`). Ao morrer (queda ou vida zerada) com vidas restantes, surge o aviso "-1 VIDA / Restam N" e o personagem renasce em 1 s: ao lado do parceiro vivo (no co-op) ou na última posição segura (com ambos os pés no chão, cerca de 1 s antes da queda, no modo solo). Se não houver posição segura nem parceiro, volta à última bandeira de checkpoint ou ao início da fase. O esgotamento das 3 vidas resulta em Game Over.
-- **Modo Desafio:** Maratona ininterrupta das fases 1 a 5 com vida única por combatente e checkpoints desativados. Vida, munição e granadas transitam entre fases (vida máxima limitada a 100). O HUD exibe o cronômetro (mm:ss.d) e o marcador "FASE x/5". A fase 5 é a arena final; ao terminá-la, o melhor tempo fica salvo como recorde. O Desafio não marca a campanha como zerada. Em partidas em dupla, a queda de um jogador o mantém como espectador acompanhando a câmera do parceiro vivo; se o parceiro concluir a fase, o jogador caído renasce na fase subsequente com metade da vida. A queda de ambos encerra a maratona com o aviso "DESAFIO ENCERRADO", permitindo que o Host reinicie o Desafio a partir da fase 1.
+- **Checkpoints:** Mapeados através do tile `88` (bandeira de checkpoint) configurado diretamente na matriz CSV da fase (a lista em `config.CHECKPOINTS` é utilizada apenas se a fase não possuir nenhum tile de bandeira). Ao alcançar uma bandeira, o jogo registra as coordenadas, a contagem de munição, granadas e a lista de inimigos derrotados; ao perder uma vida, o soldado renasce um bloco depois da última bandeira ativada. Os checkpoints ficam desligados no Modo Desafio; no multiplayer aparecem nos dois PCs e são ativados quando qualquer jogador da dupla passa por eles.
+- **Sistema de Vidas (Campanha Solo e Co-op):** A equipe possui 3 vidas compartilhadas (com o Host atuando como autoridade central no multiplayer via mensagens `death` e `lives`). Ao morrer (queda ou vida zerada) com vidas restantes, surge o aviso "-1 VIDA / Restam N" e o personagem renasce em 1 s no início da fase ou um bloco depois da última bandeira ativada, sem recarregar a fase (inimigos mortos continuam mortos). A mesma regra vale no multiplayer. Corações (+1 vida) podem elevar o total até 5 vidas (`config.MAX_LIVES`). O esgotamento das vidas resulta em Game Over.
+- **Modo Desafio:** Maratona ininterrupta das fases 1 a 5 com vida única por combatente e checkpoints desativados. Vida, munição e granadas transitam entre fases (vida máxima limitada a 100). O HUD exibe o cronômetro (mm:ss.d) e o marcador "FASE x/5". A fase 5 é a arena de hordas (ver abaixo); ao terminá-la, o melhor tempo fica salvo como recorde. O Desafio não marca a campanha como zerada. Em partidas em dupla, a queda de um jogador o mantém como espectador acompanhando a câmera do parceiro vivo; se o parceiro concluir a fase, o jogador caído renasce na fase subsequente com metade da vida. A queda de ambos encerra a maratona com o aviso "DESAFIO ENCERRADO", permitindo que o Host reinicie o Desafio a partir da fase 1.
 - **Chefes em Etapas (Fase 4):** A arena da fase 4 ocorre em duas etapas sucessivas: enfrenta-se primeiro o Demônio terrestre (*Demon Boss*); exatamente 1,5 s após sua derrota, o Dragão voador (*Dragon Boss*) surge em meio a explosões e ao aviso na tela "ETAPA 2/2" (com o HUD registrando "CHEFE x/2"). A tela de Vitória da campanha é ativada apenas após a morte do último chefe.
 - **Sistema de Pontuação, Combo e Drops:**
   - **Pontos por Inimigo (`config.KILL_POINTS`):** Soldado: 100 pts, Robô: 150 pts, Esqueleto: 150 pts, Sniper: 200 pts, Demônio: 1500 pts, Dragão: 2000 pts.
@@ -155,8 +157,14 @@ graph TD
 - **Interatividade de Cenário e Colisão Co-op:** Caixas de itens flutuam no terreno e apresentam texto informativo ao serem coletadas (com sincronização de remoção imediata no cliente parceiro via mensagem `item`). Placas no cenário (tile 23) exibem caixas de diálogo com instruções e dicas ao pressionar a tecla **E**. Jogadores em rede possuem colisão física recíproca, permitindo subir na cabeça do companheiro de equipe para alcançar plataformas elevadas.
 
 
-#### Em Desenvolvimento (após 2026-11-21)
-As novidades abaixo estão sendo implementadas e ainda não fazem parte desta versão do documento: renascer no início da fase ou logo após a última bandeira, golpe corpo a corpo com a arma, caixas quebráveis, inimigos aranha, vida extra, tela cheia, músicas por fase e uma fase 5 de hordas.
+#### Golpe, Caixas, Aranhas, Hordas, Tela Cheia e Música
+- **Golpe com a Arma (Botão Direito):** O soldado gira a arma num golpe de curto alcance (retângulo de 60 px à frente), desenhado com um arco branco. Dura 14 quadros, recarrega em 24 quadros e tira 35 de vida (`config.MELEE_*`). Além de ferir inimigos, é o modo de quebrar caixas de madeira.
+- **Caixas de Madeira Quebráveis (tile 12):** Espalhadas nas fases 1 a 3, bloqueiam a passagem até serem quebradas pelo golpe. Ao quebrar, soltam lascas e um conteúdo sorteado (`config.CRATE_DROPS`): munição 30%, granada 15%, vida 20%, coração 10% ou uma aranha 25%. O sorteio usa a posição da caixa (coluna, linha e fase) como semente, então o resultado é igual nos dois PCs; no multiplayer a quebra é avisada pela mensagem `crate`.
+- **Vida Extra (Coração):** Item "+1 VIDA" que aumenta as vidas da equipe até o máximo de 5. No multiplayer, o Cliente avisa o Host pela mensagem `lifeup` (repetida por causa do UDP, com número de sequência para não contar duas vezes).
+- **Aranhas:** Inimigo pequeno desenhado pelo próprio código (sem sprite), com 30 de vida, 10 de dano por contato e 50 pontos. Surgem de caixas, das ondas da fase 5 ou do tile 89 colocado no editor. Cada PC simula as suas aranhas localmente.
+- **Fase 5 do Desafio: Arena de Hordas (`core/horde.py`):** Em vez de um mapa a percorrer, a fase 5 é uma arena com 5 ondas de inimigos que surgem pelos dois lados (`config.HORDE_WAVES`): 3 soldados; 2 soldados, 2 esqueletos e 2 aranhas; 2 robôs, 2 soldados, 1 sniper e 2 aranhas; 3 robôs, 3 esqueletos, 2 snipers e 3 aranhas; e, na última, o Demônio e o Dragão com 2 soldados. Entre as ondas há 3 s de pausa ("PRÓXIMA ONDA EM Ns"), uma caixa de munição e, nas ondas pares, uma de vida. Vencer a última onda conclui o Desafio. No multiplayer o Host comanda as ondas pela mensagem `wave`.
+- **Tela Cheia:** Tecla **F11** ou botão nas Configurações; a escolha fica salva no progresso e é mantida ao entrar e sair do editor.
+- **Música e Vinhetas (`core/music.py`):** 14 faixas CC0 do autor MintoDog (OpenGameArt) em `audio/musicas/`, uma por tela/fase: menu, fases 1 a 3, batalha de chefes (com a versão *Climax* na etapa 2 da fase 4), hordas da fase 5, vitória, Game Over (vinheta e loop) e vinhetas de perder vida e de fase concluída. A troca é feita com *fade* e o volume segue o slider de música. Cada PC toca a sua música (nada vai pela rede). Créditos completos em `audio/CREDITOS.md`.
 
 ---
 
@@ -168,15 +176,17 @@ O editor de fases foi refatorado de um script procedural legado (`level-editor.p
 - **Resolução de Tela Estendida:** Ao entrar no editor, a janela é redimensionada dinamicamente para `1200 × 740` pixels (oferecendo 900 pixels de largura de visão de mapa, 300 pixels de barra lateral direita para a paleta de blocos e 100 pixels de margem inferior para a barra de ferramentas). Ao retornar ao menu, a resolução nativa de `1200 × 640` é restabelecida sem falhas.
 - **Estrutura Matricial:** O mapa é composto por uma matriz bidimensional de dimensões fixas:
   $$\text{Linhas} = 16, \quad \text{Colunas} = 200, \quad \text{Tamanho do Bloco} = 40 \times 40\text{ px}$$
-- **Paleta de 89 Tiles Mapeados (em 7 Colunas):**
+- **Paleta de 90 Tiles Mapeados (em 7 Colunas):**
   - `0 a 8, 24 a 35, 47 a 48, 50, 58 a 61, 65 a 66, 73 a 77, 83 a 84`: Terrenos e plataformas sólidas (terra, grama, pedra e neve).
   - `85`: Rampa com colisão diagonal/inclinada.
   - `9 a 10, 37 a 39, 42 a 46, 51 a 57, 62 a 64, 67 a 68`: Água profunda (perigo ambiental letal).
-  - `11 a 14, 36, 40, 49, 71 a 72, 78 a 82`: Decorações visuais sem colisão física (árvores gigantes, pinheiros, grama decorativa).
+  - `11, 13, 14, 36, 40, 49, 71 a 72, 78 a 82`: Decorações visuais sem colisão física (árvores gigantes, pinheiros, grama decorativa).
   - `20, 41`: Castelo de saída / término da fase (exibido como castelo na paleta e no mapa, integrando a linha de chegada).
   - `22`: Propulsor de velocidade (*Speed Boost*).
   - `23`: Placa de dica e instruções (interagível no jogo via tecla E).
-  - `88`: Bandeira de Checkpoint (salvamento de estado na fase).
+  - `12`: Caixa de madeira quebrável (sólida até levar um golpe da arma).
+  - `88`: Bandeira de Checkpoint (ponto de renascimento na fase).
+  - `89`: Spawn de Aranha (inimigo desenhado pelo código).
   - `15`: Ponto de geração (*Spawn*) do Jogador.
   - `16`: Spawn de Soldado patrulheiro básico.
   - `69`: Spawn de Inimigo Robô atirador.
@@ -238,6 +248,9 @@ Os pacotes são transmitidos em strings CSV de baixa sobrecarga de dados:
 10. **Sincronização de Cor do Soldado:** `player_id,color,indice`, informando o índice de cor escolhido para renderização das texturas customizadas.
 11. **Aviso de Morte do Cliente (cliente → Host):** `player_id,death,seq`, emitido pelo cliente ao cair em abismo ou ter a vida zerada (enviado 3 vezes consecutivas para garantir recepção sobre UDP).
 12. **Saldo de Vidas Compartilhadas (Host → clientes):** `player_id,lives,vidas,reset`, transmitido pelo Host para anunciar o total de vidas da equipe; o incremento sequencial de `reset` comanda o reinício da fase ou do Desafio no cliente.
+13. **Caixa Quebrada:** `player_id,crate,fase,coluna,linha`, para a caixa sumir e soltar o mesmo conteúdo no parceiro.
+14. **Vida Extra (cliente → Host):** `player_id,lifeup,seq`, quando o Cliente pega um coração; o Host soma a vida e anuncia o novo saldo com `lives`.
+15. **Onda da Arena (Host → clientes):** `player_id,wave,fase,n,base_x`, que inicia a onda `n` da fase 5 com a posição de câmera do Host (`base_x`), para os inimigos surgirem no mesmo lugar nos dois PCs.
 
 As balas disparadas por um jogador remoto são estritamente visuais (`Bullet(visual_only=True)`): o dano real é processado exclusivamente pela mensagem `hit` de quem atirou, o que evita duplicação de dano no Host e fogo amigo.
 
@@ -379,12 +392,12 @@ onde $c \in \{1, 2, 3, 4, 5\}$. O combo é iniciado com $c=1$ na primeira baixa.
 | **RF-16** | **[T2] Sincronização e LERP:** Sincronização em tempo real de coordenadas, ações, direção e tiros entre jogadores em rede local com suavização por LERP. |
 | **RF-17** | **[T2] Fim da Campanha:** Vitória ao derrotar os dois chefes da fase 4, com tela de Vitória e tempo da partida. |
 | **RF-18** | **[T2] Progresso Salvo:** Fases concluídas, campanha zerada e recorde do Desafio gravados em `save/progresso.json`. |
-| **RF-19** | **[T2] Checkpoints:** Bandeiras (tile 88 no CSV da fase) guardam posição, munição, granadas e inimigos mortos; usadas para renascer quando não há posição segura nem parceiro. |
+| **RF-19** | **[T2] Checkpoints:** Bandeiras (tile 88 no CSV da fase) marcam o ponto de renascimento: ao perder uma vida, o jogador volta um bloco depois da última bandeira ativada (no multiplayer, ativada por qualquer um da dupla). |
 | **RF-20** | **[T2] Modo Desafio:** Fases 1 a 5 seguidas com uma vida, cronômetro, "FASE x/5" e recorde de tempo. |
 | **RF-21** | **[T2] Fase sincronizada no multiplayer:** Host e cliente trocam de fase e chegam à vitória juntos (mensagens `level` e `levelreq`). |
 | **RF-22** | **[T2] Mira e Tiro com o Mouse:** Rotação dinâmica da arma em torno da empunhadura acompanhando a coordenada do cursor do mouse, com disparo vetorial de projéteis em qualquer ângulo e orientação do soldado. |
 | **RF-23** | **[T2] Mecânica de Dash:** Impulso horizontal de esquiva (tecla Espaço) com velocidade de 16 px/frame durante 10 frames, gravidade zero, invulnerabilidade, efeito de rastro fantasma e cooldown de 50 frames. |
-| **RF-24** | **[T2] Sistema de Vidas Compartilhadas:** 3 vidas compartilhadas na campanha (solo e co-op com autoridade do Host); renascimento automático em 1 s ao lado do parceiro vivo ou na última posição segura de solo firme. |
+| **RF-24** | **[T2] Sistema de Vidas Compartilhadas:** 3 vidas compartilhadas na campanha (solo e co-op com autoridade do Host); renascimento automático em 1 s no início da fase ou um bloco depois da última bandeira, sem recarregar a fase; coração dá +1 vida (até 5). |
 | **RF-25** | **[T2] Modo Desafio em Dupla:** Modo cooperativo de vida única por jogador; queda permanente na fase com modo espectador na câmera do parceiro e renascimento na fase seguinte com 50% de HP; Game Over definitivo ("DESAFIO ENCERRADO") com morte de ambos. |
 | **RF-26** | **[T2] Batalhas de Chefes em Etapas:** Fase 4 com combate em duas etapas sequenciais (Demon Boss seguido de transição explosiva de 1,5 s para o Dragon Boss), HUD com indicador de etapa e vitória vinculada à queda do último chefe. |
 | **RF-27** | **[T2] Sistema de Pontuação, Combo e Drops:** Atribuição de pontuação por inimigo, multiplicador de combo acumulativo (até x5) com janela de 2,5 s, e drops determinísticos de caixas de suprimentos (munição 25%, vida 10%, granadas 8%). |
@@ -392,6 +405,11 @@ onde $c \in \{1, 2, 3, 4, 5\}$. O combo é iniciado com $c=1$ na primeira baixa.
 | **RF-29** | **[T2] Interatividade de Cenário, Itens e Colisão Co-op:** Coleta sincronizada de suprimentos via rede, leitura de placas informativas (tecla E) e colisão física entre os dois soldados (permitindo suporte de elevação). |
 | **RF-30** | **[T2] Estrutura de Saída em Castelo:** Representação arquitetônica de castelo temático ao final das fases 1 a 3 com a linha de chegada 6 blocos antes, no chão plano do fim da fase. |
 | **RF-31** | **[T2] Ferramentas Avançadas do Editor:** Modo Mover (tecla M) para realocação/troca de blocos, sistema de histórico com Desfazer/Refazer (Ctrl+Z / Ctrl+Y até 100 passos) e posicionamento de checkpoints pelo tile 88. |
+| **RF-32** | **[T2] Golpe com a Arma:** Ataque corpo a corpo no botão direito do mouse (alcance 60 px, 35 de dano, recarga de 24 quadros) que fere inimigos e quebra caixas. |
+| **RF-33** | **[T2] Caixas Quebráveis e Vida Extra:** Caixas de madeira (tile 12) com conteúdo sorteado pela posição (munição, granada, vida, coração ou aranha), iguais nos dois PCs (mensagens `crate` e `lifeup`); até 5 vidas. |
+| **RF-34** | **[T2] Inimigo Aranha:** Inimigo desenhado por código, colocado pelo tile 89, solto por caixas ou pelas ondas da arena. |
+| **RF-35** | **[T2] Arena de Hordas:** Fase 5 do Desafio com 5 ondas, pausa de 3 s, suprimentos entre ondas e os dois chefes na última; Host comanda as ondas no multiplayer (mensagem `wave`). |
+| **RF-36** | **[T2] Tela Cheia e Trilha Sonora:** F11 ou opção nas Configurações (salva no progresso); música por tela/fase com *fade*, versão *Climax* na etapa 2 dos chefes e vinhetas de perder vida e de fase concluída. |
 
 #### Requisitos Não-Funcionais (RNF)
 | ID | Descrição |
@@ -431,3 +449,6 @@ Localizado em [docs/uml/classes.puml](file:///c:/projetos_disco_C/faculdade/Trab
 
 O código-fonte integral, histórico de commits e documentações estão disponíveis no repositório oficial do projeto:
 - **Repositório GitHub:** [https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git](https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git)
+
+### 3.1 Créditos das Músicas
+Todas as músicas são do autor **MintoDog**, baixadas do OpenGameArt (opengameart.org) em 2026-11-21, com licença **CC0 1.0** (domínio público). Faixas usadas: *8bit Action Title*, *Forest Stage*, *Underground Stage*, *Snow Stage*, *8bit Action Boss Battle* (normal e *Climax*), *Heavy Battle 1*, *8bit Action Ending* e o pacote *8bit Action Jingle & Mini Loop* (Game Over, Miss, Stage Clear e Invincible). A tabela completa, com arquivos e links, está em `audio/CREDITOS.md`.

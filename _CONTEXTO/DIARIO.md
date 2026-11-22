@@ -16,9 +16,20 @@
 - 2026-11-21 (plano, item 5): GDD revisado + `tools/gerar_gdd.py` (HTML e PDF), slides `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx` (26 slides) e guia de estudo com a seção 4.9. Sem commit.
 - 2026-11-22 (plano, item 2): botão direito = golpe com a arma; caixas de madeira quebráveis soltam item, coração (+1 vida, até 5) ou aranha (tile 89 no editor). Caixas novas nas fases 1-3. Itens 4/5 (músicas, GDD, slides v3) feitos por outras sessões; item 3 e músicas no código com a sessão "tela cheia e músicas no jogo". Commit local 0a5bf87 em 2026-11-22 (sem push). Fase 5 de hordas feita (5 ondas, chefes na última), sem commit.
 - 2026-11-21 (plano, item 3 + músicas no código): F11 e opção nas Opções ligam a tela cheia (salva no progresso, vale no editor); cada tela/fase toca a sua música (`core/music.py`), com vinhetas de vida perdida e fase concluída. Teste rápido com SDL dummy OK; sem commit.
-- Próximos passos: Guilherme testar na mão (renascer, golpe, caixas, aranha, mira, dash, editor); push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD (controles mudaram: ESPAÇO não atira mais).
+- 2026-11-22 (item 5, rodada 2): GDD, HTML/PDF, slides v3 (28 slides) e guia atualizados sem nada "em desenvolvimento" (golpe, caixas, aranhas, hordas, tela cheia, músicas e renascer novo). Sem commit.
+- Próximos passos: Guilherme testar na mão (renascer, golpe, caixas, aranha, mira, dash, editor); push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; revisar slides v3 e GDD.
 
 ---
+
+### 2026-11-22 — Documentação sem "em desenvolvimento": GDD, slides v3 e guia (plano, item 5, rodada 2)
+- **Pedido:** a sessão "Mira, disparo e dash do jogador" pediu, a mando do Guilherme, tirar do GDD, dos slides v3 e do guia tudo que estava "em desenvolvimento", pois já entrou nos commits 0a5bf87 e a65f7cb (branch melhorias-coop).
+- **Feito:**
+  - `docs/GDD_Trabalho2.md`: 1.1 (lista do Trabalho 2), Periféricos, controles (botão direito = golpe, F11 = tela cheia), Configurações com TELA CHEIA, HUD com "ONDA x/5", checkpoints ligados em LAN, regra nova de vidas (renasce no início ou um bloco depois da última bandeira, sem recarregar; coração até 5 vidas), seção "Em Desenvolvimento" trocada por "Golpe, Caixas, Aranhas, Hordas, Tela Cheia e Música", paleta com 90 tiles (12 = caixa, 89 = aranha), protocolo com `crate`, `lifeup` e `wave`, RF-19/RF-24 atualizados, RF-32 a RF-36 novos e seção 3.1 com os créditos das músicas (MintoDog, CC0, `audio/CREDITOS.md`). HTML e PDF regerados com `python tools/gerar_gdd.py` (PDF com 21 páginas).
+  - Capturas novas em `docs/capturas/`: `v3_golpe_caixa.png`, `v3_golpe_zoom.png`, `v3_caixa_aranha.png`, `v3_caixa_aranha_zoom.png`, `v3_hordas_onda.png`, `v3_hordas_pausa.png`, `v3_opcoes_tela_cheia.png`.
+  - `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx` regerado a partir do `_v2` (agora 28 slides): novos slides "Fase 5 do Desafio" (arena de hordas), "Golpe e caixas" e "Tela cheia e música" (no lugar de "Em desenvolvimento"); slide de vidas com a regra nova; slide 10 (Desafio) e tabela do protocolo (slide 24) com as mensagens novas. Conferido renderizando no PowerPoint.
+  - `docs/2026-11-19_guia-de-estudo-apresentacao.md`: regra nova de vidas e vida extra na 4.9, nova seção 4.10 (golpe, caixas, aranhas, hordas, tela cheia, música), mensagens `crate`, `lifeup` e `wave` na 5.4 e perguntas 20 a 22.
+- **Resultados:** nada commitado.
+- **Próximos passos:** o Guilherme revisar os slides 11, 14, 15, 24 e 27 do v3 e o GDD; slide 4 (roteiro da demo) ainda é o do v2.
 
 ### 2026-11-22 — Fase 5 vira arena de hordas do Desafio (plano, item 2b)
 - Pedido: transformar a fase 5 (só do Desafio) numa arena de hordas de inimigos.
