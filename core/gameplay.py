@@ -18,6 +18,10 @@ BOSS_DEATH_DELAY_FRAMES = int(1.5 * FPS)
 # Multiplayer: o Host repete o anúncio da fase a cada LEVEL_ANNOUNCE_FRAMES
 # (UDP pode perder pacotes) e o cliente repete o pedido de troca de fase.
 LEVEL_ANNOUNCE_FRAMES = 30
+# Morte com vida sobrando: espera a animação de morte e renasce sozinho,
+# mostrando o aviso "-1 VIDA" (sem a tela vermelha de Game Over).
+RESPAWN_DELAY_FRAMES = int(1.0 * FPS)
+LIFE_LOST_MSG_FRAMES = int(2.0 * FPS)
 
 
 def sync_multiplayer_level(game) -> None:
@@ -121,16 +125,54 @@ def respawn_multiplayer(game) -> None:
     """Restart no multiplayer: renasce ao lado do outro jogador sem recarregar
     a fase (os inimigos e o progresso do parceiro continuam). Sem parceiro
     vivo, recarrega a fase."""
-    from core.level_loader import move_camera, respawn
+    from core.level_loader import respawn
     partners = [r for r in game.remote_players_group if r.alive]
     if not partners:
         respawn(game)
         return
     partner = partners[0]
-    move_camera(game, partner.world_x)
-    player = game.player
     # world_x/world_y do parceiro são o centro dele no mundo
-    player.rect.center = (int(partner.world_x - game.bg_scroll), int(partner.world_y))
+    _revive_at(game, partner.world_x, center_y=partner.world_y)
+
+
+def track_safe_position(game) -> None:
+    """Guarda a última posição do jogador em chão firme (fora da água), usada
+    para renascer depois de perder uma vida."""
+    player = game.player
+    feet = pygame.Rect(player.rect.left + 4, player.rect.bottom, max(1, player.rect.width - 8), 2)
+    on_ground = any(feet.colliderect(rect) for _, rect in game.world.obstacle_list)
+    in_water = any(w.rect.colliderect(player.rect) for w in game.water_group)
+    if on_ground and not in_water and player.vel_y >= 0:
+        game.safe_pos = (player.rect.centerx + game.bg_scroll, player.rect.bottom)
+
+
+def respawn_after_life_lost(game) -> None:
+    """Renasce na hora, sem recarregar a fase: ao lado do parceiro vivo
+    (multiplayer) ou na última posição segura. Sem nenhuma das duas, volta
+    no checkpoint/início como antes."""
+    from core.level_loader import respawn
+    partners = [r for r in game.remote_players_group if r.alive] \
+        if getattr(game, 'is_multiplayer', False) else []
+    if partners:
+        _revive_at(game, partners[0].world_x, center_y=partners[0].world_y)
+        return
+    safe = getattr(game, 'safe_pos', None)
+    if safe is None:
+        respawn(game)
+        return
+    _revive_at(game, safe[0], bottom_y=safe[1])
+
+
+def _revive_at(game, world_x: float, center_y: float | None = None,
+               bottom_y: float | None = None) -> None:
+    """Põe o jogador de volta, vivo, na posição do mundo dada."""
+    from core.level_loader import move_camera
+    move_camera(game, world_x)
+    player = game.player
+    if bottom_y is not None:
+        player.rect.midbottom = (int(world_x - game.bg_scroll), int(bottom_y))
+    else:
+        player.rect.center = (int(world_x - game.bg_scroll), int(center_y))
     player.vel_y = 0
     player.in_air = True
     player.alive = True
@@ -494,6 +536,7 @@ def update_playing(game) -> None:
         )
         game.bg_scroll -= game.screen_scroll
         update_checkpoints(game)
+        track_safe_position(game)
         update_signs(game)
 
         # Envio periódico de estado via UDP em modo multiplayer
@@ -518,8 +561,23 @@ def update_playing(game) -> None:
                 game.state = GameState.LEVEL_TRANSITION
     else:
         game.screen_scroll = 0
-        register_death(game)
-        game.state = GameState.GAME_OVER
+        if not getattr(game, 'respawn_pending', False):
+            register_death(game)
+            if game.death_had_life and not getattr(game, 'challenge_mode', False):
+                # Ainda tem vida: só um aviso e renasce sozinho em 1 s.
+                game.respawn_pending = True
+                game.respawn_frames = RESPAWN_DELAY_FRAMES
+                game.life_lost_frames = LIFE_LOST_MSG_FRAMES
+            else:
+                game.state = GameState.GAME_OVER
+        else:
+            game.respawn_frames -= 1
+            if game.respawn_frames <= 0:
+                game.respawn_pending = False
+                respawn_after_life_lost(game)
+
+    if getattr(game, 'life_lost_frames', 0) > 0:
+        game.life_lost_frames -= 1
 
     if game.pause_button.draw(game.screen):
         game.state = GameState.PAUSE

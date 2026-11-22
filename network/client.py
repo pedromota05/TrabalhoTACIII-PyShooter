@@ -261,7 +261,10 @@ class NetworkClient:
     def get_host_lives(self) -> tuple[int, int] | None:
         """Retorna (vidas, reset) anunciado pelo Host ou None."""
         with self.lock:
-            return self.host_lives
+            # Consome o anúncio: só aplica valor novo (evita reaplicar um número
+            # antigo por cima da vida que o cliente acabou de gastar).
+            lives, self.host_lives = self.host_lives, None
+            return lives
 
     def send_level(self, level: int, victory: bool = False, challenge: bool = False) -> None:
         """Host: anuncia a fase atual (repetido periodicamente, pois UDP pode perder pacotes)."""

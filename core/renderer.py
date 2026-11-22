@@ -100,6 +100,13 @@ def draw_game_entities(game) -> None:
             pygame.draw.circle(game.screen, BLACK, (cx, 22), 8, 2)
     draw_level_banner(game)
 
+    if getattr(game, 'life_lost_frames', 0) > 0:
+        # Aviso de vida perdida (o jogador renasce sozinho, sem tela de Game Over)
+        _blit_shadowed(game, '-1 VIDA', (235, 60, 50), game.title_font, SCREEN_WIDTH // 2, 150)
+        lives = getattr(game, 'lives', 0)
+        sub = 'Última vida!' if lives == 0 else f'Restam {lives}'
+        _blit_shadowed(game, sub, WHITE, game.font_bold, SCREEN_WIDTH // 2, 210)
+
     if getattr(game, 'checkpoint_msg_frames', 0) > 0:
         msg = game.title_font.render('CHECKPOINT!', True, (60, 220, 90))
         shadow = game.title_font.render('CHECKPOINT!', True, (0, 0, 0))

@@ -138,6 +138,7 @@ def rodar_papel(argv):
     t_vitoria = None
     t_game_over = None
     morreu_de_proposito = False
+    voltou = False
     quadro = 0
     estado_ant, fase_ant = None, None
     lento_bot = lento_quadro = 0.0   # maior tempo (ms) do bot e do quadro desde a última foto
@@ -155,11 +156,18 @@ def rodar_papel(argv):
             if (morte_em and not morreu_de_proposito and seg >= morte_em
                     and game.state == GameState.PLAYING):
                 morreu_de_proposito = True
+                voltou = False
                 game.player.health = 0
                 escrever({'evento': 'morte_proposital', 'fase': game.level})
             elif god and game.player.alive and game.state == GameState.PLAYING:
                 game.player.health = 100
 
+            if (morreu_de_proposito and not voltou and game.state == GameState.PLAYING
+                    and game.player.alive and not getattr(game, 'respawn_pending', False)
+                    and game.player.health > 0):
+                # Com vida sobrando o jogador renasce sozinho (sem tela de Restart)
+                voltou = True
+                escrever({'evento': 'restart', 'fase': game.level})
             if game.state == GameState.PLAYING:
                 t_bot = time.perf_counter()
                 bot.tick()
@@ -174,6 +182,7 @@ def rodar_papel(argv):
                 game.game_over_screen.update(game.screen, game)  # inimigos e rede seguem
                 if game.state == GameState.GAME_OVER and time.time() - t_game_over > 3.0:
                     game.game_over_screen.restart(game)  # mesmo código do botão Restart
+                    voltou = True
                     escrever({'evento': 'restart', 'fase': game.level})
             elif game.state == GameState.VICTORY:
                 game.victory_screen.update(game.screen, game)
