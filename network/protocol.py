@@ -99,6 +99,17 @@ def encode_lives(player_id: str, lives: int, reset: int) -> str:
     return f"{player_id},lives,{lives},{reset}"
 
 
+def encode_crate(player_id: str, level: int, col: int, row: int) -> str:
+    """Notifica que uma caixa de madeira foi quebrada na fase `level`, coluna `col`, linha `row`."""
+    return f"{player_id},crate,{level},{col},{row}"
+
+
+def encode_lifeup(player_id: str, seq: int) -> str:
+    """Cliente -> Host: pegou um coração (+1 vida extra). `seq` evita contar
+    duas vezes o mesmo aviso (ele é enviado repetido por causa do UDP)."""
+    return f"{player_id},lifeup,{seq}"
+
+
 def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     """
     Decodifica um pacote recebido na rede.
@@ -220,6 +231,19 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
                 "lives": int(parts[2]),
                 "reset": int(parts[3]),
             }
+        except ValueError:
+            return None
+
+    if command == "crate" and len(parts) >= 5:
+        try:
+            return {"type": "crate", "player_id": player_id, "level": int(parts[2]),
+                    "col": int(parts[3]), "row": int(parts[4])}
+        except ValueError:
+            return None
+
+    if command == "lifeup" and len(parts) >= 3:
+        try:
+            return {"type": "lifeup", "player_id": player_id, "seq": int(parts[2])}
         except ValueError:
             return None
 

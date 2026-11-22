@@ -105,6 +105,7 @@ class Game:
         self.moving_left = False
         self.moving_right = False
         self.shoot = False
+        self.melee_input = False
         self.dash_input = False
         self.use_mouse_aim = True
         self.grenade_input = False
@@ -112,6 +113,7 @@ class Game:
 
         # ----- Grupos de sprites -----
         self.enemy_group = pygame.sprite.Group()
+        self.spider_group = pygame.sprite.Group()
         self.boss_group = pygame.sprite.Group()
         self.bullet_group = pygame.sprite.Group()
         self.grenade_group = pygame.sprite.Group()

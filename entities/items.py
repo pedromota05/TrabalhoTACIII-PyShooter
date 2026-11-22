@@ -10,7 +10,7 @@ from config import (
 from asset_manager import AssetManager
 
 
-PICKUP_LABELS = {'Health': '+VIDA', 'Ammo': '+MUNIÇÃO', 'Grenade': '+GRANADA', 'Speed': 'VELOCIDADE!'}
+PICKUP_LABELS = {'Health': '+VIDA', 'Ammo': '+MUNIÇÃO', 'Grenade': '+GRANADA', 'Speed': 'VELOCIDADE!', 'Life': '+1 VIDA'}
 
 
 class PickupText(pygame.sprite.Sprite):
@@ -68,7 +68,9 @@ class ItemBox(pygame.sprite.Sprite):
                 player.speed_boost = True
                 player.speed = player.base_speed * 2
                 player.speed_boost_timer = 300
-            if fx_group is not None:
+            elif self.item_type == 'Life':
+                player.pending_life_up = getattr(player, 'pending_life_up', 0) + 1
+            if fx_group is not None and self.item_type != 'Life':
                 fx_group.add(PickupText(PICKUP_LABELS[self.item_type], self.rect.centerx, self.rect.top))
             if network_client is not None:
                 network_client.send_item_pickup(level, self.item_id)

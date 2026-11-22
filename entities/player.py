@@ -10,6 +10,7 @@ from config import (
     TILE_SIZE, SCROLL_THRESH,
     PLAYER_SCALE, PLAYER_SPEED, PLAYER_START_AMMO, PLAYER_START_GRENADES,
     DASH_SPEED, DASH_FRAMES, DASH_COOLDOWN, DASH_TRAIL,
+    MELEE_FRAMES, MELEE_COOLDOWN, MELEE_RANGE,
 )
 from asset_manager import AssetManager
 from .aim_pose import draw_aiming, muzzle_point
@@ -32,6 +33,9 @@ class Player(Character):
         self.dash_dir = 1
         self.dash_trail = []  # [imagem, flip, x, y, vida]
         self.dash_dust = []   # [x, y, raio, vida]
+        self.melee_timer = 0
+        self.melee_cooldown = 0
+        self.pending_life_up = 0
         self.color = -1
         from core import progress  # import local evita ciclo
         self.set_color(progress.carregar().get('cor_jogador', 0))
@@ -89,6 +93,21 @@ class Player(Character):
         AssetManager().get_sound('jump').play()
         return True
 
+    def start_melee(self) -> bool:
+        """Inicia o golpe com a arma se estiver vivo e sem cooldown."""
+        if not (self.alive and self.melee_cooldown == 0 and self.melee_timer == 0):
+            return False
+        self.melee_timer = MELEE_FRAMES
+        self.melee_cooldown = MELEE_COOLDOWN
+        return True
+
+    def melee_rect(self) -> pygame.Rect:
+        """Retângulo de alcance do golpe (MELEE_RANGE x altura) colado à frente."""
+        if self.direction == 1:
+            return pygame.Rect(self.rect.right, self.rect.top, MELEE_RANGE, self.rect.height)
+        else:
+            return pygame.Rect(self.rect.left - MELEE_RANGE, self.rect.top, MELEE_RANGE, self.rect.height)
+
     def update(self, enemy_group=None):
         super().update()
 
@@ -98,6 +117,12 @@ class Player(Character):
 
         if self.dash_cooldown > 0:
             self.dash_cooldown -= 1
+
+        if self.melee_timer > 0:
+            self.melee_timer -= 1
+
+        if self.melee_cooldown > 0:
+            self.melee_cooldown -= 1
 
         # Envelhecer rastro
         for item in self.dash_trail:
@@ -147,12 +172,31 @@ class Player(Character):
         # Efeito visual de piscar durante a invencibilidade (no dash ele aparece sempre)
         if self.dash_timer <= 0 and self.invincible > 0 and (self.invincible // 5) % 2 == 0:
             return  # Pula o frame, fazendo o personagem sumir
-        if self.aim_pose and self.alive and self.action != 3:
-            if not draw_aiming(screen, self.rect, self.direction, self.aim_angle,
+
+        draw_angle = self.aim_angle
+        if self.melee_timer > 0:
+            swing = math.radians(-70 + 140 * (1 - self.melee_timer / MELEE_FRAMES)) * self.direction
+            draw_angle = self.aim_angle + swing
+
+        if (self.aim_pose or self.melee_timer > 0) and self.alive and self.action != 3:
+            if not draw_aiming(screen, self.rect, self.direction, draw_angle,
                                self.action, self.frame_index, self.color, self.scale_used):
                 super().draw(screen)
         else:
             super().draw(screen)
+
+        # Arco branco semitransparente à frente do jogador durante o golpe
+        if self.melee_timer > 0 and self.alive:
+            arc_w = MELEE_RANGE * 2
+            arc_h = self.rect.height
+            arc_surf = pygame.Surface((arc_w, arc_h), pygame.SRCALPHA)
+            arc_box = pygame.Rect(0, 0, arc_w, arc_h)
+            if self.direction == 1:
+                pygame.draw.arc(arc_surf, (255, 255, 255, 180), arc_box, -math.pi / 3, math.pi / 3, 3)
+                screen.blit(arc_surf, (self.rect.centerx - MELEE_RANGE // 2, self.rect.top))
+            else:
+                pygame.draw.arc(arc_surf, (255, 255, 255, 180), arc_box, 2 * math.pi / 3, 4 * math.pi / 3, 3)
+                screen.blit(arc_surf, (self.rect.centerx - MELEE_RANGE * 3 // 2, self.rect.top))
 
     def _check_environment(self, water_group):
         """Verifica perigos ambientais com hitbox perdoável para água.

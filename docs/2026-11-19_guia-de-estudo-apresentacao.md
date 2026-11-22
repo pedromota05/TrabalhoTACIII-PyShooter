@@ -172,15 +172,48 @@ No multiplayer, cada inimigo persegue o **jogador vivo mais próximo**, seja ele
 
 Os números ficam todos em [config.py](../config.py):
 
-- **Tiro:** a bala anda 10 px por quadro. Tira 25 de vida do inimigo e 5 do jogador. Depois de cada tiro há uma espera de 20 quadros (`SHOOT_COOLDOWN`), cerca de 3 tiros por segundo.
+- **Tiro:** com o botão esquerdo do mouse, na direção da mira (ver 4.9). A bala anda 10 px por quadro. Tira 25 de vida do inimigo e 5 do jogador. Depois de cada tiro há uma espera de 20 quadros (`SHOOT_COOLDOWN`), cerca de 3 tiros por segundo.
 - **Granada:** sai com velocidade vertical de −11 e horizontal de 7, e a gravidade faz a parábola. Se bate numa parede, inverte a direção ([projectiles.py:174](../entities/combat/projectiles.py:174)). Explode depois de 100 quadros (cerca de 1,7 s) e tira 50 de vida de quem estiver a até 2 blocos.
 - **Invencibilidade:** depois de levar um tiro, o jogador fica 60 quadros (1 s) sem tomar dano, para não perder toda a vida de uma vez.
 
 ### 4.8 Checkpoints, progresso salvo e Modo Desafio
 
-- **Checkpoints** ([core/gameplay.py:94](../core/gameplay.py:94)): bandeiras nas fases 1 a 3 (colunas em `config.CHECKPOINTS`). Ao passar por uma, o jogo guarda posição, munição, granadas e **quais inimigos já morreram** (pelo `target_id`). O Restart recarrega a fase, remove esses inimigos e põe o jogador na bandeira ([core/level_loader.py:108](../core/level_loader.py:108)).
+- **Checkpoints** ([core/gameplay.py:94](../core/gameplay.py:94)): bandeiras nas fases 1 a 3. Desde 2026-11-21 elas vêm do próprio CSV (bloco 88, colocado pelo editor); `config.CHECKPOINTS` só vale para fase sem nenhuma bandeira. Ao passar por uma, o jogo guarda posição, munição, granadas e **quais inimigos já morreram** (pelo `target_id`). O Restart recarrega a fase, remove esses inimigos e põe o jogador na bandeira ([core/level_loader.py:108](../core/level_loader.py:108)).
 - **Progresso salvo** ([core/progress.py](../core/progress.py)): um arquivo `save/progresso.json` com as fases concluídas, se a campanha foi zerada e o recorde do Desafio. Se o arquivo estiver corrompido, o jogo continua com o progresso vazio em vez de travar.
 - **Modo Desafio** ([game.py:202](../game.py:202) e [core/gameplay.py:426](../core/gameplay.py:426)): fases 1 a 5 seguidas com uma vida só e sem checkpoints. Vida, munição e granadas passam de uma fase para a outra. O tempo é contado em quadros (`run_frames / 60` = segundos) e o melhor tempo vira recorde.
+
+
+### 4.9 O que entrou em 2026-11-21 (mira, dash, vidas, pontos)
+
+**Mira no mouse e arma girando** ([entities/aim_pose.py](../entities/aim_pose.py)). A arma faz parte do desenho do soldado, então não dá para simplesmente girar a imagem inteira. O truque:
+
+1. `_split` olha cada pixel do quadro original e separa duas camadas pela cor: **arma** (os tons azuis do cano, o laranja da ponta, o contorno e as luvas, em `GUN_COLORS`, `OUTLINE` e `GLOVES`) e **corpo** (o resto; o buraco que a arma deixou no peito é pintado com a cor do corpo).
+2. Do mesmo recorte saem dois pontos: o **pivô** (a empunhadura) e a **ponta do cano** (o pixel laranja).
+3. `_local_degrees` converte o ângulo da mira para "graus em relação ao lado para onde o soldado olha" e limita a ±89° (a arma nunca aponta para trás; para trás o soldado simplesmente vira).
+4. `draw_aiming` desenha o corpo parado e a arma girada em torno do pivô. `muzzle_point` gira o vetor pivô→cano com o mesmo ângulo, por isso a bala sai exatamente da ponta.
+5. As camadas ficam em cache por (ação, quadro, cor, escala): o recorte pixel a pixel é feito uma vez só.
+
+O ângulo vem de `Player.face_point`: `aim_angle = atan2(y_cursor − y_ombro, x_cursor − x_soldado)`, e a bala usa `vx = cos(θ)·V`, `vy = sin(θ)·V`. `Bullet.owner` guarda quem atirou para a bala não acertar o próprio atirador logo na saída do cano. No multiplayer o ângulo vai no fim da mensagem de estado (`aim`), e o `RemotePlayer` usa o mesmo `draw_aiming` com a cor do parceiro.
+
+**Dash** (`Player.start_dash`, números em `config.DASH_*`): 10 quadros a 16 px por quadro (160 px, uns 4 blocos), sem gravidade, invencível durante o dash e recarga de 50 quadros. A direção é a da tecla de movimento apertada ou, sem tecla, para onde o soldado olha. O ESPAÇO deixou de atirar: o tiro agora é o botão esquerdo do mouse.
+
+**Vidas** ([core/gameplay.py](../core/gameplay.py)):
+
+- `register_death`: gasta uma das 3 vidas (`config.SHARED_LIVES`). No multiplayer o Cliente não decide sozinho: manda `death` ao Host (3 vezes, porque é UDP) e o Host anuncia o saldo com `lives`.
+- Com vida sobrando aparece "-1 VIDA / Restam N" e, 1 s depois, `respawn_after_life_lost` põe o jogador de volta: ao lado do parceiro vivo ou na **última posição segura**. `track_safe_position` guarda, a cada quadro, onde o jogador estava com os dois pés no chão; o ponto usado é o de cerca de 1 s antes da queda (para não renascer na beira do buraco).
+- Sem vidas: Game Over. Sozinho, o Restart chama `restart_level_with_lives` (fase do zero, vidas cheias). Em dupla, quem fica sem vida espera; com todos mortos o Host recomeça a fase em 3 s (`LIVES_RESET_FRAMES`) e aumenta o contador `reset` da mensagem `lives`, que faz o Cliente recomeçar junto.
+- **Desafio em dupla:** uma vida por jogador e nada de renascer na fase. Quem cai vê "VOCÊ CAIU!" e a câmera segue o parceiro; se o parceiro terminar a fase, quem caiu volta na próxima com metade da vida. Se os dois caírem, "DESAFIO ENCERRADO" e só o Host tem o Restart (`restart_challenge_multiplayer`).
+- *Em desenvolvimento (outra sessão, 2026-11-21):* trocar a posição segura por "início da fase ou logo depois da última bandeira". Conferir no código antes de apresentar qual regra ficou.
+
+**Chefes em etapas** (`update_boss_stages`): o `level_loader` guarda os chefes em ordem; 1,5 s depois que o Demônio morre o Dragão surge com explosões e o aviso "ETAPA 2/2". A vitória só vem com o último chefe morto.
+
+**Pontos, combo e drops** (`update_fun`, números em `config.KILL_POINTS`, `COMBO_*` e `DROP_CHANCES`): cada morte vale pontos (soldado 100, robô e esqueleto 150, sniper 200, Demônio 1500, Dragão 2000). Se a morte vem em até 150 quadros (2,5 s) da anterior, o combo sobe até x5; ganho = base × combo. A caixa que cai (munição 25%, vida 10%, granada 8%) é sorteada com o `target_id` do inimigo como semente: os dois PCs chegam ao mesmo resultado sem mandar mensagem.
+
+**Efeitos** ([entities/effects.py](../entities/effects.py)): `FloatingText` (número de dano ou "+150 x2" que sobe e some), `damage_text` e `pop_texts` (uma fila global: quem causa o dano só enfileira o texto e o loop do jogo o coloca no grupo de sprites), `shake` / `shake_offset` (tremor de tela: guarda quantos quadros e a força; a cada quadro devolve um deslocamento aleatório que o desenho soma à câmera) e `Debris` (poeira e pedacinhos). Inimigos e chefes piscam branco ao levar dano.
+
+**Cor do boneco:** 5 cores (`config.PLAYER_COLORS`), escolhidas na Seleção de Fases e no Menu Multiplayer e salvas no progresso. Se o Cliente escolher a cor do Host, troca sozinho para a próxima livre (mensagem `color`).
+
+**Editor:** paleta com 89 blocos; o 88 é a bandeira de checkpoint (os checkpoints agora vêm do CSV) e 20/41 aparecem como castelo. **M** liga o Modo Mover; **Ctrl+Z / Ctrl+Y** desfazem e refazem até 100 passos (cada passo é uma cópia da grade, guardada em `undo_stack` / `redo_stack`).
 
 ---
 
@@ -233,12 +266,16 @@ Arquivo: [network/protocol.py](../network/protocol.py). São textos curtos separ
 
 | Mensagem | Exemplo | Quem manda |
 | :--- | :--- | :--- |
-| estado do jogador | `P2 (Cliente),1520.5,410.0,1,1,0,90` (x, y, animação, direção, atirando, vida) | cada jogador, todo quadro |
+| estado do jogador | `P2 (Cliente),1520.5,410.0,1,1,0,90,-0.52` (x, y, animação, direção, atirando, vida, ângulo da mira em radianos) | cada jogador, todo quadro |
 | `hit` | `P2 (Cliente),hit,7,25` (acertou o inimigo 7 com 25 de dano) | quem acertou |
 | `enemies` | lote com todos os inimigos (posição, animação, vida, vivo) e a fase | Host |
 | `eshoot` | um inimigo atirou (tipo, posição, direção) | Host |
-| `level` | `P1 (Host),level,2,0` (estamos na fase 2, sem vitória) | Host, a cada 0,5 s |
+| `level` | `P1 (Host),level,2,0,0` (fase 2, sem vitória, fora do Desafio) | Host, a cada 0,5 s |
 | `levelreq` | `P2 (Cliente),levelreq,2` (cheguei na saída da fase 2) | Cliente |
+| `item` | `P1 (Host),item,2,5` (peguei a caixa 5 da fase 2; some no parceiro) | quem pegou |
+| `color` | `P2 (Cliente),color,1` (minha cor é a 1, AZUL) | cada jogador |
+| `death` | `P2 (Cliente),death,3` (morri; número de sequência, enviado 3 vezes) | Cliente |
+| `lives` | `P1 (Host),lives,2,0` (restam 2 vidas; `reset` crescente manda recomeçar) | Host |
 | `quit` / `remove` | saiu por vontade própria / caiu por inatividade | jogador / servidor |
 
 Quem recebe usa `parse_packet` para transformar o texto num dicionário.
@@ -400,6 +437,15 @@ O `_initialized` evita que o `__init__` rode de novo e apague o cache. Qualquer 
     O soldado tem um retângulo de 150 × 20 px à frente e atira se o jogador estiver dentro. Sniper, robô e esqueleto usam a distância euclidiana (`math.hypot`).
 15. **Como vocês testaram o multiplayer?**
     Com o teste automático de dois processos, que confere 7 itens, e com o checklist em 2 PCs.
+
+16. **Como a arma gira sem girar o boneco inteiro?**
+    O `aim_pose.py` separa os pixels da arma pela cor, gira só essa camada em torno da empunhadura e desenha por cima do corpo parado. A ponta do cano é girada com o mesmo ângulo.
+17. **Por que a caixa que cai é igual nos dois PCs?**
+    O sorteio usa o `target_id` do inimigo como semente, e os dois PCs têm os mesmos `target_id`.
+18. **Quem controla as vidas no multiplayer?**
+    O Host. O Cliente avisa a morte com `death` e o Host anuncia o saldo com `lives`.
+19. **O que o combo faz?**
+    Mortes seguidas em até 2,5 s multiplicam os pontos, até x5.
 
 ---
 

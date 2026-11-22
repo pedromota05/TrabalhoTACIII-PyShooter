@@ -27,6 +27,32 @@ def recolor_surface(surf: pygame.Surface, target_hue: int) -> pygame.Surface:
     return out
 
 
+def create_heart_icon(size: int = 36) -> pygame.Surface:
+    """Ícone de coração vermelho desenhado com pygame.draw (dois círculos + triângulo, contorno preto)."""
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    # Contorno preto
+    r = size // 5 + 1
+    c1 = (size // 3, size // 3 + 1)
+    c2 = (size * 2 // 3, size // 3 + 1)
+    pygame.draw.circle(surf, (0, 0, 0), c1, r)
+    pygame.draw.circle(surf, (0, 0, 0), c2, r)
+    pygame.draw.polygon(surf, (0, 0, 0), [
+        (size // 8 - 1, size // 3 + 2),
+        (size * 7 // 8 + 1, size // 3 + 2),
+        (size // 2, size * 7 // 8 + 2)
+    ])
+    # Interior vermelho
+    r_in = size // 5
+    pygame.draw.circle(surf, (235, 40, 40), c1, r_in)
+    pygame.draw.circle(surf, (235, 40, 40), c2, r_in)
+    pygame.draw.polygon(surf, (235, 40, 40), [
+        (size // 8, size // 3 + 2),
+        (size * 7 // 8, size // 3 + 2),
+        (size // 2, size * 7 // 8)
+    ])
+    return surf
+
+
 class AssetManager:
     """Gerenciador centralizado de assets do jogo (Singleton)."""
 
@@ -183,12 +209,19 @@ class AssetManager:
         self.images['ammo_box'] = pygame.image.load('img/icons/ammo_box.png').convert_alpha()
         self.images['grenade_box'] = pygame.image.load('img/icons/grenade_box.png').convert_alpha()
         self.images['speed_box'] = pygame.image.load('img/icons/speed_box.png').convert_alpha()
+        self.images['life_box'] = create_heart_icon(36)
         self.item_box_images = {
             'Health':  self.images['health_box'],
             'Ammo':    self.images['ammo_box'],
             'Grenade': self.images['grenade_box'],
             'Speed':   self.images['speed_box'],
+            'Life':    self.images['life_box'],
         }
+
+        # Ícone da Aranha (passo 12)
+        from entities.spider import spider_icon
+        self.spider_icon = spider_icon(TILE_SIZE)
+        self.images['spider_icon'] = self.spider_icon
 
     # ------------------------------------------------------------------
     #  Áudio

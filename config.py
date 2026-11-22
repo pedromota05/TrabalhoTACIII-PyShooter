@@ -42,6 +42,7 @@ COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
 TILE_TYPES = 87
 CHECKPOINT_TILE = 88  # bandeira de checkpoint (só editor/loader; o level_builder ignora)
+SPIDER_TILE = 89      # aranha no editor (passo 12)
 MAX_LEVELS = 4
 
 # Checkpoints da campanha: colunas (tiles) das bandeiras em cada fase.
@@ -91,7 +92,14 @@ PLAYER_COLORS = [('VERDE', None), ('AZUL', 215), ('VERMELHO', 0), ('AMARELO', 50
 PLAYER_START_AMMO = 20
 PLAYER_START_GRENADES = 5
 SHARED_LIVES = 3  # vidas da campanha (compartilhadas no multiplayer)
+MAX_LIVES = 5     # limite máximo de vidas acumuladas
 LIVES_RESET_FRAMES = 180  # 3 s até o Host recomeçar a fase sem vidas
+
+# Melee (Golpe com a arma - botão direito)
+MELEE_FRAMES = 14
+MELEE_COOLDOWN = 24
+MELEE_RANGE = 60
+MELEE_DAMAGE = 35
 
 # ---------------------------------------------------------------------------
 #  Enemy
@@ -102,6 +110,8 @@ ENEMY_AMMO = 20
 ENEMY_GRENADES = 0
 ENEMY_VISION_WIDTH = 150
 ENEMY_VISION_HEIGHT = 20
+SPIDER_HEALTH = 30
+SPIDER_DAMAGE = 10
 
 # ---------------------------------------------------------------------------
 #  Projétil (Bullet)
@@ -160,9 +170,10 @@ FONT_SIZE = 30
 # ---------------------------------------------------------------------------
 #  Diversão (Pontos, Combo, Drops, Efeitos)
 # ---------------------------------------------------------------------------
-KILL_POINTS = {'Enemy': 100, 'Sniper': 200, 'RobotEnemy': 150, 'SkeletonEnemy': 150, 'Boss': 1500, 'DragonBoss': 2000}
+KILL_POINTS = {'Enemy': 100, 'Sniper': 200, 'RobotEnemy': 150, 'SkeletonEnemy': 150, 'Boss': 1500, 'DragonBoss': 2000, 'Spider': 50}
 COMBO_WINDOW_FRAMES = 150   # 2,5 s para a próxima morte manter o combo
 COMBO_MAX = 5               # multiplicador máximo
 DROP_CHANCES = (('Ammo', 0.25), ('Health', 0.10), ('Grenade', 0.08))  # chance por morte, em ordem
+CRATE_DROPS = [('Ammo', 0.3), ('Grenade', 0.15), ('Health', 0.2), ('Life', 0.1), ('Spider', 0.25)]
 HIT_FLASH_FRAMES = 6
 

@@ -3,7 +3,7 @@ world/level_builder.py — Processador da matriz de tiles e construtor do mundo.
 """
 
 import pygame
-from config import TILE_SIZE
+from config import TILE_SIZE, SPIDER_TILE, ROWS
 from asset_manager import AssetManager
 from entities.player import Player
 from entities.enemies import Enemy, Sniper, RobotEnemy, SkeletonEnemy, DragonBoss, Boss
@@ -19,6 +19,8 @@ class World:
     def __init__(self):
         self.obstacle_list = []
         self.ramp_list = []
+        self.crates = []
+        self.spider_spawns = []
         self.level_length = 0
 
     def process_data(self, data, enemy_group, item_box_group,
@@ -40,6 +42,10 @@ class World:
                     boss_group.add(DragonBoss(mid_x, bottom_y))
                     continue
 
+                if tile == SPIDER_TILE:
+                    self.spider_spawns.append((x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE))
+                    continue
+
                 if 0 <= tile < len(assets.tile_images):
                     img = assets.tile_images[tile]
                     img_rect = img.get_rect()
@@ -52,6 +58,11 @@ class World:
                             tile in (12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84)):
                         # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
+                        if tile == 12:
+                            solid_ids = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84, 85}
+                            has_solid_above = (y > 0 and data[y - 1][x] in solid_ids)
+                            if y != ROWS - 1 and not has_solid_above:
+                                self.crates.append({'col': x, 'row': y, 'tile': tile_data})
                     elif tile == 85:
                         # Rampa inclinada (colisão em rampa de 45 graus)
                         self.ramp_list.append(tile_data)

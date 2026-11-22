@@ -128,7 +128,8 @@ blockquote {
 1. <strong>Navegação Completa por Menus</strong>: Menu Principal, Seleção de Fases, Menu Multiplayer LAN, Editor de Fases, Instruções, Configurações de Áudio com sliders e Telas de Pausa/Fim de Jogo.<br />
 2. <strong>Editor de Fases Integrado</strong>: Ferramenta modular que permite criar, inspecionar, salvar e carregar mapas personalizados diretamente na matriz de arquivos CSV (<code>levels/</code>).<br />
 3. <strong>Multiplayer em LAN (Cliente e Servidor)</strong>: Partidas cooperativas locais em tempo real via sockets UDP não-bloqueantes com threads em background, controle de <em>heartbeat/timeout</em>, sincronização de combate e interpolação linear (LERP) para eliminar saltos visuais.<br />
-4. <strong>Formalização de Padrões de Projeto (GoF e Arquiteturais)</strong>: Aplicação explícita dos padrões Singleton, State, Factory Method, Facade, Observer e Remote Proxy.</p>
+4. <strong>Formalização de Padrões de Projeto (GoF e Arquiteturais)</strong>: Aplicação explícita dos padrões Singleton, State, Factory Method, Facade, Observer e Remote Proxy.<br />
+5. <strong>Combate e Diversão</strong>: Mira e disparo com o mouse em qualquer ângulo (só a arma gira; o corpo fica parado), mecânica de <em>dash</em> com invencibilidade, sistema de vidas compartilhadas com renascimento automático, pontuação dinâmica com multiplicador de combo e batalhas de chefes em etapas sequenciais.</p>
 <hr />
 <h3 id="12-estilo-e-genero">1.2 Estilo e Gênero</h3>
 <table>
@@ -186,7 +187,7 @@ blockquote {
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Periféricos</strong></td>
-<td style="text-align: left;">Teclado (movimento e combate), Mouse (menus, sliders e editor)</td>
+<td style="text-align: left;">Teclado (movimento, pulo, dash, granada, placas) e Mouse (mira, tiro, menus e editor)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Rede</strong></td>
@@ -201,7 +202,7 @@ blockquote {
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Tecla</th>
+<th style="text-align: left;">Tecla / Controle</th>
 <th style="text-align: left;">Ação</th>
 </tr>
 </thead>
@@ -220,11 +221,23 @@ blockquote {
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Espaço</strong></td>
-<td style="text-align: left;">Disparo de arma primária (segurar para tiro contínuo)</td>
+<td style="text-align: left;">Dash (impulso rápido com invencibilidade; recarga de ~0,8 s)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mouse</strong></td>
+<td style="text-align: left;">Mirar (a arma acompanha o cursor)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão Esquerdo do Mouse</strong></td>
+<td style="text-align: left;">Atirar na direção da mira (segurar para tiro contínuo)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Q</strong> ou <strong>G</strong></td>
 <td style="text-align: left;">Lançar granada (arco parabólico com dano em área)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E</strong></td>
+<td style="text-align: left;">Ler placa próxima</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>ESC</strong></td>
@@ -250,6 +263,18 @@ blockquote {
 <td style="text-align: left;">Apagar tile da grade (define como vazio <code>-1</code>)</td>
 </tr>
 <tr>
+<td style="text-align: left;"><strong>M</strong></td>
+<td style="text-align: left;">Alternar Modo Mover (arrastar objeto para outra célula; troca de lugar se ocupada; ESC ou botão direito cancelam)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Ctrl+Z</strong></td>
+<td style="text-align: left;">Desfazer última alteração (histórico de até 100 passos)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Ctrl+Y</strong> ou <strong>Ctrl+Shift+Z</strong></td>
+<td style="text-align: left;">Refazer alteração desfeita</td>
+</tr>
+<tr>
 <td style="text-align: left;"><strong>← / →</strong></td>
 <td style="text-align: left;">Rolar a visão horizontal do mapa no editor</td>
 </tr>
@@ -260,6 +285,18 @@ blockquote {
 <tr>
 <td style="text-align: left;"><strong>↑ / ↓</strong></td>
 <td style="text-align: left;">Alternar número da fase ativa (Fase 1, 2, 3...)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão "Mover (M)"</strong></td>
+<td style="text-align: left;">Ativa ou desativa a ferramenta de movimentação de blocos</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão "Desfazer"</strong></td>
+<td style="text-align: left;">Desfaz a última ação realizada na grade</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Botão "Refazer"</strong></td>
+<td style="text-align: left;">Refaz a última ação desfeita</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Botão "Salvar"</strong></td>
@@ -277,7 +314,7 @@ blockquote {
 </table>
 <h5 id="controles-de-interface-e-menus">Controles de Interface e Menus</h5>
 <ul>
-<li><strong>Mouse (Clique Esquerdo):</strong> Interage com botões de navegação, caixas de diálogo, caixas de texto de IP e seleção de fases.</li>
+<li><strong>Mouse (Clique Esquerdo):</strong> Interage com botões de navegação, caixas de diálogo, seletor de cor, caixas de texto de IP e seleção de fases.</li>
 <li><strong>Sliders de Áudio:</strong> Arraste interativo para ajuste contínuo de volume da música de fundo e efeitos sonoros (SFX).</li>
 </ul>
 <hr />
@@ -292,11 +329,17 @@ blockquote {
     Menu --&gt; Sair[Encerrar Jogo]
 
     NovoJogo --&gt; Playing[Gameplay Campanha]
+    NovoJogo --&gt; Desafio[Modo Desafio: fases 1 a 5]
     MultiMenu --&gt; Host[Criar Servidor LAN] --&gt; PlayingMulti[Gameplay Cooperativo]
     MultiMenu --&gt; Join[Conectar via IP LAN] --&gt; PlayingMulti
 
     Playing --&gt; Pause[Menu de Pausa]
     Playing --&gt; GameOver[Tela de Game Over]
+    Playing --&gt; Vitoria[Tela de Vitória]
+    Desafio --&gt; GameOver
+    Desafio --&gt; Vitoria
+    PlayingMulti --&gt; Vitoria
+    Vitoria --&gt; Menu
     PlayingMulti --&gt; Pause
     PlayingMulti --&gt; GameOver
     Pause --&gt; Menu
@@ -308,16 +351,35 @@ blockquote {
 <h4 id="descricao-das-telas">Descrição das Telas:</h4>
 <ol>
 <li><strong>Menu Principal (<code>MainMenuScreen</code>):</strong> Tela inicial elegante com o título do jogo e acesso direto a todas as áreas (Novo Jogo, Multiplayer, Editor de Fases, Instruções, Configurações e Sair).</li>
-<li><strong>Seleção de Fase (<code>LevelSelectScreen</code>):</strong> Exibe os gamepads interativos para escolha de fases da campanha (Fases 1 a 4).</li>
+<li><strong>Seleção de Fase (<code>LevelSelectScreen</code>):</strong> Exibe os gamepads interativos para escolha de fases da campanha (Fases 1 a 4). As fases já vencidas ganham contorno verde e o selo <strong>CONCLUÍDA</strong> (progresso salvo em <code>save/progresso.json</code> por <code>core/progress.py</code>). Conta com o <strong>Seletor de Cor do Personagem</strong> (VERDE, AZUL, VERMELHO, AMARELO, ROXO), que persiste no arquivo de progresso. Abaixo fica o botão <strong>MODO DESAFIO</strong>, liberado depois de zerar a campanha, com o recorde de tempo.</li>
 <li><strong>Menu Multiplayer LAN (<code>MultiplayerMenuScreen</code>):</strong> Interface dedicada que permite:</li>
-<li><strong>Criar Servidor (Host):</strong> Inicializa o socket UDP local e conecta automaticamente o jogador hospedeiro como Jogador 1.</li>
-<li><strong>Conectar via IP (Join LAN):</strong> Campo de entrada de texto interativo com cursor piscante para informar o endereço IP do Host (padrão <code>127.0.0.1</code>, porta <code>5555</code>) e botão de conexão como Jogador 2.</li>
+<li><strong>Criar Servidor (Host):</strong> Inicializa o socket UDP local e conecta automaticamente o hospedeiro como Jogador 1. O Host seleciona a fase inicial da campanha ou o Modo Desafio cooperativo.</li>
+<li><strong>Conectar via IP (Join LAN):</strong> Campo de entrada de texto interativo com cursor piscante para informar o endereço IP do Host (padrão <code>127.0.0.1</code>, porta <code>5555</code>) e botão de conexão como Jogador 2. O campo de IP suporta colagem rápida via <code>Ctrl+V</code> e seleciona automaticamente todo o conteúdo ao clicar.</li>
+<li><strong>Seletor de Cor do Personagem:</strong> Escolha de cor individual (VERDE, AZUL, VERMELHO, AMARELO, ROXO); caso o Cliente selecione a mesma cor do Host, o sistema avança automaticamente para a próxima cor livre e exibe um aviso em tela (mensagem <code>color</code>).</li>
 <li>Exibição em tempo real de mensagens de status da rede.</li>
-<li><strong>Editor de Fases (<code>LevelEditorScreen</code>):</strong> Ambiente de edição de fases completo com grade, paleta de tiles, atalhos de teclado e botões de I/O em disco.</li>
+<li><strong>Editor de Fases (<code>LevelEditorScreen</code>):</strong> Ambiente de edição de fases completo com grade, paleta de tiles, atalhos de teclado (Modo Mover, Desfazer/Refazer) e botões de I/O em disco.</li>
 <li><strong>Configurações (<code>OptionsScreen</code>):</strong> Ajuste de volume de música e efeitos sonoros através de barras com botões deslizantes (<em>knobs</em>) proporcionais.</li>
 <li><strong>Pausa (<code>PauseOverlay</code>):</strong> Overlay escurecido sobre a partida em andamento permitindo continuar ou sair para o menu.</li>
-<li><strong>Game Over (<code>GameOverScreen</code>):</strong> Exibida ao esgotar os pontos de vida do soldado, permitindo reiniciar a fase imediatamente ou voltar ao menu.</li>
+<li><strong>Tela de Jogo Ativo / HUD:</strong> O cursor padrão é substituído por uma mira visual própria, com uma barra de recarga do dash logo abaixo. No canto superior direito, antes do botão de pausa, o HUD exibe o contador <strong>VIDAS</strong> com marcadores circulares. O HUD exibe também o mostrador <strong>PONTOS</strong> e o indicador <strong>COMBO xN</strong> com barra de tempo. Ao sofrer queda com vidas restantes, a tela exibe o aviso central <strong>"-1 VIDA / Restam N"</strong>, renascendo o combatente após 1 segundo.</li>
+<li><strong>Game Over (<code>GameOverScreen</code>):</strong> Exibida quando as vidas do soldado se esgotam. No modo solo, o botão Restart recomeça a fase com as 3 vidas cheias. Em dupla cooperativa normal, o jogador que esgota as vidas aguarda como espectador enquanto o parceiro estiver vivo; caso ambos morram, o Host recomeça a fase automaticamente após 3 segundos. No Modo Desafio em dupla (vida única por jogador), o jogador derrotado não renasce na fase e visualiza o aviso <em>"VOCÊ CAIU! Desafio: uma vida só. Aguardando o parceiro terminar a fase…"</em> com a câmera acompanhando o parceiro (se o parceiro terminar a fase, quem caiu retorna na fase seguinte com 50% de HP); se ambos caírem, a tela exibe <em>"DESAFIO ENCERRADO"</em> em ambos os PCs e apenas o Host tem acesso ao botão Restart, que reinicia o Modo Desafio a partir da fase 1 para ambos.</li>
+<li><strong>Vitória (<code>VictoryScreen</code>):</strong> Véu escuro sobre o jogo congelado com "VITÓRIA!" e o tempo da partida. Aparece ao matar os dois chefes da fase 4 (fim da campanha) ou ao terminar a fase 5 no Desafio, quando mostra também o recorde e o aviso <strong>NOVO RECORDE</strong>.</li>
 </ol>
+<h4 id="progressao-checkpoints-e-modo-desafio">Progressão, Checkpoints e Modo Desafio</h4>
+<ul>
+<li><strong>Campanha e Saída das Fases 1 a 3:</strong> A campanha é estruturada nas fases 1 a 4. As fases 1 a 3 são finalizadas em um castelo temático desenhado no encerramento do mapa (castelo de pedra na fase 1, forte de madeira na fase 2 e castelo de gelo na fase 3), com a linha de chegada posicionada 6 blocos antes, no terreno plano final.</li>
+<li><strong>Checkpoints:</strong> Mapeados através do tile <code>88</code> (bandeira de checkpoint) configurado diretamente na matriz CSV da fase (a lista em <code>config.CHECKPOINTS</code> é utilizada apenas se a fase não possuir nenhum tile de bandeira). Ao alcançar uma bandeira, o jogo registra as coordenadas, a contagem de munição, granadas e a lista de inimigos derrotados; o reinício via checkpoint recupera o soldado no local com vida cheia. Os checkpoints são desativados no Modo Desafio e no multiplayer.</li>
+<li><strong>Sistema de Vidas (Campanha Solo e Co-op):</strong> A equipe possui 3 vidas compartilhadas (com o Host atuando como autoridade central no multiplayer via mensagens <code>death</code> e <code>lives</code>). Ao morrer (queda ou vida zerada) com vidas restantes, surge o aviso "-1 VIDA / Restam N" e o personagem renasce em 1 s: ao lado do parceiro vivo (no co-op) ou na última posição segura (com ambos os pés no chão, cerca de 1 s antes da queda, no modo solo). Se não houver posição segura nem parceiro, volta à última bandeira de checkpoint ou ao início da fase. O esgotamento das 3 vidas resulta em Game Over.</li>
+<li><strong>Modo Desafio:</strong> Maratona ininterrupta das fases 1 a 5 com vida única por combatente e checkpoints desativados. Vida, munição e granadas transitam entre fases (vida máxima limitada a 100). O HUD exibe o cronômetro (mm:ss.d) e o marcador "FASE x/5". A fase 5 é a arena final; ao terminá-la, o melhor tempo fica salvo como recorde. O Desafio não marca a campanha como zerada. Em partidas em dupla, a queda de um jogador o mantém como espectador acompanhando a câmera do parceiro vivo; se o parceiro concluir a fase, o jogador caído renasce na fase subsequente com metade da vida. A queda de ambos encerra a maratona com o aviso "DESAFIO ENCERRADO", permitindo que o Host reinicie o Desafio a partir da fase 1.</li>
+<li><strong>Chefes em Etapas (Fase 4):</strong> A arena da fase 4 ocorre em duas etapas sucessivas: enfrenta-se primeiro o Demônio terrestre (<em>Demon Boss</em>); exatamente 1,5 s após sua derrota, o Dragão voador (<em>Dragon Boss</em>) surge em meio a explosões e ao aviso na tela "ETAPA 2/2" (com o HUD registrando "CHEFE x/2"). A tela de Vitória da campanha é ativada apenas após a morte do último chefe.</li>
+<li><strong>Sistema de Pontuação, Combo e Drops:</strong></li>
+<li><strong>Pontos por Inimigo (<code>config.KILL_POINTS</code>):</strong> Soldado: 100 pts, Robô: 150 pts, Esqueleto: 150 pts, Sniper: 200 pts, Demônio: 1500 pts, Dragão: 2000 pts.</li>
+<li><strong>Multiplicador de Combo:</strong> Mortes consecutivas ocorridas em até 2,5 s da eliminação anterior incrementam o multiplicador progressivamente até x5 ($\text{pontos} = \text{base} \times \text{combo}$). O HUD apresenta os contadores "PONTOS" e "COMBO xN" com barra regressiva de tempo.</li>
+<li><strong>Drops Determinísticos de Suprimentos:</strong> Inimigos comuns eliminados possuem probabilidade de soltar caixas de suprimentos (munição: 25%, vida: 10%, granadas: 8%), utilizando sorteio determinístico calculado pelo <code>target_id</code> da entidade para garantir paridade total entre Host e Cliente.</li>
+<li><strong>Efeitos de Impacto:</strong> Inimigos e chefes piscam em branco e exibem texto de dano flutuante ao serem alvejados; detonações de granadas e mortes de chefes geram tremor de tela (<em>screen shake</em>).</li>
+<li><strong>Interatividade de Cenário e Colisão Co-op:</strong> Caixas de itens flutuam no terreno e apresentam texto informativo ao serem coletadas (com sincronização de remoção imediata no cliente parceiro via mensagem <code>item</code>). Placas no cenário (tile 23) exibem caixas de diálogo com instruções e dicas ao pressionar a tecla <strong>E</strong>. Jogadores em rede possuem colisão física recíproca, permitindo subir na cabeça do companheiro de equipe para alcançar plataformas elevadas.</li>
+</ul>
+<h4 id="em-desenvolvimento-apos-2026-11-21">Em Desenvolvimento (após 2026-11-21)</h4>
+<p>As novidades abaixo estão sendo implementadas e ainda não fazem parte desta versão do documento: renascer no início da fase ou logo após a última bandeira, golpe corpo a corpo com a arma, caixas quebráveis, inimigos aranha, vida extra, tela cheia, músicas por fase e uma fase 5 de hordas.</p>
 <hr />
 <h3 id="16-o-editor-de-fases-level-editor">1.6 O Editor de Fases (Level Editor)</h3>
 <p>O editor de fases foi refatorado de um script procedural legado (<code>level-editor.py</code>) para uma classe modular de alta coesão (<code>LevelEditorScreen</code> em <code>ui/screens/level_editor.py</code>), perfeitamente integrada ao ciclo de vida do jogo.</p>
@@ -326,11 +388,15 @@ blockquote {
 <li><strong>Resolução de Tela Estendida:</strong> Ao entrar no editor, a janela é redimensionada dinamicamente para <code>1200 × 740</code> pixels (oferecendo 900 pixels de largura de visão de mapa, 300 pixels de barra lateral direita para a paleta de blocos e 100 pixels de margem inferior para a barra de ferramentas). Ao retornar ao menu, a resolução nativa de <code>1200 × 640</code> é restabelecida sem falhas.</li>
 <li><strong>Estrutura Matricial:</strong> O mapa é composto por uma matriz bidimensional de dimensões fixas:<br />
   $$\text{Linhas} = 16, \quad \text{Colunas} = 200, \quad \text{Tamanho do Bloco} = 40 \times 40\text{ px}$$</li>
-<li><strong>Paleta de 88 Tiles Mapeados:</strong></li>
+<li><strong>Paleta de 89 Tiles Mapeados (em 7 Colunas):</strong></li>
 <li><code>0 a 8, 24 a 35, 47 a 48, 50, 58 a 61, 65 a 66, 73 a 77, 83 a 84</code>: Terrenos e plataformas sólidas (terra, grama, pedra e neve).</li>
 <li><code>85</code>: Rampa com colisão diagonal/inclinada.</li>
 <li><code>9 a 10, 37 a 39, 42 a 46, 51 a 57, 62 a 64, 67 a 68</code>: Água profunda (perigo ambiental letal).</li>
-<li><code>11 a 14, 36, 40 a 41, 49, 71 a 72, 78 a 82</code>: Decorações visuais sem colisão física (árvores gigantes, pinheiros, placas, grama decorativa).</li>
+<li><code>11 a 14, 36, 40, 49, 71 a 72, 78 a 82</code>: Decorações visuais sem colisão física (árvores gigantes, pinheiros, grama decorativa).</li>
+<li><code>20, 41</code>: Castelo de saída / término da fase (exibido como castelo na paleta e no mapa, integrando a linha de chegada).</li>
+<li><code>22</code>: Propulsor de velocidade (<em>Speed Boost</em>).</li>
+<li><code>23</code>: Placa de dica e instruções (interagível no jogo via tecla E).</li>
+<li><code>88</code>: Bandeira de Checkpoint (salvamento de estado na fase).</li>
 <li><code>15</code>: Ponto de geração (<em>Spawn</em>) do Jogador.</li>
 <li><code>16</code>: Spawn de Soldado patrulheiro básico.</li>
 <li><code>69</code>: Spawn de Inimigo Robô atirador.</li>
@@ -338,7 +404,8 @@ blockquote {
 <li><code>86</code>: Spawn do Demônio Chefe terrestre (<em>Demon Boss</em>).</li>
 <li><code>87</code>: Spawn do Dragão Chefe voador (<em>Dragon Boss</em>).</li>
 <li><code>17, 18, 19</code>: Caixas de suprimentos (Munição +15, Granada +3, Kit Médico +25 HP).</li>
-<li><code>20</code>: Portal de saída e término da fase.</li>
+<li><strong>Modo Mover (Tecla M e Botão "Mover (M)"):</strong> Permite selecionar e arrastar objetos e blocos de uma célula para outra na grade; caso a célula de destino já esteja ocupada, os blocos trocam de posição automaticamente. Pressionar ESC ou o botão direito do mouse cancela a movimentação.</li>
+<li><strong>Sistema de Histórico (Desfazer / Refazer):</strong> Histórico com capacidade de até 100 passos reversíveis através dos atalhos <strong>Ctrl+Z</strong> (desfazer) e <strong>Ctrl+Y</strong> ou <strong>Ctrl+Shift+Z</strong> (refazer), além dos botões dedicados "Desfazer" e "Refazer" na barra inferior. Cada operação de pintura ou arrasto de objeto é gravada atomicamente como um passo.</li>
 <li><strong>Sistema de Persistência em Disco:</strong> Gravação e leitura atômica em arquivos CSV no diretório <code>levels/level{N}_data.csv</code>.</li>
 </ul>
 <hr />
@@ -351,9 +418,9 @@ blockquote {
     participant Client2 as Jogador 2 (Cliente)
 
     Note over Client1,Server: Client1 inicia GameServer na porta 5555
-    Client2-&gt;&gt;Server: Pacote de Estado (x, y, action, dir, shoot, hp)
+    Client2-&gt;&gt;Server: Pacote de Estado (x, y, action, dir, shoot, hp, aim)
     Server-&gt;&gt;Client1: Broadcast do Estado de Client2
-    Client1-&gt;&gt;Server: Pacote de Estado (x, y, action, dir, shoot, hp)
+    Client1-&gt;&gt;Server: Pacote de Estado (x, y, action, dir, shoot, hp, aim)
     Server-&gt;&gt;Client2: Broadcast do Estado de Client1
     Note over Client1,Client2: Renderização com Interpolação Linear (LERP)
     Client2-&gt;&gt;Server: Pacote de Desconexão (player_id,quit)
@@ -363,17 +430,30 @@ blockquote {
 <h4 id="171-protocolo-de-comunicacao-de-pacotes">1.7.1 Protocolo de Comunicação de Pacotes</h4>
 <p>Os pacotes são transmitidos em strings CSV de baixa sobrecarga de dados:<br />
 1. <strong>Sincronização de Estado:</strong><br />
-   $$\text{Formato: } \texttt{"player_id,x,y,action,direction,is_shooting,health"}$$<br />
+   $$\text{Formato: } \texttt{"player_id,x,y,action,direction,is_shooting,health,aim"}$$<br />
    - <code>player_id</code>: Identificador único da sessão (ex.: <code>"P1 (Host)"</code>, <code>"P2 (Cliente)"</code>).<br />
    - <code>x, y</code>: Posição absoluta do personagem no mundo (compensando a rolagem de câmera <code>bg_scroll</code>).<br />
    - <code>action</code>: Índice de animação ativo (0: Parado, 1: Correndo, 2: Pulando, 3: Morte).<br />
    - <code>direction</code>: Orientação horizontal (<code>1</code> para a direita, <code>-1</code> para a esquerda).<br />
    - <code>is_shooting</code>: Flag booleana (<code>1</code> ou <code>0</code>) indicando disparo de projéteis.<br />
    - <code>health</code>: Pontos de vida atuais do combatente remoto.<br />
+   - <code>aim</code>: Ângulo da mira em radianos, utilizado para determinar a trajetória da bala e a inclinação da pose da arma do parceiro remoto.<br />
 2. <strong>Desconexão Voluntária:</strong><br />
    $$\text{Formato: } \texttt{"player_id,quit"}$$<br />
 3. <strong>Remoção pelo Servidor:</strong><br />
-   $$\text{Formato: } \texttt{"player_id,remove"}$$</p>
+   $$\text{Formato: } \texttt{"player_id,remove"}$$<br />
+4. <strong>Dano em Inimigo:</strong> <code>player_id,hit,target_id,dano</code> — quem acertou avisa; o Host aplica o dano (é a autoridade sobre os inimigos).<br />
+5. <strong>Estado dos Inimigos (Host → clientes):</strong> <code>player_id,enemies,lote,fase</code>, em que o lote tem itens <code>target_id:x:y:ação:direção:vida:vivo:chefe</code> separados por <code>|</code>. O cliente descarta lotes de outra fase, já que os <code>target_id</code> recomeçam em cada fase.<br />
+6. <strong>Tiro de Inimigo (Host → clientes):</strong> <code>player_id,eshoot,tipo,x,y,direção,vx,vy,alvo_x,alvo_y</code>.<br />
+7. <strong>Fase Atual e Modo de Jogo (Host → clientes):</strong><br />
+   $$\text{Formato: } \texttt{"player_id,level,fase,vitória,desafio"}$$<br />
+   repetida periodicamente a cada 0,5 s. O 5º campo <code>desafio</code> informa se a partida está no Modo Desafio cooperativo. O cliente carrega a fase anunciada (mesmo na tela de Game Over) ou avança para a Vitória.<br />
+8. <strong>Pedido de Troca de Fase (cliente → Host):</strong> <code>player_id,levelreq,fase</code>, enviado quando o cliente alcança a saída da fase.<br />
+9. <strong>Coleta de Suprimento:</strong> <code>player_id,item,fase,item_id</code>, transmitido quando um jogador recolhe uma caixa de suprimento, sincronizando sua remoção imediata no mapa do parceiro.<br />
+10. <strong>Sincronização de Cor do Soldado:</strong> <code>player_id,color,indice</code>, informando o índice de cor escolhido para renderização das texturas customizadas.<br />
+11. <strong>Aviso de Morte do Cliente (cliente → Host):</strong> <code>player_id,death,seq</code>, emitido pelo cliente ao cair em abismo ou ter a vida zerada (enviado 3 vezes consecutivas para garantir recepção sobre UDP).<br />
+12. <strong>Saldo de Vidas Compartilhadas (Host → clientes):</strong> <code>player_id,lives,vidas,reset</code>, transmitido pelo Host para anunciar o total de vidas da equipe; o incremento sequencial de <code>reset</code> comanda o reinício da fase ou do Desafio no cliente.</p>
+<p>As balas disparadas por um jogador remoto são estritamente visuais (<code>Bullet(visual_only=True)</code>): o dano real é processado exclusivamente pela mensagem <code>hit</code> de quem atirou, o que evita duplicação de dano no Host e fogo amigo.</p>
 <h4 id="172-o-servidor-de-jogo-gameserver">1.7.2 O Servidor de Jogo (<code>GameServer</code>)</h4>
 <ul>
 <li><strong>Socket UDP com Timeout Seguro:</strong> Configurado com <code>settimeout(1.0)</code> em um loop de execução contínuo numa thread <em>daemon</em>. Isso garante que a thread possa ser cancelada graciosamente ao sair da partida sem travar o processo principal do Pygame.</li>
@@ -392,11 +472,13 @@ blockquote {
 </ul>
 <h4 id="174-a-entidade-de-jogador-remoto-remoteplayer">1.7.4 A Entidade de Jogador Remoto (<code>RemotePlayer</code>)</h4>
 <p>Representa visualmente o combatente conectado via LAN:<br />
-- Utiliza o mesmo conjunto de animações do jogador principal através do cache do <code>AssetManager</code>.<br />
+- Utiliza o conjunto de texturas coloridas correspondentes à cor do parceiro (sincronizada via pacote <code>color</code>) através do cache do <code>AssetManager</code>.<br />
+- Renderiza a arma rotacionando dinamicamente em torno do ponto de empunhadura para coincidir com o ângulo da mira (<code>aim</code>) transmitido pelo parceiro.<br />
 - Converte a coordenada absoluta do mundo para a coordenada relativa da câmera local:<br />
   $$\text{rect.center} = (\text{int}(x_{\text{mundo}} - \text{bg_scroll}), \text{int}(y_{\text{mundo}}))$$<br />
 - Renderiza uma <strong>Tag com o Nome do Jogador</strong> e uma <strong>Mini Barra de Vida</strong> sobre a cabeça do personagem.<br />
-- Reproduz disparos de projéteis sincronizados na tela local.</p>
+- Reproduz disparos visuais sincronizados na tela local.<br />
+- Possui colisão física ativa com o jogador local, possibilitando que um jogador suba na cabeça do outro para alcançar áreas elevadas.</p>
 <hr />
 <h3 id="18-padroes-de-projeto-utilizados-design-patterns">1.8 Padrões de Projeto Utilizados (Design Patterns)</h3>
 <p>A refatoração do PyShooter consolidou uma arquitetura robusta, aplicando formalmente padrões clássicos do <em>Gang of Four (GoF)</em> e arquiteturais:</p>
@@ -462,6 +544,23 @@ $$x_{t+1} = x_t + (\text{Direção} \times 7)$$<br />
 $$y_{t+1} = y_t + v_{y, t}, \quad v_{y, t+1} = v_{y, t} + 0.75$$<br />
 Ao colidir lateralmente com uma parede ou obstáculo:<br />
 $$\text{Direção} = \text{Direção} \times (-1)$$</p>
+<h4 id="196-mira-do-jogador-e-giro-da-arma">1.9.6 Mira do Jogador e Giro da Arma</h4>
+<p>O cálculo do ângulo de mira do soldado em direção ao cursor do mouse em coordenadas de tela é dado por:<br />
+$$\theta = \operatorname{atan2}(Y_{\text{cursor}} - Y_{\text{ombro/pivô}}, \; X_{\text{cursor}} - X_{\text{ombro/pivô}})$$<br />
+O soldado vira horizontalmente para o lado do cursor ($\text{direção} = 1$ para $X_{\text{cursor}} \ge X_{\text{jogador}}$ ou $-1$ para o quadrante oposto). Para preservar uma postura anatômica crível da sprite, o ângulo local da arma é limitado a $\pm 89^\circ$ em relação ao plano horizontal. A arma é desacoplada da textura do corpo do soldado através de separação por cor de pixels (<code>entities/aim_pose.py</code>) e rotacionada isoladamente em torno da empunhadura ($P_{\text{pivô}}$). O ponto exato de ejeção do projétil na ponta do cano ($P_{\text{cano}}$) é determinado pela transformação de rotação 2D:<br />
+$$P_{\text{cano}} = P_{\text{pivô}} + R(\theta) \cdot (P_{\text{cano}}^0 - P_{\text{pivô}}^0)$$<br />
+$$R(\theta) = \begin{pmatrix} \cos\theta &amp; -\sin\theta \ \sin\theta &amp; \cos\theta \end{pmatrix}$$<br />
+O projétil (<code>Bullet</code>) é instanciado na ponta do cano e lançado com o vetor de velocidade:<br />
+$$v_x = \cos(\theta) \times V_{\text{bala}}, \quad v_y = \sin(\theta) \times V_{\text{bala}}$$<br />
+O atributo <code>Bullet.owner</code> garante imunidade ao soldado atirador, prevenindo detecções espúrias de autodano na saída imediata do cano.</p>
+<h4 id="197-mecanica-de-deslocamento-rapido-dash">1.9.7 Mecânica de Deslocamento Rápido (Dash)</h4>
+<p>Acionado pela tecla <strong>Espaço</strong>, o <em>dash</em> desloca o personagem na direção da tecla de movimento pressionada (ou, sem tecla, para o lado em que está virado) por um período contínuo de $T = 10\text{ quadros}$ com velocidade horizontal fixa de $V_{\text{dash}} = 16\text{ px/quadro}$, sob suspensão total de aceleração gravitacional ($g = 0$):<br />
+$$\Delta x_{\text{total}} = 10 \times 16 = 160\text{ px} \quad (\approx 4\text{ blocos de } 40\text{ px})$$<br />
+Durante os 10 quadros de deslocamento, o combatente usufrui de invulnerabilidade a dano, projetando um rastro estético de 6 silhuetas fantasmagóricas azuis e partículas de poeira. A recarga da habilidade ocorre em $50\text{ quadros}$ (~0,83 s a 60 FPS), monitorada por uma barra indicadora acoplada à mira visual do jogador.</p>
+<h4 id="198-sistema-de-pontuacao-com-multiplicador-de-combo">1.9.8 Sistema de Pontuação com Multiplicador de Combo</h4>
+<p>A pontuação atribuída pela eliminação de um adversário combina a pontuação-base definida em <code>config.KILL_POINTS</code> e o índice multiplicador de combo ativo $c$:<br />
+$$\text{Pontos_Ganhos} = \text{Pontos_Base} \times \min(5, \; c)$$<br />
+onde $c \in {1, 2, 3, 4, 5}$. O combo é iniciado com $c=1$ na primeira baixa. Cada abate subsequente concretizado dentro de uma janela temporal estrita de até $2.5\text{ segundos}$ ($150\text{ quadros}$ a 60 FPS) adiciona $+1$ ao multiplicador e restabelece a contagem regressiva da barra de combo. Decorridos os 150 quadros sem novos abates, o multiplicador regride automaticamente para o patamar base $c=1$.</p>
 <hr />
 <h3 id="110-engenharia-de-requisitos-atualizada">1.10 Engenharia de Requisitos Atualizada</h3>
 <h4 id="requisitos-funcionais-rf">Requisitos Funcionais (RF)</h4>
@@ -474,68 +573,128 @@ $$\text{Direção} = \text{Direção} \times (-1)$$</p>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><strong>RF-01</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-01</strong></td>
 <td style="text-align: left;">Movimentação horizontal do jogador (esquerda/direita) via teclado (A/D ou setas).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-02</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-02</strong></td>
 <td style="text-align: left;">Salto do jogador ao pressionar W ou seta para cima com simulação gravitacional.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-03</strong></td>
-<td style="text-align: left;">Disparo de projéteis com munição limitada e cooldown de tiro de 20 frames.</td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-03</strong></td>
+<td style="text-align: left;">Disparo de projéteis com o botão esquerdo do mouse, na direção da mira, com munição limitada e cooldown de tiro de 20 frames.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-04</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-04</strong></td>
 <td style="text-align: left;">Lançamento de granadas com trajetória parabólica, timer de pavio e explosão em área.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-05</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-05</strong></td>
 <td style="text-align: left;">Detecção de colisões com aplicação de dano diferenciado (inimigos, jogador e chefes).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-06</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-06</strong></td>
 <td style="text-align: left;">Carregamento de fases através de matrizes em arquivos CSV (<code>levels/levelN_data.csv</code>).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-07</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-07</strong></td>
 <td style="text-align: left;">Inteligência Artificial para inimigos com patrulha, detecção e ataque.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-08</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-08</strong></td>
 <td style="text-align: left;">Coleta de suprimentos em caixas (vida +25, munição +15, granadas +3).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-09</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-09</strong></td>
 <td style="text-align: left;">HUD gráfico exibindo barra de vida dinâmica, contagem de munição e granadas.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-10</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-10</strong></td>
 <td style="text-align: left;">Transição suave de fases com efeito de fade na tela.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-11</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-11</strong></td>
 <td style="text-align: left;"><strong>[T2] Navegação Completa por Menus:</strong> Suporte a menus integrados de Novo Jogo, Multiplayer, Editor de Fases, Instruções, Configurações e Sair.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-12</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-12</strong></td>
 <td style="text-align: left;"><strong>[T2] Configurações de Áudio:</strong> Sliders interativos com knob para ajuste contínuo do volume da música e dos efeitos sonoros.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-13</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-13</strong></td>
 <td style="text-align: left;"><strong>[T2] Editor de Fases Integrado:</strong> Ferramenta gráfica para edição da matriz de blocos (pintar e apagar), rolagem de mapa, seleção de 88 tiles e I/O de arquivos CSV.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-14</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-14</strong></td>
 <td style="text-align: left;"><strong>[T2] Hospedagem de Servidor LAN:</strong> Criação de servidor local UDP na porta 5555 via thread em background no modo Host.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-15</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-15</strong></td>
 <td style="text-align: left;"><strong>[T2] Conexão Cliente LAN:</strong> Conexão a partidas via endereço IP informado pelo usuário com recepção contínua em thread daemon.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RF-16</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-16</strong></td>
 <td style="text-align: left;"><strong>[T2] Sincronização e LERP:</strong> Sincronização em tempo real de coordenadas, ações, direção e tiros entre jogadores em rede local com suavização por LERP.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-17</strong></td>
+<td style="text-align: left;"><strong>[T2] Fim da Campanha:</strong> Vitória ao derrotar os dois chefes da fase 4, com tela de Vitória e tempo da partida.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-18</strong></td>
+<td style="text-align: left;"><strong>[T2] Progresso Salvo:</strong> Fases concluídas, campanha zerada e recorde do Desafio gravados em <code>save/progresso.json</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-19</strong></td>
+<td style="text-align: left;"><strong>[T2] Checkpoints:</strong> Bandeiras (tile 88 no CSV da fase) guardam posição, munição, granadas e inimigos mortos; usadas para renascer quando não há posição segura nem parceiro.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-20</strong></td>
+<td style="text-align: left;"><strong>[T2] Modo Desafio:</strong> Fases 1 a 5 seguidas com uma vida, cronômetro, "FASE x/5" e recorde de tempo.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-21</strong></td>
+<td style="text-align: left;"><strong>[T2] Fase sincronizada no multiplayer:</strong> Host e cliente trocam de fase e chegam à vitória juntos (mensagens <code>level</code> e <code>levelreq</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-22</strong></td>
+<td style="text-align: left;"><strong>[T2] Mira e Tiro com o Mouse:</strong> Rotação dinâmica da arma em torno da empunhadura acompanhando a coordenada do cursor do mouse, com disparo vetorial de projéteis em qualquer ângulo e orientação do soldado.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-23</strong></td>
+<td style="text-align: left;"><strong>[T2] Mecânica de Dash:</strong> Impulso horizontal de esquiva (tecla Espaço) com velocidade de 16 px/frame durante 10 frames, gravidade zero, invulnerabilidade, efeito de rastro fantasma e cooldown de 50 frames.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-24</strong></td>
+<td style="text-align: left;"><strong>[T2] Sistema de Vidas Compartilhadas:</strong> 3 vidas compartilhadas na campanha (solo e co-op com autoridade do Host); renascimento automático em 1 s ao lado do parceiro vivo ou na última posição segura de solo firme.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-25</strong></td>
+<td style="text-align: left;"><strong>[T2] Modo Desafio em Dupla:</strong> Modo cooperativo de vida única por jogador; queda permanente na fase com modo espectador na câmera do parceiro e renascimento na fase seguinte com 50% de HP; Game Over definitivo ("DESAFIO ENCERRADO") com morte de ambos.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-26</strong></td>
+<td style="text-align: left;"><strong>[T2] Batalhas de Chefes em Etapas:</strong> Fase 4 com combate em duas etapas sequenciais (Demon Boss seguido de transição explosiva de 1,5 s para o Dragon Boss), HUD com indicador de etapa e vitória vinculada à queda do último chefe.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-27</strong></td>
+<td style="text-align: left;"><strong>[T2] Sistema de Pontuação, Combo e Drops:</strong> Atribuição de pontuação por inimigo, multiplicador de combo acumulativo (até x5) com janela de 2,5 s, e drops determinísticos de caixas de suprimentos (munição 25%, vida 10%, granadas 8%).</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-28</strong></td>
+<td style="text-align: left;"><strong>[T2] Personalização de Cor do Combatente:</strong> Seletor de cores (Verde, Azul, Vermelho, Amarelo, Roxo) salvo no perfil de progresso, com resolução automática anti-colisão de cor entre Host e Cliente via pacote <code>color</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-29</strong></td>
+<td style="text-align: left;"><strong>[T2] Interatividade de Cenário, Itens e Colisão Co-op:</strong> Coleta sincronizada de suprimentos via rede, leitura de placas informativas (tecla E) e colisão física entre os dois soldados (permitindo suporte de elevação).</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-30</strong></td>
+<td style="text-align: left;"><strong>[T2] Estrutura de Saída em Castelo:</strong> Representação arquitetônica de castelo temático ao final das fases 1 a 3 com a linha de chegada 6 blocos antes, no chão plano do fim da fase.</td>
+</tr>
+<tr>
+<td style="text-align: left; white-space: nowrap;"><strong>RF-31</strong></td>
+<td style="text-align: left;"><strong>[T2] Ferramentas Avançadas do Editor:</strong> Modo Mover (tecla M) para realocação/troca de blocos, sistema de histórico com Desfazer/Refazer (Ctrl+Z / Ctrl+Y até 100 passos) e posicionamento de checkpoints pelo tile 88.</td>
 </tr>
 </tbody>
 </table>
@@ -549,35 +708,35 @@ $$\text{Direção} = \text{Direção} \times (-1)$$</p>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><strong>RNF-01</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-01</strong></td>
 <td style="text-align: left;"><strong>Desempenho:</strong> Manutenção de taxa estável de 60 quadros por segundo (FPS).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-02</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-02</strong></td>
 <td style="text-align: left;"><strong>Portabilidade:</strong> Execução limpa em qualquer sistema operacional compatível com Python 3.10+ e Pygame.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-03</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-03</strong></td>
 <td style="text-align: left;"><strong>Usabilidade:</strong> Telas intuitivas com feedback visual de botões e atalhos claros.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-04</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-04</strong></td>
 <td style="text-align: left;"><strong>Manutenibilidade:</strong> Separação estrita de responsabilidades (SRP) e eliminação de código duplicado (DRY).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-05</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-05</strong></td>
 <td style="text-align: left;"><strong>Economia de Recursos:</strong> Gerenciamento único de assets na memória via Singleton <code>AssetManager</code>.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-06</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-06</strong></td>
 <td style="text-align: left;"><strong>[T2] Baixa Latência em LAN:</strong> Comunicação via UDP de baixa sobrecarga de dados por pacote (&lt; 128 bytes).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-07</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-07</strong></td>
 <td style="text-align: left;"><strong>[T2] Tolerância a Falhas de Rede:</strong> Desconexão segura por timeout após 5 segundos de inatividade sem congelar o Pygame.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>RNF-08</strong></td>
+<td style="text-align: left; white-space: nowrap;"><strong>RNF-08</strong></td>
 <td style="text-align: left;"><strong>[T2] Integridade da Física:</strong> Preservação estrita de todas as constantes gravitacionais, colisões e câmera do jogo original.</td>
 </tr>
 </tbody>

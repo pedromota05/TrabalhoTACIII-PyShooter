@@ -61,6 +61,10 @@ def draw_game_entities(game) -> None:
     for enemy in game.enemy_group:
         enemy.draw(game.screen)
 
+    if hasattr(game, 'spider_group'):
+        for spider in game.spider_group:
+            spider.draw(game.screen)
+
     for boss in game.boss_group:
         boss.draw(game.screen)
         if hasattr(boss, 'draw_health_bar'):

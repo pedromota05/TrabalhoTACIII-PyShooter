@@ -82,7 +82,7 @@ class LevelEditorScreen:
             self.world_data[ROWS - 1][c] = 0
 
     def _init_tile_images(self) -> None:
-        """Carrega e escala os 88 tipos de tiles (cenários, inimigos e bosses)."""
+        """Carrega e escala os 88 tipos de tiles (cenários, inimigos e bosses) e os novos (88 checkpoint, 89 aranha)."""
         self.img_list = []
         for x in range(TILE_TYPES):
             try:
@@ -136,6 +136,15 @@ class LevelEditorScreen:
                 (TILE_SIZE * 3 // 4, 4 + TILE_SIZE // 4),
                 (TILE_SIZE // 4 + 2, 4 + TILE_SIZE // 2)
             ])
+            self.img_list.append(surf)
+
+        # Tile ID 89: Aranha
+        try:
+            from entities.spider import spider_icon
+            self.img_list.append(spider_icon(TILE_SIZE))
+        except Exception:
+            surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            pygame.draw.ellipse(surf, (20, 20, 20), (TILE_SIZE // 4, TILE_SIZE // 4, TILE_SIZE // 2, TILE_SIZE // 3))
             self.img_list.append(surf)
 
     def _init_buttons(self) -> None:

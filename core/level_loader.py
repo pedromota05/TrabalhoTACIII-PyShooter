@@ -16,6 +16,8 @@ from world.level_builder import World
 def reset_groups(game) -> None:
     """Esvazia os grupos de sprites pertencentes à sessão atual."""
     game.enemy_group.empty()
+    if hasattr(game, 'spider_group'):
+        game.spider_group.empty()
     game.boss_group.empty()
     if not hasattr(game, 'boss_reserve_group'):
         game.boss_reserve_group = pygame.sprite.Group()
@@ -42,8 +44,8 @@ def reset_groups(game) -> None:
 
 
 def checkpoints_enabled(game) -> bool:
-    """Checkpoints valem só na campanha solo (não no Desafio nem em LAN)."""
-    return not (getattr(game, 'challenge_mode', False) or getattr(game, 'is_multiplayer', False))
+    """Checkpoints valem na campanha, solo ou em LAN (não no Desafio)."""
+    return not getattr(game, 'challenge_mode', False)
 
 
 def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
@@ -70,8 +72,6 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     game.screen_scroll = 0
     game.bg_scroll = 0
     game.boss_clear_frames = 0
-    # Renascer na posição segura só vale dentro da mesma fase
-    game.safe_pos = None
     game.respawn_pending = False
     game.challenge_spectating = False
     world_data = [[-1] * COLS for _ in range(ROWS)]
@@ -97,6 +97,12 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
         game.boss_group,
         level_number,
     )
+    from entities.spider import Spider
+    if hasattr(game.world, 'spider_spawns') and hasattr(game, 'spider_group'):
+        for sp_x, sp_y in game.world.spider_spawns:
+            game.spider_group.add(Spider(sp_x, sp_y))
+    # Início da fase (x do mundo, pé do jogador): ponto de renascer sem bandeira.
+    game.level_start = (game.player.rect.centerx, game.player.rect.bottom)
 
     # Atribui IDs determinísticos para inimigos e chefes para sincronização em rede
     target_id = 0
@@ -165,7 +171,8 @@ def shift_world(game, offset: int) -> None:
         rect.x -= offset
     groups = (game.enemy_group, game.boss_group, game.item_box_group,
               game.decoration_group, game.water_group, game.exit_group,
-              game.checkpoint_group, game.boss_reserve_group)
+              game.checkpoint_group, game.boss_reserve_group,
+              getattr(game, 'spider_group', ()))
     for group in groups:
         for sprite in group:
             sprite.rect.x -= offset
@@ -218,7 +225,8 @@ def move_camera(game, world_x: float, level_px: int | None = None) -> None:
     groups = (game.enemy_group, game.boss_group, game.item_box_group,
               game.decoration_group, game.water_group, game.exit_group,
               game.checkpoint_group, game.bullet_group, game.grenade_group,
-              game.explosion_group, game.boss_reserve_group)
+              game.explosion_group, game.boss_reserve_group,
+              getattr(game, 'spider_group', ()))
     for group in groups:
         for sprite in group:
             sprite.rect.x -= delta

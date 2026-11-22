@@ -90,9 +90,13 @@ class InstructionsScreen:
         screen.blit(keys_ui['SPACE'], key_rect)
 
         # Mouse
-        mouse_surf = font.render("MOUSE : Mirar  |  BOTÃO ESQUERDO : Atirar", True, WHITE)
-        mouse_rect = mouse_surf.get_rect(center=(center_x, 470))
+        mouse_surf = font.render("MOUSE : Mirar  |  BOTÃO ESQ. : Atirar", True, WHITE)
+        mouse_rect = mouse_surf.get_rect(center=(center_x, 460))
         screen.blit(mouse_surf, mouse_rect)
+
+        melee_surf = font.render("Botão direito: golpe com a arma (quebra caixas de madeira)", True, WHITE)
+        melee_rect = melee_surf.get_rect(center=(center_x, 490))
+        screen.blit(melee_surf, melee_rect)
 
         # Q ou G
         y_pos = 530
@@ -110,8 +114,13 @@ class InstructionsScreen:
         key1_rect = keys_ui['Q'].get_rect(midright=(ou_rect.left - 15, y_pos))
         screen.blit(keys_ui['Q'], key1_rect)
 
+        # Coração: +1 vida
+        heart_surf = font.render("Coração: +1 vida (até 5)", True, (255, 120, 120))
+        heart_rect = heart_surf.get_rect(center=(center_x, 570))
+        screen.blit(heart_surf, heart_rect)
+
         # ESC
-        y_pos = 600
+        y_pos = 610
         desc_surf = font.render(": Voltar ao menu", True, WHITE)
         desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
         screen.blit(desc_surf, desc_rect)

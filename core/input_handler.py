@@ -21,6 +21,8 @@ def handle_events(game) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1 and game.state == GameState.PLAYING:
                 game.shoot = True
+            if event.button == 3 and game.state == GameState.PLAYING:
+                game.melee_input = True
 
         if event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:

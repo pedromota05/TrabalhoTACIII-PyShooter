@@ -6,17 +6,18 @@ import pygame
 from asset_manager import AssetManager
 from config import (
     BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_COLORS, PLAYER_START_AMMO, SIGN_RANGE_X,
-    SHARED_LIVES, LIVES_RESET_FRAMES, TILE_SIZE, SCREEN_WIDTH,
+    SHARED_LIVES, MAX_LIVES, LIVES_RESET_FRAMES, TILE_SIZE, SCREEN_WIDTH,
     KILL_POINTS, COMBO_WINDOW_FRAMES, COMBO_MAX, DROP_CHANCES,
+    MELEE_DAMAGE, CRATE_DROPS,
 )
 from core import progress
 from entities import DragonBoss, Explosion, Grenade, RemotePlayer, effects
+from entities.spider import Spider
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from entities.items import ItemBox
 from game_state import GameState
 
 # Quantos quadros de chão firme a posição de renascimento fica "atrasada".
-SAFE_HISTORY_FRAMES = 60
 
 
 # Espera após a morte do último chefe antes de concluir a fase (animação de morte).
@@ -156,46 +157,36 @@ def respawn_multiplayer(game) -> None:
     _revive_at(game, partner.world_x, center_y=partner.world_y)
 
 
-def track_safe_position(game) -> None:
-    """Guarda a última posição do jogador em chão firme (fora da água), usada
-    para renascer depois de perder uma vida."""
-    player = game.player
-    if getattr(game, 'safe_pos', None) is None:
-        game.safe_history = []  # fase nova ou recarregada (level_loader zera safe_pos)
-    # Os DOIS pés precisam estar apoiados: antes bastava um pixel, e a posição
-    # gravada era a beirada do buraco (renascia em cima dele e caía de novo).
-    bottom = player.rect.bottom
-    left_foot = pygame.Rect(player.rect.left + 4, bottom, 2, 2)
-    right_foot = pygame.Rect(player.rect.right - 6, bottom, 2, 2)
-    rects = [rect for _, rect in game.world.obstacle_list]
-    on_ground = (any(left_foot.colliderect(r) for r in rects)
-                 and any(right_foot.colliderect(r) for r in rects))
-    in_water = any(w.rect.colliderect(player.rect.inflate(TILE_SIZE, 0)) for w in game.water_group)
-    if on_ground and not in_water and player.vel_y >= 0 and not player.in_air:
-        history = game.safe_history
-        history.append((player.rect.centerx + game.bg_scroll, bottom))
-        if len(history) > SAFE_HISTORY_FRAMES:
-            del history[0]
-        # Renasce na posição mais antiga guardada (~1 s de chão firme atrás),
-        # longe da beirada de onde ele caiu.
-        game.safe_pos = history[0]
-
-
 def respawn_after_life_lost(game) -> None:
-    """Renasce na hora, sem recarregar a fase: ao lado do parceiro vivo
-    (multiplayer) ou na última posição segura. Sem nenhuma das duas, volta
-    no checkpoint/início como antes."""
+    """Renasce na hora, sem recarregar a fase: logo depois da última bandeira
+    de checkpoint ativada ou, sem bandeira, exatamente no início da fase
+    (single e multiplayer; regra de 2026-11-21)."""
     from core.level_loader import respawn
-    partners = [r for r in game.remote_players_group if r.alive] \
-        if getattr(game, 'is_multiplayer', False) else []
-    if partners:
-        _revive_at(game, partners[0].world_x, center_y=partners[0].world_y)
-        return
-    safe = getattr(game, 'safe_pos', None)
-    if safe is None:
+    point = respawn_point(game)
+    if point is None:
         respawn(game)
         return
-    _revive_at(game, safe[0], bottom_y=safe[1])
+    _revive_at(game, point[0], bottom_y=point[1])
+
+
+def respawn_point(game) -> tuple[float, float] | None:
+    """Ponto (x do mundo, pé) para renascer: um bloco depois da última
+    bandeira ativada, ou o início da fase."""
+    cp = getattr(game, 'checkpoint', None)
+    if cp:
+        x = cp['x'] + TILE_SIZE
+        top = _ground_top_world(game, int(x // TILE_SIZE))
+        if top is None:
+            return (cp['x'], cp['y'])
+        return (x, top)
+    return getattr(game, 'level_start', None)
+
+
+def _ground_top_world(game, col: int) -> int | None:
+    """Topo do bloco sólido mais alto na coluna `col` do mundo (com a câmera em qualquer ponto)."""
+    tops = [rect.top for _, rect in game.world.obstacle_list
+            if (rect.left + game.bg_scroll) // TILE_SIZE == col]
+    return min(tops) if tops else None
 
 
 def _revive_at(game, world_x: float, center_y: float | None = None,
@@ -240,9 +231,13 @@ def update_checkpoints(game) -> None:
         game.checkpoint_msg_frames -= 1
     if getattr(game, 'level_banner_frames', 0) > 0:
         game.level_banner_frames -= 1
-    player_wx = game.player.rect.centerx + game.bg_scroll
+    # No multiplayer a bandeira vale para a dupla: ativa quando qualquer um passa.
+    xs = [game.player.rect.centerx + game.bg_scroll]
+    if getattr(game, 'is_multiplayer', False):
+        xs += [r.world_x for r in game.remote_players_group]
+    front_x = max(xs)
     for flag in game.checkpoint_group:
-        if flag.active or player_wx < flag.world_x:
+        if flag.active or front_x < flag.world_x:
             continue
         flag.activate()
         mortos = {e.target_id for grp in (game.enemy_group, game.boss_group)
@@ -277,7 +272,7 @@ def update_signs(game) -> None:
 
 def update_fun(game) -> None:
     """Atualiza pontuação, combo, drops e efeitos visuais a cada quadro."""
-    all_enemies = list(game.enemy_group) + list(game.boss_group)
+    all_enemies = list(game.enemy_group) + list(game.boss_group) + list(getattr(game, 'spider_group', []))
     for s in all_enemies:
         if not s.alive and not getattr(s, '_counted', False):
             s._counted = True
@@ -301,7 +296,7 @@ def update_fun(game) -> None:
 
             if s in game.boss_group:
                 effects.shake(30, 10)
-            elif hasattr(s, 'target_id'):
+            elif hasattr(s, 'target_id') and (not hasattr(game, 'spider_group') or s not in game.spider_group):
                 rng = random.Random(s.target_id * 7919 + game.level)
                 r = rng.random()
                 cum = 0.0
@@ -323,6 +318,118 @@ def update_fun(game) -> None:
     for txt in effects.pop_texts():
         game.fun_fx_group.add(txt)
     game.fun_fx_group.update(game.screen_scroll)
+
+
+def break_crate(game, crate: dict, sync: bool = True) -> None:
+    """Quebra uma caixa de madeira (tile 12), solta lascas e sorteia o conteúdo."""
+    if hasattr(game, 'world'):
+        if crate.get('tile') in game.world.obstacle_list:
+            game.world.obstacle_list.remove(crate['tile'])
+        if crate in getattr(game.world, 'crates', []):
+            game.world.crates.remove(crate)
+
+    crate_rect = crate['tile'][1]
+
+    # Partículas: 8 lascas marrons no fun_fx_group
+    if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+        for _ in range(8):
+            game.fun_fx_group.add(effects.Debris(crate_rect.centerx, crate_rect.centery))
+
+    # Conteúdo sorteado deterministicamente (igual no Host e Cliente)
+    rng = random.Random(crate['col'] * 1000 + crate['row'] + game.level * 7)
+    r = rng.random()
+    cum = 0.0
+    chosen = None
+    for tipo, chance in CRATE_DROPS:
+        cum += chance
+        if r < cum:
+            chosen = tipo
+            break
+
+    if chosen in ('Ammo', 'Grenade', 'Health', 'Life'):
+        # Criada com a posição do MUNDO para o item_id ser igual nos dois PCs;
+        # sem `dropped`, quem pegar primeiro faz o item sumir no outro PC.
+        box = ItemBox(chosen, crate['col'] * TILE_SIZE, crate['row'] * TILE_SIZE)
+        box.rect.midbottom = crate_rect.midbottom
+        box.base_y = box.rect.y
+        game.item_box_group.add(box)
+    elif chosen == 'Spider' and hasattr(game, 'spider_group'):
+        spider = Spider(crate_rect.centerx, crate_rect.bottom)
+        game.spider_group.add(spider)
+
+    if sync and getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
+        game.network_client.send_crate(game.level, crate['col'], crate['row'])
+
+
+def update_melee(game) -> None:
+    """Processa o golpe com a arma (botão direito) contra inimigos, chefes, aranhas e caixas."""
+    if not getattr(game, 'melee_input', False):
+        return
+    game.melee_input = False
+
+    if not (game.player and game.player.alive and game.player.start_melee()):
+        return
+
+    m_rect = game.player.melee_rect()
+    effects.shake(6, 4)
+
+    is_mp = getattr(game, 'is_multiplayer', False)
+    is_host = getattr(game, 'is_host', False)
+    net = game.network_client if is_mp else None
+
+    # Inimigos
+    for enemy in game.enemy_group:
+        if enemy.alive and m_rect.colliderect(enemy.rect):
+            if is_mp and not is_host and net and hasattr(enemy, 'target_id'):
+                net.send_enemy_hit(enemy.target_id, MELEE_DAMAGE)
+                effects.damage_text(enemy.rect.centerx, enemy.rect.top, MELEE_DAMAGE)
+                enemy.hit_flash = 6
+            else:
+                enemy.health -= MELEE_DAMAGE
+                effects.damage_text(enemy.rect.centerx, enemy.rect.top, MELEE_DAMAGE)
+                enemy.hit_flash = 6
+                if enemy.health <= 0:
+                    enemy.health = 0
+                    enemy.alive = False
+                    if hasattr(enemy, 'update_action'):
+                        enemy.update_action(3)
+                elif hasattr(enemy, 'animation_list') and len(enemy.animation_list) > 4:
+                    enemy.update_action(4)
+
+    # Chefes
+    for boss in game.boss_group:
+        if boss.alive and m_rect.colliderect(boss.rect):
+            if is_mp and not is_host and net and hasattr(boss, 'target_id'):
+                net.send_enemy_hit(boss.target_id, MELEE_DAMAGE)
+                effects.damage_text(boss.rect.centerx, boss.rect.top, MELEE_DAMAGE)
+                boss.hit_flash = 6
+            else:
+                boss.health -= MELEE_DAMAGE
+                effects.damage_text(boss.rect.centerx, boss.rect.top, MELEE_DAMAGE)
+                boss.hit_flash = 6
+                if boss.health <= 0:
+                    boss.health = 0
+                    boss.alive = False
+                    if hasattr(boss, 'update_action'):
+                        boss.update_action(3)
+
+    # Aranhas (locais em cada PC)
+    if hasattr(game, 'spider_group'):
+        for spider in game.spider_group:
+            if spider.alive and m_rect.colliderect(spider.rect):
+                spider.health -= MELEE_DAMAGE
+                effects.damage_text(spider.rect.centerx, spider.rect.top, MELEE_DAMAGE)
+                spider.hit_flash = 6
+                if spider.health <= 0:
+                    spider.health = 0
+                    spider.alive = False
+                    spider.death_timer = 20
+
+    # Caixas quebráveis
+    if hasattr(game, 'world') and hasattr(game.world, 'crates'):
+        for crate in list(game.world.crates):
+            if m_rect.colliderect(crate['tile'][1]):
+                break_crate(game, crate, sync=True)
 
 
 def update_boss_stages(game) -> None:
@@ -562,6 +669,22 @@ def update_game_entities(game) -> None:
         game.screen_scroll, game.world.obstacle_list,
         game.player, game.bullet_group, game.enemy_group, game.boss_group,
     )
+    if hasattr(game, 'spider_group'):
+        for bullet in list(game.bullet_group):
+            if getattr(bullet, 'has_hit', False) or getattr(bullet, 'visual_only', False):
+                continue
+            for spider in game.spider_group:
+                if spider.alive and bullet.rect.colliderect(spider.rect):
+                    bullet.kill()
+                    spider.health -= 25
+                    effects.damage_text(spider.rect.centerx, spider.rect.top, 25)
+                    spider.hit_flash = 6
+                    if spider.health <= 0:
+                        spider.health = 0
+                        spider.alive = False
+                        spider.death_timer = 20
+                    break
+        game.spider_group.update(game.screen_scroll, game.player, game.world.obstacle_list)
     game.grenade_group.update(
         game.screen_scroll, game.world.obstacle_list,
         game.player, game.enemy_group, game.explosion_group,
@@ -689,9 +812,39 @@ def update_playing(game) -> None:
         game.bg_scroll -= game.screen_scroll
         update_checkpoints(game)
         update_boss_stages(game)
-        track_safe_position(game)
         update_signs(game)
         update_fun(game)
+        update_melee(game)
+
+        # Processamento de caixas quebradas recebidas via rede
+        if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):
+            for lvl, col, row in game.network_client.pop_crates():
+                if lvl == game.level and hasattr(game, 'world') and hasattr(game.world, 'crates'):
+                    for c in list(game.world.crates):
+                        if c['col'] == col and c['row'] == row:
+                            break_crate(game, c, sync=False)
+                            break
+
+        # Processamento de vida extra (coração / lifeup)
+        net_life = game.network_client if getattr(game, 'is_multiplayer', False) else None
+        if getattr(game, 'is_multiplayer', False) and getattr(game, 'is_host', False) and net_life:
+            for _ in net_life.pop_lifeups():
+                game.lives = min(MAX_LIVES, game.lives + 1)
+                net_life.send_lives(game.lives, game.lives_reset_counter)
+                if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+                    game.fun_fx_group.add(effects.FloatingText("+1 VIDA", game.player.rect.centerx, game.player.rect.top, (60, 220, 90), 22))
+
+        if hasattr(game, 'player') and game.player is not None:
+            while getattr(game.player, 'pending_life_up', 0) > 0:
+                game.player.pending_life_up -= 1
+                if getattr(game, 'is_multiplayer', False) and not getattr(game, 'is_host', False) and net_life:
+                    net_life.send_lifeup()
+                else:
+                    game.lives = min(MAX_LIVES, game.lives + 1)
+                    if getattr(game, 'is_multiplayer', False) and getattr(game, 'is_host', False) and net_life:
+                        net_life.send_lives(game.lives, game.lives_reset_counter)
+                if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+                    game.fun_fx_group.add(effects.FloatingText("+1 VIDA", game.player.rect.centerx, game.player.rect.top, (60, 220, 90), 22))
 
         # Envio periódico de estado via UDP em modo multiplayer
         if getattr(game, 'is_multiplayer', False) and getattr(game, 'network_client', None):

@@ -11,7 +11,39 @@
 - 2026-11-21 (noite): mira no mouse (tiro no botão esquerdo, em qualquer ângulo), ESPAÇO = dash com rastro azul; renascer não cai mais no buraco; editor com Modo Mover (M), checkpoint como tile 88 e castelo/linha de chegada visíveis; cor do boneco na seleção de fases e sem cor repetida no multi; chefes da fase 4 em etapas (Demônio, depois Dragão); vidas do HUD longe da pausa. Commit 3f399d0 com push.
 - 2026-11-21 (noite, 2): arma acompanha a mira (tronco gira na cintura, até 55°; tiro sai do cano). Desafio em dupla com regra própria (uma vida por jogador, quem cai assiste, volta na fase seguinte com metade da vida; os dois caídos = DESAFIO ENCERRADO e o Host recomeça). Modo normal no multiplayer conferido com 2 processos: igual ao single.
 - 2026-11-21 (noite, 3): arma separada do corpo por cor (só a arma gira, sem cortar o boneco); bala nunca acerta quem atirou; editor com desfazer/refazer (Ctrl+Z/Ctrl+Y e botões) e castelo na paleta; pontos, combo, drops de inimigos, piscar ao levar tiro, dano flutuando e tremor de tela. Ainda sem commit.
-- Próximos passos: Guilherme testar na mão (mira, dash, editor); commit/push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD (controles mudaram: ESPAÇO não atira mais).
+- 2026-11-21 (fim): commit eee7afb com push. Plano do que falta em `docs/tarefas/2026-11-21_plano-proximos-passos.md` (renascer no início/bandeira, golpe com a arma + caixas + aranhas + vida extra, tela cheia, músicas, GDD/slides, teste com o Pedro). GDD .md editado pelo Gemini e ainda não revisado/commitado.
+- 2026-11-21 (plano, item 1): perder vida agora renasce no início da fase ou um bloco depois da última bandeira, também no multiplayer (bandeiras ligadas em LAN, ativadas por qualquer um da dupla). Bot e teste_multiplayer OK; sem commit. Item 2 (golpe, caixas, aranhas, vida extra) com o Gemini (roteiro fase-16).
+- 2026-11-21 (plano, item 5): GDD revisado + `tools/gerar_gdd.py` (HTML e PDF), slides `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx` (26 slides) e guia de estudo com a seção 4.9. Sem commit.
+- 2026-11-22 (plano, item 2): botão direito = golpe com a arma; caixas de madeira quebráveis soltam item, coração (+1 vida, até 5) ou aranha (tile 89 no editor). Caixas novas nas fases 1-3. Itens 4/5 (músicas, GDD, slides v3) feitos por outras sessões; item 3 e músicas no código com a sessão "tela cheia e músicas no jogo". Commit local em 2026-11-22 (sem push). Próximo: fase 5 de hordas.
+- Próximos passos: Guilherme testar na mão (renascer, golpe, caixas, aranha, mira, dash, editor); push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD (controles mudaram: ESPAÇO não atira mais).
+
+---
+
+### 2026-11-22 — Golpe com a arma, caixas quebráveis, aranhas e vida extra (plano, item 2)
+- Pedido: item 2 do plano (golpe corpo a corpo, quebrar caixas de madeira, aranhas, vida extra); a aranha também como tile do editor.
+- Feito: roteiro `docs/tarefas/2026-11-21_fase-16_golpe-caixas-aranhas.md` executado pelo Gemini e revisado. Botão direito = golpe (`Player.start_melee`/`melee_rect`, arma gira e arco branco; `update_melee` em `core/gameplay.py`). Caixas tile 12 quebráveis (`World.crates`; não quebram as da última linha nem as que têm bloco em cima) com lascas (`effects.Debris`) e conteúdo sorteado pela posição (`config.CRATE_DROPS`): munição, granada, vida, coração (+1 vida, até `MAX_LIVES = 5`) ou aranha. Aranha em `entities/spider.py` (desenhada no código, local em cada PC), tile 89 no editor e nos assets. Rede: `"{pid},crate,fase,col,linha"` e `"{pid},lifeup,seq"` (Host soma a vida; seq evita contar repetido). Correções do Claude: protocolo no formato padrão (o Gemini tinha mudado `network/server.py`; revertido), item da caixa com id do mundo para sumir nos dois PCs, aranha some ao cair no buraco. Caixas novas colocadas pelo Claude: fase 1 colunas 151/155/166/171, fase 2 43/157/161/168, fase 3 95/167/172.
+- Resultados: compila; golpe na caixa da fase 1 (col 40) quebra e solta item; bot `todas` 4/4 e `--desafio --god` sem problemas (antes das caixas novas só o `todas`); fases 1-5 carregam e rodam 3 s. Testes longos (bot humano e multiplayer) pulados a pedido do Guilherme: ele testa jogando.
+- Próximos passos: Guilherme testar golpe/caixas/aranha/coração (também no multiplayer); fase 5 de hordas (roteiro fase-17).
+
+---
+
+### 2026-11-21 — Documentação: GDD revisado, gerar_gdd.py, slides v3 e guia (plano, item 5)
+- **Pedido:** item 5 do plano (`docs/tarefas/2026-11-21_plano-proximos-passos.md`), em sessão paralela, mexendo só em `docs/` e no novo `tools/gerar_gdd.py`.
+- **Feito:**
+  - `docs/GDD_Trabalho2.md`: revisado o diff do Gemini contra o roteiro `docs/tarefas/2026-11-21_fase-15_gdd-novidades.md` e o código. Corrigido: "360°" (a arma gira até ±89° e o soldado vira), cronômetro do Desafio é mm:ss.d (não milissegundos), voltou "o Desafio não marca a campanha como zerada", direção do dash (tecla apertada ou lado do olhar), dash invencível a dano (não a "perigos de fase"), vida perdida também por vida zerada, RF-19 (checkpoints no CSV, tile 88), RF-30 (linha de chegada). Nova subseção "Em Desenvolvimento" em 1.5 com o que ainda está entrando.
+  - `tools/gerar_gdd.py` (novo): `python tools/gerar_gdd.py [--sem-pdf]` converte o .md (markdown: tables, fenced_code, nl2br, toc), mantém o `<head>`/`<style>` do HTML atual, impede quebra de linha nas células de ID (RF-xx) e gera `docs/GDD_Trabalho2.pdf` com o Edge headless. Resultado: PDF com 19 páginas, tabelas conferidas.
+  - Capturas novas em `docs/capturas/v3_*.png` (mira, mira ampliada, dash, -1 VIDA, chefes ETAPA 2/2, pontos, seletor de cor, editor com Modo Mover/checkpoint e castelo). Script usado (fora do repositório, SDL dummy + Bot do bot_fases): scratchpad da sessão, `captura_slides.py`.
+  - `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx` (26 slides, o `_v2` intacto): 9 slides novos no estilo do v2 (mira, dash, vidas, chefes, pontos/combo/drops, cor, editor, Desafio em dupla e "Em desenvolvimento") com notas do apresentador; cartão de checkpoints do slide 8 atualizado. Conferido renderizando no PowerPoint.
+  - `docs/2026-11-19_guia-de-estudo-apresentacao.md`: nova seção 4.9 (aim_pose, dash, regras de vida, chefes em etapas, pontos/combo/drops, effects.py, cor, editor), tabela de mensagens 5.4 com `aim`, `level` com Desafio, `item`, `color`, `death`, `lives`; perguntas 16 a 19.
+- **Resultados:** nada commitado. A regra nova de renascer (início/bandeira, item 1) ficou marcada como "em desenvolvimento" no GDD, slides e guia.
+- **Próximos passos:** quando os itens 1-4 forem commitados, tirar do "Em desenvolvimento" o que entrou (GDD + `python tools/gerar_gdd.py`, slide 25 do v3, guia 4.9); slide 4 (roteiro da demo) e slide 14 (protocolo) do v3 ainda são os do v2.
+
+### 2026-11-21 — Renascer no início da fase ou depois da bandeira (plano, item 1)
+- Pedido: ao perder uma vida, voltar exatamente ao início da fase ou logo depois da última bandeira de checkpoint. Guilherme escolheu a mesma regra no multiplayer.
+- Feito: `core/gameplay.py` — `respawn_after_life_lost` usa `respawn_point` (um bloco depois da bandeira ativa, no topo do chão daquela coluna; sem bandeira, `game.level_start`); `track_safe_position`/`safe_pos` removidos; `update_checkpoints` ativa a bandeira quando qualquer jogador da dupla passa. `core/level_loader.py` — `game.level_start` guardado após `process_data`; `checkpoints_enabled` agora só desliga no Desafio (bandeiras em LAN). Regra em `_CONTEXTO/DECISOES.md`.
+- Resultados: teste direto na fase 1 (sem bandeira renasce em x=40; com a bandeira em 1940 renasce em 1980); bot `todas` 4/4, `--desafio --god` sem problemas, `--humano 3` igual a antes (fase 3 67%, queda perto de x 4000); `teste_multiplayer` itens 1, 2, 4-7 OK, item 3 em 76% (oscilação conhecida).
+- Roteiro do item 2 escrito: `docs/tarefas/2026-11-21_fase-16_golpe-caixas-aranhas.md` (inclui a aranha como tile 89 no editor).
+- Próximos passos: Guilherme testar o renascer na mão; Gemini executar a fase 16.
 
 ---
 

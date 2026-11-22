@@ -95,3 +95,32 @@ def pop_texts() -> list[FloatingText]:
     res = list(_texts)
     _texts.clear()
     return res
+
+
+class Debris(pygame.sprite.Sprite):
+    """Partícula de lasca de madeira de caixa quebrada."""
+
+    def __init__(self, x: float, y: float):
+        super().__init__()
+        size = random.randint(3, 6)
+        colors = [(139, 90, 43), (110, 68, 30), (160, 110, 60), (180, 130, 70)]
+        color = random.choice(colors)
+        self.image = pygame.Surface((size, size))
+        self.image.fill(color)
+        self.rect = self.image.get_rect(center=(int(x), int(y)))
+        self.vx = random.uniform(-4, 4)
+        self.vy = random.uniform(-6, -1)
+        self.x = float(self.rect.x)
+        self.y = float(self.rect.y)
+        self.timer = random.randint(20, 30)
+
+    def update(self, screen_scroll: int):
+        self.vy += 0.4
+        self.x += self.vx + screen_scroll
+        self.y += self.vy
+        self.rect.x = int(self.x)
+        self.rect.y = int(self.y)
+        self.timer -= 1
+        if self.timer <= 0:
+            self.kill()
+
