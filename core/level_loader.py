@@ -5,7 +5,7 @@ import os
 
 import pygame
 
-from config import CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE, SIGN_TEXTS, SIGN_DEFAULT_TEXT
+from config import CHECKPOINT_TILE, CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE, SIGN_TEXTS, SIGN_DEFAULT_TEXT
 from entities.castle import Castle, CASTLE_THEMES, FinishLine
 from entities.checkpoint import CheckpointFlag
 from entities.sign import Sign
@@ -16,6 +16,10 @@ def reset_groups(game) -> None:
     """Esvazia os grupos de sprites pertencentes à sessão atual."""
     game.enemy_group.empty()
     game.boss_group.empty()
+    if not hasattr(game, 'boss_reserve_group'):
+        game.boss_reserve_group = pygame.sprite.Group()
+    else:
+        game.boss_reserve_group.empty()
     game.bullet_group.empty()
     game.grenade_group.empty()
     game.explosion_group.empty()
@@ -91,8 +95,29 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
         boss.target_id = target_id
         target_id += 1
 
+    if len(game.boss_group) >= 2:
+        sorted_bosses = sorted(game.boss_group, key=lambda b: b.rect.x)
+        game.boss_group.empty()
+        game.boss_group.add(sorted_bosses[0])
+        game.boss_queue = list(sorted_bosses[1:])
+        for b in game.boss_queue:
+            game.boss_reserve_group.add(b)
+        game.boss_stage = 1
+        game.boss_stage_total = len(sorted_bosses)
+        game.boss_stage_frames = 0
+        game.boss_stage_banner = 0
+    else:
+        game.boss_queue = []
+        game.boss_stage = 1
+        game.boss_stage_total = len(game.boss_group)
+        game.boss_stage_frames = 0
+        game.boss_stage_banner = 0
+
     if hasattr(game, 'checkpoint_group') and checkpoints_enabled(game):
-        for col in CHECKPOINTS.get(level_number, []):
+        cp_cols = sorted({c for row in world_data for c, val in enumerate(row) if val == CHECKPOINT_TILE})
+        if not cp_cols:
+            cp_cols = CHECKPOINTS.get(level_number, [])
+        for col in cp_cols:
             game.checkpoint_group.add(CheckpointFlag(col, _ground_top(game.world, col)))
 
     # Castelinho na saída (fases com tema). A Exit continua sendo o gatilho;
@@ -128,7 +153,7 @@ def shift_world(game, offset: int) -> None:
         rect.x -= offset
     groups = (game.enemy_group, game.boss_group, game.item_box_group,
               game.decoration_group, game.water_group, game.exit_group,
-              game.checkpoint_group)
+              game.checkpoint_group, game.boss_reserve_group)
     for group in groups:
         for sprite in group:
             sprite.rect.x -= offset
@@ -181,7 +206,7 @@ def move_camera(game, world_x: float, level_px: int | None = None) -> None:
     groups = (game.enemy_group, game.boss_group, game.item_box_group,
               game.decoration_group, game.water_group, game.exit_group,
               game.checkpoint_group, game.bullet_group, game.grenade_group,
-              game.explosion_group)
+              game.explosion_group, game.boss_reserve_group)
     for group in groups:
         for sprite in group:
             sprite.rect.x -= delta

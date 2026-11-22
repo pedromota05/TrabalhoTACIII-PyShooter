@@ -82,15 +82,20 @@ class InstructionsScreen:
 
         # ESPAÇO
         y_pos = 410
-        desc_surf = font.render(": Atirar", True, WHITE)
+        desc_surf = font.render(": Dash", True, WHITE)
         desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
         screen.blit(desc_surf, desc_rect)
 
         key_rect = keys_ui['SPACE'].get_rect(midright=(center_x - 10, y_pos))
         screen.blit(keys_ui['SPACE'], key_rect)
 
+        # Mouse
+        mouse_surf = font.render("MOUSE : Mirar  |  BOTÃO ESQUERDO : Atirar", True, WHITE)
+        mouse_rect = mouse_surf.get_rect(center=(center_x, 470))
+        screen.blit(mouse_surf, mouse_rect)
+
         # Q ou G
-        y_pos = 480
+        y_pos = 530
         desc_surf = font.render(": Lançar granada", True, WHITE)
         desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
         screen.blit(desc_surf, desc_rect)
@@ -106,7 +111,7 @@ class InstructionsScreen:
         screen.blit(keys_ui['Q'], key1_rect)
 
         # ESC
-        y_pos = 550
+        y_pos = 600
         desc_surf = font.render(": Voltar ao menu", True, WHITE)
         desc_rect = desc_surf.get_rect(midleft=(center_x + 10, y_pos))
         screen.blit(desc_surf, desc_rect)

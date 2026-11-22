@@ -2,6 +2,7 @@
 entities/base.py — Classe base para personagens animados no PyShooter.
 """
 
+import math
 import pygame
 from config import (
     GRAVITY, TERMINAL_VELOCITY,
@@ -140,19 +141,31 @@ class Character(pygame.sprite.Sprite):
     # ------------------------------------------------------------------
     #  Combate
     # ------------------------------------------------------------------
-    def shoot(self, bullet_group, network_client=None, bg_scroll: int = 0):
+    def shoot(self, bullet_group, network_client=None, bg_scroll: int = 0, target=None):
         """Dispara um projétil se houver munição e o cooldown permitir."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
-            spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
-            spawn_y = self.rect.centery - 5
-
-            bullet = Bullet(
-                spawn_x,
-                spawn_y,
-                self.direction,
-                network_client=network_client,
-            )
+            if target is None:
+                spawn_x = self.rect.centerx + (self.rect.width * 0.9 * self.direction)
+                spawn_y = self.rect.centery - 5
+                bullet = Bullet(
+                    spawn_x,
+                    spawn_y,
+                    self.direction,
+                    network_client=network_client,
+                )
+            else:
+                cx, cy = self.rect.centerx, self.rect.centery - 5
+                angle = math.atan2(target[1] - cy, target[0] - cx)
+                spawn_x = cx + math.cos(angle) * self.rect.width * 0.9
+                spawn_y = cy + math.sin(angle) * self.rect.width * 0.9
+                bullet = Bullet(
+                    spawn_x,
+                    spawn_y,
+                    self.direction,
+                    network_client=network_client,
+                    angle=angle,
+                )
             bullet_group.add(bullet)
             self.ammo -= 1
             AssetManager().get_sound('shot').play()

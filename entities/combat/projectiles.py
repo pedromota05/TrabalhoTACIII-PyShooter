@@ -30,16 +30,24 @@ class Bullet(pygame.sprite.Sprite):
     """Projétil linear padrão disparado pelo jogador e por soldados inimigos."""
 
     def __init__(self, x: float, y: float, direction: int, network_client=None,
-                 visual_only: bool = False):
+                 visual_only: bool = False, angle: float | None = None):
         super().__init__()
         self.speed = BULLET_SPEED
         # visual_only: bala de um jogador remoto. Só aparece na tela; o dano
         # chega pela mensagem "hit" de quem atirou (evita dano em dobro no Host
         # e fogo amigo no jogador local).
         self.visual_only = visual_only
-        self.image = AssetManager().get_image('bullet')
-        self.rect = self.image.get_rect()
-        self.rect.center = (int(x), int(y))
+        self.angle = angle
+        if angle is not None:
+            self.vel_x = math.cos(angle) * self.speed
+            self.vel_y = math.sin(angle) * self.speed
+            self.fx, self.fy = float(x), float(y)
+            self.image = pygame.transform.rotate(AssetManager().get_image('bullet'), -math.degrees(angle))
+            self.rect = self.image.get_rect(center=(int(x), int(y)))
+        else:
+            self.image = AssetManager().get_image('bullet')
+            self.rect = self.image.get_rect()
+            self.rect.center = (int(x), int(y))
         self.direction = direction
         self.has_hit = False
         self.hit_timer = 0
@@ -53,14 +61,24 @@ class Bullet(pygame.sprite.Sprite):
             if self.hit_timer > 2:
                 self.kill()
             # A bala acompanha o scroll da tela enquanto congela para feedback visual
-            self.rect.x += screen_scroll
+            if self.angle is not None:
+                self.fx += screen_scroll
+                self.rect.center = (int(self.fx), int(self.fy))
+            else:
+                self.rect.x += screen_scroll
             return
 
         # Movimento normal
-        self.rect.x += (self.direction * self.speed) + screen_scroll
+        if self.angle is None:
+            self.rect.x += (self.direction * self.speed) + screen_scroll
+        else:
+            self.fx += self.vel_x + screen_scroll
+            self.fy += self.vel_y
+            self.rect.center = (int(self.fx), int(self.fy))
 
         # Fora da tela
-        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
+        if (self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or
+                self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT):
             self.kill()
             return
 

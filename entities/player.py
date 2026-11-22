@@ -2,11 +2,14 @@
 entities/player.py — Jogador (Player) do PyShooter.
 """
 
+import math
+import random
 import pygame
 from config import (
     JUMP_VELOCITY, SCREEN_WIDTH, SCREEN_HEIGHT,
     TILE_SIZE, SCROLL_THRESH,
     PLAYER_SCALE, PLAYER_SPEED, PLAYER_START_AMMO, PLAYER_START_GRENADES,
+    DASH_SPEED, DASH_FRAMES, DASH_COOLDOWN, DASH_TRAIL,
 )
 from asset_manager import AssetManager
 from .base import Character
@@ -19,12 +22,62 @@ class Player(Character):
                  speed: int = PLAYER_SPEED, ammo: int = PLAYER_START_AMMO,
                  grenades: int = PLAYER_START_GRENADES):
         super().__init__('player', x, y, scale, speed, ammo, grenades)
+        self.scale_used = scale
         self.invincible = 0
+        self.aim_angle = 0.0
+        self.dash_timer = 0
+        self.dash_cooldown = 0
+        self.dash_dir = 1
+        self.dash_trail = []  # [imagem, flip, x, y, vida]
+        self.dash_dust = []   # [x, y, raio, vida]
+        self.color = -1
         from core import progress  # import local evita ciclo
-        self.color = progress.carregar().get('cor_jogador', 0)
-        if self.color:
-            self.animation_list = AssetManager().load_character_animations('player', scale, self.color)
-            self.image = self.animation_list[self.action][self.frame_index]
+        self.set_color(progress.carregar().get('cor_jogador', 0))
+
+    def set_color(self, color: int) -> None:
+        """Altera a cor do soldado e recarrega as animações correspondentes."""
+        if color == self.color:
+            return
+        self.color = color
+        assets = AssetManager()
+        if self.color != 0:
+            self.animation_list = assets.load_character_animations('player', self.scale_used, self.color)
+        else:
+            self.animation_list = assets.load_character_animations('player', self.scale_used)
+
+        self.action = min(self.action, len(self.animation_list) - 1)
+        self.frame_index = min(self.frame_index, len(self.animation_list[self.action]) - 1)
+        self.image = self.animation_list[self.action][self.frame_index]
+
+    def face_point(self, x: float, y: float) -> None:
+        self.direction = 1 if x >= self.rect.centerx else -1
+        self.flip = self.direction == -1
+        self.aim_angle = math.atan2(y - (self.rect.centery - 5), x - self.rect.centerx)
+
+    def start_dash(self, moving_left: bool, moving_right: bool) -> bool:
+        if not (self.alive and self.dash_cooldown == 0 and self.dash_timer == 0):
+            return False
+        if moving_left and not moving_right:
+            self.dash_dir = -1
+        elif moving_right and not moving_left:
+            self.dash_dir = 1
+        else:
+            self.dash_dir = self.direction
+
+        self.dash_timer = DASH_FRAMES
+        self.dash_cooldown = DASH_COOLDOWN
+        self.invincible = max(self.invincible, DASH_FRAMES)
+
+        mb_x, mb_y = self.rect.midbottom
+        for _ in range(6):
+            px = mb_x + random.uniform(-10, 10)
+            py = float(mb_y)
+            raio = random.uniform(4, 8)
+            vida = 18
+            self.dash_dust.append([px, py, raio, vida])
+
+        AssetManager().get_sound('jump').play()
+        return True
 
     def update(self, enemy_group=None):
         super().update()
@@ -32,6 +85,21 @@ class Player(Character):
         # Lógica de I-Frames
         if self.invincible > 0:
             self.invincible -= 1
+
+        if self.dash_cooldown > 0:
+            self.dash_cooldown -= 1
+
+        # Envelhecer rastro
+        for item in self.dash_trail:
+            item[4] -= 1
+        self.dash_trail = [item for item in self.dash_trail if item[4] > 0]
+
+        # Envelhecer poeira
+        for p in self.dash_dust:
+            p[3] -= 1
+            p[2] += 0.4
+            p[1] -= 0.5
+        self.dash_dust = [p for p in self.dash_dust if p[3] > 0]
 
         # Dano de Contato
         if enemy_group and self.invincible == 0:
@@ -47,8 +115,27 @@ class Player(Character):
                     break
 
     def draw(self, screen: pygame.Surface):
-        # Efeito visual de piscar durante a invencibilidade
-        if self.invincible > 0 and (self.invincible // 5) % 2 == 0:
+        # Poeira
+        for p in self.dash_dust:
+            x, y, raio, vida = p
+            alpha = int(255 * (vida / 18))
+            alpha = max(0, min(255, alpha))
+            r = max(1, int(raio))
+            dust_surf = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(dust_surf, (200, 190, 170, alpha), (r + 1, r + 1), r)
+            screen.blit(dust_surf, (int(x - r - 1), int(y - r - 1)))
+
+        # Rastro
+        for item in self.dash_trail:
+            img_item, flip_item, ix, iy, vida = item
+            img = pygame.transform.flip(img_item, flip_item, False).copy()
+            img.fill((90, 160, 255, 0), special_flags=pygame.BLEND_RGBA_ADD)
+            alpha = int(160 * vida / (DASH_TRAIL * 2))
+            img.set_alpha(max(0, min(255, alpha)))
+            screen.blit(img, (ix, iy))
+
+        # Efeito visual de piscar durante a invencibilidade (no dash ele aparece sempre)
+        if self.dash_timer <= 0 and self.invincible > 0 and (self.invincible // 5) % 2 == 0:
             return  # Pula o frame, fazendo o personagem sumir
         super().draw(screen)
 
@@ -86,19 +173,28 @@ class Player(Character):
             self.flip = False
             self.direction = 1
 
-        # Modificador de controle no ar (Air Control)
-        if self.in_air:
-            dx = int(dx * 0.7)  # Reduz ganho horizontal no ar para precisão de plataformas
+        if self.dash_timer > 0:
+            dx = self.dash_dir * DASH_SPEED
+            self.vel_y = 0
+            dy = 0
+            self.dash_timer -= 1
+            self.dash_trail.append([self.image.copy(), self.flip, self.rect.x, self.rect.y, DASH_TRAIL * 2])
+            if len(self.dash_trail) > DASH_TRAIL:
+                self.dash_trail = self.dash_trail[-DASH_TRAIL:]
+        else:
+            # Modificador de controle no ar (Air Control)
+            if self.in_air:
+                dx = int(dx * 0.7)  # Reduz ganho horizontal no ar para precisão de plataformas
 
-        # Pulo
-        if self.jump and not self.in_air:
-            self.vel_y = JUMP_VELOCITY
-            self.jump = False
-            self.in_air = True
+            # Pulo
+            if self.jump and not self.in_air:
+                self.vel_y = JUMP_VELOCITY
+                self.jump = False
+                self.in_air = True
 
-        # Gravidade
-        self._apply_gravity()
-        dy += self.vel_y
+            # Gravidade
+            self._apply_gravity()
+            dy += self.vel_y
 
         # Colisão com tiles
         dx, dy = self._check_tile_collisions(dx, dy, obstacle_list, ramp_list)
@@ -142,5 +238,11 @@ class Player(Character):
                     and bg_scroll > abs(dx))):
             self.rect.x -= dx
             screen_scroll = -dx
+
+        if screen_scroll != 0:
+            for item in self.dash_trail:
+                item[2] += screen_scroll
+            for p in self.dash_dust:
+                p[0] += screen_scroll
 
         return screen_scroll, level_complete

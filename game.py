@@ -30,7 +30,7 @@ from asset_manager import AssetManager
 from core.gameplay import update_game_entities, update_level_transition, update_playing
 from core.input_handler import handle_events
 from core.level_loader import load_level, reset_groups
-from core.renderer import draw_background, draw_game_entities, draw_text
+from core.renderer import draw_background, draw_game_entities, draw_text, draw_crosshair
 from game_state import GameState
 from entities import ScreenFade
 from network import GameServer, NetworkClient
@@ -105,6 +105,8 @@ class Game:
         self.moving_left = False
         self.moving_right = False
         self.shoot = False
+        self.dash_input = False
+        self.use_mouse_aim = True
         self.grenade_input = False
         self.grenade_thrown = False
 
@@ -337,6 +339,7 @@ class Game:
 
             self._handle_events()
             button.Button.update_cursor()
+            draw_crosshair(self)
             pygame.display.update()
 
         self.clean_multiplayer()

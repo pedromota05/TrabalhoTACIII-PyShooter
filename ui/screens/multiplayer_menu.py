@@ -15,7 +15,7 @@ from config import (
 from asset_manager import AssetManager
 from core import progress
 from game_state import GameState
-from ui.screens.common import draw_text_with_shadow, draw_text_with_outline
+from ui.screens.common import draw_text_with_shadow, draw_text_with_outline, ColorPicker
 
 SUBTITLE_TEXT = "Jogue cooperativamente em rede local via UDP (Porta 5555)"
 SUBTITLE_Y = 120
@@ -68,27 +68,30 @@ class MultiplayerMenuScreen:
         self.back_btn.rect.midtop = (center_x, y)
 
         # Seletor de cor do boneco (painel à direita da tela)
-        self.color = progress.carregar().get('cor_jogador', 0) % len(PLAYER_COLORS)
         panel_x = SCREEN_WIDTH - 150
         panel_y = STACK_START_Y + 110
         self.color_panel_center = (panel_x, panel_y)
-        self.color_left = pygame.Rect(0, 0, 40, 40)
-        self.color_left.center = (panel_x - 65, panel_y)
-        self.color_right = pygame.Rect(0, 0, 40, 40)
-        self.color_right.center = (panel_x + 65, panel_y)
+        self.color_picker = ColorPicker(self.color_panel_center, self.font_bold, title="COR DO BONECO")
+        self.color_left = self.color_picker.color_left
+        self.color_right = self.color_picker.color_right
+        self._last_update_tick = 0
 
         # Mensagem de status logo abaixo do último botão
         self.status_y = self.back_btn.rect.bottom + LAN_SPACING_Y
 
+    @property
+    def color(self) -> int:
+        return self.color_picker.color
+
+    @color.setter
+    def color(self, value: int) -> None:
+        self.color_picker.color = value % len(PLAYER_COLORS)
+
     def handle_event(self, event: pygame.event.Event) -> None:
         """Processa cliques e digitação no campo de IP e seletor de cor."""
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.color_left.collidepoint(event.pos):
-                self.color = (self.color - 1) % len(PLAYER_COLORS)
-                progress.salvar_cor(self.color)
-            elif self.color_right.collidepoint(event.pos):
-                self.color = (self.color + 1) % len(PLAYER_COLORS)
-                progress.salvar_cor(self.color)
+            if self.color_picker.handle_click(event.pos):
+                pass
             elif self.input_rect.collidepoint(event.pos):
                 # Clicar no campo seleciona tudo: digitar ou apagar troca o IP inteiro.
                 self.select_all = not self.input_active or not self.select_all
@@ -136,6 +139,11 @@ class MultiplayerMenuScreen:
     def update(self, screen: pygame.Surface, game) -> None:
         """Renderiza a tela de configuração multiplayer."""
         game._draw_bg()
+
+        now = pygame.time.get_ticks()
+        if now - self._last_update_tick > 250:
+            self.color_picker.reload()
+        self._last_update_tick = now
 
         # Título principal
         draw_text_with_shadow(screen, "MULTIPLAYER EM LAN", self.title_font, WHITE, SCREEN_WIDTH // 2, 60)
@@ -187,23 +195,7 @@ class MultiplayerMenuScreen:
             game.state = GameState.MENU
 
         # Seletor de cor do soldado (painel à direita da tela)
-        panel_x, panel_y = self.color_panel_center
-        draw_text_with_shadow(screen, "COR DO BONECO", self.font_bold, WHITE, panel_x, panel_y - 70)
-
-        preview_surf = AssetManager().load_character_animations('player', PLAYER_SCALE * 1.5, self.color)[0][0]
-        preview_rect = preview_surf.get_rect(center=(panel_x, panel_y))
-        screen.blit(preview_surf, preview_rect)
-
-        pygame.draw.rect(screen, (30, 35, 45), self.color_left, border_radius=6)
-        pygame.draw.rect(screen, (140, 140, 160), self.color_left, 2, border_radius=6)
-        draw_text_with_shadow(screen, "<", self.font_bold, WHITE, self.color_left.centerx, self.color_left.centery)
-
-        pygame.draw.rect(screen, (30, 35, 45), self.color_right, border_radius=6)
-        pygame.draw.rect(screen, (140, 140, 160), self.color_right, 2, border_radius=6)
-        draw_text_with_shadow(screen, ">", self.font_bold, WHITE, self.color_right.centerx, self.color_right.centery)
-
-        color_name = PLAYER_COLORS[self.color][0]
-        draw_text_with_shadow(screen, color_name, self.font_bold, WHITE, panel_x, panel_y + 70)
+        self.color_picker.draw(screen)
 
         # Mensagem de status
         if self.status_msg:

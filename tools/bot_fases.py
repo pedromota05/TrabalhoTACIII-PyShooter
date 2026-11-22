@@ -333,7 +333,9 @@ def vencer_campanha(game):
 
 def novo_jogo():
     from game import Game
-    return Game()
+    g = Game()
+    g.use_mouse_aim = False
+    return g
 
 
 def jogar_fase(game, fase, humano=False, seed=0, god=False, max_seg=240,

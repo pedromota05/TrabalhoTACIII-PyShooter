@@ -18,13 +18,21 @@ def handle_events(game) -> None:
         if game.state == GameState.MULTIPLAYER_MENU:
             game.multiplayer_screen.handle_event(event)
 
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and game.state == GameState.PLAYING:
+                game.shoot = True
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                game.shoot = False
+
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_a, pygame.K_LEFT):
                 game.moving_left = True
             if event.key in (pygame.K_d, pygame.K_RIGHT):
                 game.moving_right = True
             if event.key == pygame.K_SPACE:
-                game.shoot = True
+                game.dash_input = True
             if event.key in (pygame.K_q, pygame.K_g):
                 game.grenade_input = True
             if event.key == pygame.K_e and game.state == GameState.PLAYING:
@@ -52,8 +60,6 @@ def handle_events(game) -> None:
                 game.moving_left = False
             if event.key in (pygame.K_d, pygame.K_RIGHT):
                 game.moving_right = False
-            if event.key == pygame.K_SPACE:
-                game.shoot = False
             if event.key in (pygame.K_q, pygame.K_g):
                 game.grenade_input = False
                 game.grenade_thrown = False

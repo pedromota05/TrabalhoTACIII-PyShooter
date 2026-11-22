@@ -166,6 +166,7 @@ class NetworkClient:
                             entry["direction"] = packet["direction"]
                             entry["shooting"] = packet["shooting"]
                             entry["health"] = packet["health"]
+                            entry["aim"] = packet.get("aim")
                             entry["last_seen"] = time.time()
                         else:
                             self.remote_players[p_id] = {
@@ -175,6 +176,7 @@ class NetworkClient:
                                 "direction": packet["direction"],
                                 "shooting": packet["shooting"],
                                 "health": packet["health"],
+                                "aim": packet.get("aim"),
                                 "last_seen": time.time(),
                             }
             except (socket.timeout, ConnectionResetError):
@@ -190,14 +192,15 @@ class NetworkClient:
         action: int = 0,
         direction: int = 1,
         shooting: bool = False,
-        health: int = 100
+        health: int = 100,
+        aim: float = 0.0,
     ) -> None:
         """Envia o estado do jogador local para o servidor."""
         if not self.running or self.socket is None:
             return
 
         packet_str = encode_player_state(
-            self.player_id, x, y, action, direction, shooting, health
+            self.player_id, x, y, action, direction, shooting, health, aim
         )
         try:
             self.socket.sendto(packet_str.encode("utf-8"), self.server_address)
@@ -311,6 +314,11 @@ class NetworkClient:
         """Retorna a cor conhecida do jogador remoto (padrão 0)."""
         with self.lock:
             return self.remote_colors.get(player_id, 0)
+
+    def has_remote_color(self, player_id: str) -> bool:
+        """Indica se a cor do jogador remoto já foi recebida."""
+        with self.lock:
+            return player_id in self.remote_colors
 
     def get_enemies_level(self) -> int:
         """Fase a que pertencem os inimigos guardados em remote_enemies."""

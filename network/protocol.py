@@ -20,11 +20,12 @@ def encode_player_state(
     action: int = 0,
     direction: int = 1,
     shooting: bool = False,
-    health: int = 100
+    health: int = 100,
+    aim: float = 0.0
 ) -> str:
     """Serializa o estado do jogador em uma string CSV leve para envio via UDP."""
     shoot_flag = 1 if shooting else 0
-    return f"{player_id},{round(x, 1)},{round(y, 1)},{action},{direction},{shoot_flag},{health}"
+    return f"{player_id},{round(x, 1)},{round(y, 1)},{action},{direction},{shoot_flag},{health},{round(aim, 3)}"
 
 
 def encode_disconnect(player_id: str) -> str:
@@ -229,6 +230,7 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
         direction = int(parts[4]) if len(parts) > 4 else 1
         shooting = bool(int(parts[5])) if len(parts) > 5 else False
         health = int(parts[6]) if len(parts) > 6 else 100
+        aim = float(parts[7]) if len(parts) > 7 else None
 
         return {
             "type": "state",
@@ -239,6 +241,7 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
             "direction": direction,
             "shooting": shooting,
             "health": health,
+            "aim": aim,
         }
     except (ValueError, IndexError):
         return None

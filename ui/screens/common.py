@@ -4,6 +4,9 @@ ui/screens/common.py — Funções utilitárias de renderização visual e texto
 
 from PIL import Image, ImageSequence
 import pygame
+from asset_manager import AssetManager
+from config import PLAYER_COLORS, PLAYER_SCALE, WHITE
+from core import progress
 
 
 def render_text_with_spacing(text: str, font: pygame.font.Font, color: tuple, spacing: int) -> pygame.Surface:
@@ -88,3 +91,62 @@ def load_gif_frames(filename: str, max_width: float = None) -> list[pygame.Surfa
 
         frames.append(pygame_image)
     return frames
+
+
+class ColorPicker:
+    """Seletor de cor do soldado reutilizável para menus (Multiplayer e Level Select)."""
+
+    def __init__(self, center: tuple[int, int], font_bold: pygame.font.Font, title: str = "COR DO BONECO"):
+        self.center = center
+        self.font_bold = font_bold
+        self.title = title
+        self.color = progress.carregar().get('cor_jogador', 0) % len(PLAYER_COLORS)
+
+        panel_x, panel_y = center
+        self.color_left = pygame.Rect(0, 0, 40, 40)
+        self.color_left.center = (panel_x - 65, panel_y)
+        self.color_right = pygame.Rect(0, 0, 40, 40)
+        self.color_right.center = (panel_x + 65, panel_y)
+
+        self._previews: dict[int, pygame.Surface] = {}
+
+    def reload(self) -> None:
+        """Relê a cor salva no progresso."""
+        self.color = progress.carregar().get('cor_jogador', 0) % len(PLAYER_COLORS)
+
+    def handle_click(self, pos: tuple[int, int]) -> bool:
+        """Processa clique nas setas esquerda/direita."""
+        if self.color_left.collidepoint(pos):
+            self.color = (self.color - 1) % len(PLAYER_COLORS)
+            progress.salvar_cor(self.color)
+            return True
+        elif self.color_right.collidepoint(pos):
+            self.color = (self.color + 1) % len(PLAYER_COLORS)
+            progress.salvar_cor(self.color)
+            return True
+        return False
+
+    def draw(self, screen: pygame.Surface) -> None:
+        """Desenha título, prévia do boneco, setas e nome da cor."""
+        panel_x, panel_y = self.center
+        if self.title:
+            draw_text_with_shadow(screen, self.title, self.font_bold, WHITE, panel_x, panel_y - 70)
+
+        if self.color not in self._previews:
+            anim = AssetManager().load_character_animations('player', PLAYER_SCALE * 1.5, self.color)
+            self._previews[self.color] = anim[0][0]
+
+        preview_surf = self._previews[self.color]
+        preview_rect = preview_surf.get_rect(center=(panel_x, panel_y))
+        screen.blit(preview_surf, preview_rect)
+
+        pygame.draw.rect(screen, (30, 35, 45), self.color_left, border_radius=6)
+        pygame.draw.rect(screen, (140, 140, 160), self.color_left, 2, border_radius=6)
+        draw_text_with_shadow(screen, "<", self.font_bold, WHITE, self.color_left.centerx, self.color_left.centery)
+
+        pygame.draw.rect(screen, (30, 35, 45), self.color_right, border_radius=6)
+        pygame.draw.rect(screen, (140, 140, 160), self.color_right, 2, border_radius=6)
+        draw_text_with_shadow(screen, ">", self.font_bold, WHITE, self.color_right.centerx, self.color_right.centery)
+
+        color_name = PLAYER_COLORS[self.color][0]
+        draw_text_with_shadow(screen, color_name, self.font_bold, WHITE, panel_x, panel_y + 70)

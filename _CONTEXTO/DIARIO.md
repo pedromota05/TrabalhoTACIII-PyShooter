@@ -8,7 +8,17 @@
 - "Fase 2 não terminou" (relato do Guilherme em 2026-11-21): não reproduzido; bot passa a fase 2 sozinho e no multiplayer. Falta saber o que aconteceu.
 - Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
 - 2026-11-21 (tarde): perder vida não mostra mais a tela vermelha; aparece "-1 VIDA" e o jogador renasce em 1 s ao lado do parceiro ou no último chão firme (GAME OVER só sem vidas). Saída das fases 1-3 movida para o chão plano do fim (coluna 186), com castelinho menor e linha de chegada.
-- Próximos passos: teste no Radmin com o Pedro (branch `melhorias-coop` já no GitHub); esclarecer o problema da fase 2; atualizar slides/GDD com as novidades.
+- 2026-11-21 (noite): mira no mouse (tiro no botão esquerdo, em qualquer ângulo), ESPAÇO = dash com rastro azul; renascer não cai mais no buraco; editor com Modo Mover (M), checkpoint como tile 88 e castelo/linha de chegada visíveis; cor do boneco na seleção de fases e sem cor repetida no multi; chefes da fase 4 em etapas (Demônio, depois Dragão); vidas do HUD longe da pausa. Ainda sem commit.
+- Próximos passos: Guilherme testar na mão (mira, dash, editor); commit/push; teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD (controles mudaram: ESPAÇO não atira mais).
+
+---
+
+### 2026-11-21 — Mira no mouse, dash, editor, cor, chefes em etapas
+- Pedido: mira e tiro com o mouse, dash no espaço com animação; mover objeto no editor; cor no single e sem repetir no multi; renascer caía no buraco sem parar; chefes da fase 4 um de cada vez; castelo/checkpoint/novos elementos no editor; HUD das vidas por baixo da pausa.
+- Feito (roteiros `docs/tarefas/2026-11-21_fase-8_*.md` a `fase-12_*.md`, executados pelo Antigravity e revisados aqui): `Bullet` com ângulo e `Character.shoot(target=...)`; `Player.face_point/start_dash` com rastro e poeira; mira em `core/renderer.py` (`draw_crosshair`); ângulo da mira vai no 8º campo do estado de rede; `game.use_mouse_aim` (o bot desliga). Renascimento: `track_safe_position` exige os dois pés no chão e usa a posição de ~60 quadros antes. Editor (`ui/screens/level_editor.py`): Modo Mover (M), tile 88 = checkpoint (CSVs das fases 1-3 convertidos; `CHECKPOINTS` da config vira reserva), castelo/linha de chegada desenhados, paleta em 7 colunas. `ColorPicker` em `ui/screens/common.py` (seleção de fases e menu multi); o Cliente troca de cor se igual à do Host. Chefes: `game.boss_queue`/`boss_reserve_group` em `core/level_loader.py` e `update_boss_stages` em `core/gameplay.py`.
+- Correção feita na revisão: o Antigravity tinha apagado um bloco da fase 1 (`level1_data.csv`), restaurado.
+- Resultados: bot campanha 1-4 e Desafio OK; teste_multiplayer 7/7 (porta 5601). Mira/dash/editor conferidos só por captura de tela, não jogados à mão.
+- Próximos passos: teste manual; commit.
 
 ---
 

@@ -41,6 +41,7 @@ ROWS = 16
 COLS = 200
 TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
 TILE_TYPES = 87
+CHECKPOINT_TILE = 88  # bandeira de checkpoint (só editor/loader; o level_builder ignora)
 MAX_LEVELS = 4
 
 # Checkpoints da campanha: colunas (tiles) das bandeiras em cada fase.
@@ -109,6 +110,12 @@ BULLET_SPEED = 10
 BULLET_DAMAGE_TO_ENEMY = 25
 BULLET_DAMAGE_TO_PLAYER = 5
 SHOOT_COOLDOWN = 20
+
+# Dash (tecla ESPAÇO)
+DASH_SPEED = 16          # pixels por quadro durante o dash
+DASH_FRAMES = 10         # duração do dash em quadros
+DASH_COOLDOWN = 50       # quadros até poder dar outro dash
+DASH_TRAIL = 6           # quantos "fantasmas" o rastro guarda
 
 # ---------------------------------------------------------------------------
 #  Granada

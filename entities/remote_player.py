@@ -5,6 +5,7 @@ Utiliza interpolação LERP para movimentação fluida, reproduz animações
 sincronizadas e desenha indicadores de identificação (ex: "P2") e vida sobre a entidade.
 """
 
+import math
 import pygame
 from config import PLAYER_SCALE, ANIMATION_COOLDOWN, WHITE, GREEN, RED, BLACK, FONT_NAME
 from asset_manager import AssetManager
@@ -93,9 +94,15 @@ class RemotePlayer(pygame.sprite.Sprite):
         is_shooting = data.get("shooting", False)
         if is_shooting and self.shoot_cooldown == 0 and self.alive and bullet_group is not None:
             self.shoot_cooldown = 20
-            bullet_x = self.rect.centerx + (0.75 * self.rect.size[0] * self.direction)
-            bullet_y = self.rect.centery
-            bullet = Bullet(bullet_x, bullet_y, self.direction, visual_only=True)
+            aim = data.get("aim")
+            if aim is not None:
+                cx = self.rect.centerx + math.cos(aim) * self.rect.width * 0.75
+                cy = self.rect.centery - 5 + math.sin(aim) * self.rect.width * 0.75
+                bullet = Bullet(cx, cy, self.direction, visual_only=True, angle=aim)
+            else:
+                bullet_x = self.rect.centerx + (0.75 * self.rect.size[0] * self.direction)
+                bullet_y = self.rect.centery
+                bullet = Bullet(bullet_x, bullet_y, self.direction, visual_only=True)
             bullet_group.add(bullet)
             AssetManager().get_sound('shot').play()
 

@@ -2,7 +2,11 @@
 
 import pygame
 
-from config import BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW, RED, BLACK
+from config import (
+    BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH,
+    WHITE, YELLOW, RED, BLACK, DASH_COOLDOWN, SHARED_LIVES,
+)
+from game_state import GameState
 
 
 def draw_background(game) -> None:
@@ -92,13 +96,33 @@ def draw_game_entities(game) -> None:
         fase, total = level_label(game)
         _blit_shadowed(game, f'FASE {fase}/{total}', WHITE, game.font_bold,
                        SCREEN_WIDTH // 2, 8)
-        draw_text(game, 'VIDAS:', WHITE, SCREEN_WIDTH - 200, 10, game.font_bold)
+        # Vidas alinhadas à direita, terminando antes do botão de pausa
+        # (SCREEN_WIDTH - 60); antes as bolinhas ficavam por baixo dele.
         vidas_w = game.font_bold.size('VIDAS:')[0]
-        for i in range(getattr(game, 'lives', 0)):
-            cx = SCREEN_WIDTH - 200 + vidas_w + 14 + (i * 22)
-            pygame.draw.circle(game.screen, RED, (cx, 22), 8)
+        slots = max(SHARED_LIVES, getattr(game, 'lives', 0))
+        right = SCREEN_WIDTH - 75
+        start_x = right - (vidas_w + 14 + (slots - 1) * 22 + 8)
+        draw_text(game, 'VIDAS:', WHITE, start_x, 10, game.font_bold)
+        for i in range(slots):
+            cx = start_x + vidas_w + 14 + (i * 22)
+            if i < getattr(game, 'lives', 0):
+                pygame.draw.circle(game.screen, RED, (cx, 22), 8)
             pygame.draw.circle(game.screen, BLACK, (cx, 22), 8, 2)
+
+    if getattr(game, 'boss_stage_total', 0) >= 2:
+        _blit_shadowed(game, f'CHEFE {game.boss_stage}/{game.boss_stage_total}', WHITE,
+                       game.font_bold, SCREEN_WIDTH // 2, 40)
+
+    if getattr(game, 'color_msg_frames', 0) > 0:
+        _blit_shadowed(game, getattr(game, 'color_msg', ''), YELLOW, game.font_bold,
+                       SCREEN_WIDTH // 2, 120)
     draw_level_banner(game)
+
+    if getattr(game, 'boss_stage_banner', 0) > 0:
+        _blit_shadowed(game, f'ETAPA {game.boss_stage}/{game.boss_stage_total}', (235, 60, 50),
+                       game.title_font, SCREEN_WIDTH // 2, 150)
+        _blit_shadowed(game, 'Um novo chefe apareceu!', WHITE,
+                       game.font_bold, SCREEN_WIDTH // 2, 210)
 
     if getattr(game, 'life_lost_frames', 0) > 0:
         # Aviso de vida perdida (o jogador renasce sozinho, sem tela de Game Over)
@@ -192,5 +216,56 @@ def draw_sign_ui(game) -> None:
         y += lh
     hint = game.font.render('E para fechar', True, (110, 80, 50))
     game.screen.blit(hint, hint.get_rect(midtop=(rect.centerx, y)))
+
+
+def draw_crosshair(game) -> None:
+    """Desenha a mira do mouse e a barra de cooldown do dash."""
+    aim = (
+        game.state == GameState.PLAYING
+        and getattr(game, 'use_mouse_aim', False)
+        and game.player is not None
+        and game.player.alive
+    )
+
+    if getattr(game, '_cursor_hidden', None) != aim:
+        pygame.mouse.set_visible(not aim)
+        game._cursor_hidden = aim
+
+    if not aim:
+        return
+
+    mx, my = pygame.mouse.get_pos()
+    circle_color = (255, 220, 60) if game.player.shoot_cooldown > 0 else WHITE
+
+    # Círculo de raio 10 e espessura 2 (contorno preto primeiro com espessura +2 = 4)
+    pygame.draw.circle(game.screen, BLACK, (mx, my), 10, 4)
+    pygame.draw.circle(game.screen, circle_color, (mx, my), 10, 2)
+
+    # 4 tracinhos de 6 px saindo do círculo (cima, baixo, esquerda, direita)
+    tracos = [
+        ((mx, my - 10), (mx, my - 16)),
+        ((mx, my + 10), (mx, my + 16)),
+        ((mx - 10, my), (mx - 16, my)),
+        ((mx + 10, my), (mx + 16, my)),
+    ]
+    for start, end in tracos:
+        pygame.draw.line(game.screen, BLACK, start, end, 4)
+    for start, end in tracos:
+        pygame.draw.line(game.screen, circle_color, start, end, 2)
+
+    # Ponto central de raio 2 (contorno preto primeiro)
+    pygame.draw.circle(game.screen, BLACK, (mx, my), 4)
+    pygame.draw.circle(game.screen, circle_color, (mx, my), 2)
+
+    # Barrinha de recarga do dash (24x4 px, centralizada, 16 px abaixo)
+    dash_cd = getattr(game.player, 'dash_cooldown', 0)
+    if dash_cd > 0:
+        bar_x = mx - 12
+        bar_y = my + 16
+        pygame.draw.rect(game.screen, (50, 50, 50), pygame.Rect(bar_x, bar_y, 24, 4))
+        prog = max(0.0, min(1.0, 1.0 - (dash_cd / DASH_COOLDOWN)))
+        fill_w = int(24 * prog)
+        if fill_w > 0:
+            pygame.draw.rect(game.screen, (90, 160, 255), pygame.Rect(bar_x, bar_y, fill_w, 4))
 
 

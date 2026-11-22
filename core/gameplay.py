@@ -4,13 +4,16 @@ import pygame
 
 from asset_manager import AssetManager
 from config import (
-    BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_START_AMMO, SIGN_RANGE_X,
-    SHARED_LIVES, LIVES_RESET_FRAMES,
+    BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_COLORS, PLAYER_START_AMMO, SIGN_RANGE_X,
+    SHARED_LIVES, LIVES_RESET_FRAMES, TILE_SIZE,
 )
 from core import progress
-from entities import DragonBoss, Grenade, RemotePlayer
+from entities import DragonBoss, Explosion, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from game_state import GameState
+
+# Quantos quadros de chão firme a posição de renascimento fica "atrasada".
+SAFE_HISTORY_FRAMES = 60
 
 
 # Espera após a morte do último chefe antes de concluir a fase (animação de morte).
@@ -139,11 +142,25 @@ def track_safe_position(game) -> None:
     """Guarda a última posição do jogador em chão firme (fora da água), usada
     para renascer depois de perder uma vida."""
     player = game.player
-    feet = pygame.Rect(player.rect.left + 4, player.rect.bottom, max(1, player.rect.width - 8), 2)
-    on_ground = any(feet.colliderect(rect) for _, rect in game.world.obstacle_list)
-    in_water = any(w.rect.colliderect(player.rect) for w in game.water_group)
-    if on_ground and not in_water and player.vel_y >= 0:
-        game.safe_pos = (player.rect.centerx + game.bg_scroll, player.rect.bottom)
+    if getattr(game, 'safe_pos', None) is None:
+        game.safe_history = []  # fase nova ou recarregada (level_loader zera safe_pos)
+    # Os DOIS pés precisam estar apoiados: antes bastava um pixel, e a posição
+    # gravada era a beirada do buraco (renascia em cima dele e caía de novo).
+    bottom = player.rect.bottom
+    left_foot = pygame.Rect(player.rect.left + 4, bottom, 2, 2)
+    right_foot = pygame.Rect(player.rect.right - 6, bottom, 2, 2)
+    rects = [rect for _, rect in game.world.obstacle_list]
+    on_ground = (any(left_foot.colliderect(r) for r in rects)
+                 and any(right_foot.colliderect(r) for r in rects))
+    in_water = any(w.rect.colliderect(player.rect.inflate(TILE_SIZE, 0)) for w in game.water_group)
+    if on_ground and not in_water and player.vel_y >= 0 and not player.in_air:
+        history = game.safe_history
+        history.append((player.rect.centerx + game.bg_scroll, bottom))
+        if len(history) > SAFE_HISTORY_FRAMES:
+            del history[0]
+        # Renasce na posição mais antiga guardada (~1 s de chão firme atrás),
+        # longe da beirada de onde ele caiu.
+        game.safe_pos = history[0]
 
 
 def respawn_after_life_lost(game) -> None:
@@ -189,6 +206,8 @@ def is_level_complete(game, touched_exit: bool) -> bool:
     if touched_exit:
         return True
     if len(game.exit_group) or not len(game.boss_group):
+        return False
+    if getattr(game, 'boss_queue', None):
         return False
     if any(boss.alive for boss in game.boss_group):
         game.boss_clear_frames = 0
@@ -236,6 +255,35 @@ def update_signs(game) -> None:
         game.sign_toggle = False
         if near is not None:
             game.open_sign = None if game.open_sign is near else near
+
+
+def update_boss_stages(game) -> None:
+    """Avança as etapas dos chefes em fases com múltiplos chefes sequenciais."""
+    if getattr(game, 'boss_stage_banner', 0) > 0:
+        game.boss_stage_banner -= 1
+
+    boss_queue = getattr(game, 'boss_queue', None)
+    if boss_queue and len(game.boss_group) and not any(boss.alive for boss in game.boss_group):
+        game.boss_stage_frames = getattr(game, 'boss_stage_frames', 0) + 1
+        if game.boss_stage_frames >= BOSS_DEATH_DELAY_FRAMES:
+            next_boss = game.boss_queue.pop(0)
+            if hasattr(game, 'boss_reserve_group'):
+                game.boss_reserve_group.remove(next_boss)
+            game.boss_group.add(next_boss)
+            game.boss_stage = getattr(game, 'boss_stage', 1) + 1
+            game.boss_stage_banner = 150
+            game.boss_stage_frames = 0
+            rect = next_boss.rect
+            points = [
+                (rect.centerx, rect.centery),
+                (rect.left + rect.width * 0.25, rect.top + rect.height * 0.25),
+                (rect.right - rect.width * 0.25, rect.bottom - rect.height * 0.25),
+            ]
+            for px, py in points:
+                game.explosion_group.add(Explosion(px, py, 2))
+            AssetManager().get_sound('grenade').play()
+    elif any(boss.alive for boss in game.boss_group):
+        game.boss_stage_frames = 0
 
 
 def get_target_player(entity, local_player, remote_players_group):
@@ -469,10 +517,16 @@ def update_game_entities(game) -> None:
     game.water_group.update(game.screen_scroll)
     game.exit_group.update(game.screen_scroll)
     game.checkpoint_group.update(game.screen_scroll)
+    if hasattr(game, 'boss_reserve_group'):
+        for b in game.boss_reserve_group:
+            b.rect.x += game.screen_scroll
 
     # ------------------------------------------------------------------
     # Sincronização e interpolação de jogadores remotos em LAN
     # ------------------------------------------------------------------
+    if getattr(game, 'color_msg_frames', 0) > 0:
+        game.color_msg_frames -= 1
+
     if is_multiplayer and net_client:
         net_client.update_interpolation()
         remote_data = net_client.get_remote_players_snapshot()
@@ -486,12 +540,27 @@ def update_game_entities(game) -> None:
             game.remote_players_map[p_id].update_from_network(
                 p_info, game.bg_scroll, game.bullet_group
             )
-            game.remote_players_map[p_id].set_color(net_client.get_remote_color(p_id))
+            rem_color = net_client.get_remote_color(p_id)
+            game.remote_players_map[p_id].set_color(rem_color)
+
+            # Cliente troca de cor automaticamente se o parceiro (Host) já estiver com ela
+            if not game.is_host and net_client.has_remote_color(p_id):
+                current_color = getattr(game.player, 'color', 0)
+                if rem_color == current_color:
+                    new_color = (current_color + 1) % len(PLAYER_COLORS)
+                    while new_color == rem_color:
+                        new_color = (new_color + 1) % len(PLAYER_COLORS)
+                    color_name = PLAYER_COLORS[new_color][0]
+                    game.player.set_color(new_color)
+                    net_client.send_color(new_color)
+                    game.color_msg = f"Cor trocada para {color_name}: o parceiro já usa essa"
+                    game.color_msg_frames = 120
 
         for p_id in list(game.remote_players_map.keys()):
             if p_id not in remote_data:
                 game.remote_players_map[p_id].kill()
                 del game.remote_players_map[p_id]
+
 
 
 def update_playing(game) -> None:
@@ -507,8 +576,12 @@ def update_playing(game) -> None:
 
     if game.player.alive:
         net_client = game.network_client if getattr(game, 'is_multiplayer', False) else None
+        target = pygame.mouse.get_pos() if getattr(game, 'use_mouse_aim', False) else None
+        if target:
+            game.player.face_point(*target)
+
         if game.shoot:
-            game.player.shoot(game.bullet_group, network_client=net_client)
+            game.player.shoot(game.bullet_group, network_client=net_client, target=target)
         elif game.grenade_input and not game.grenade_thrown and game.player.grenades > 0:
             grenade_obj = Grenade(
                 game.player.rect.centerx + (0.5 * game.player.rect.size[0] * game.player.direction),
@@ -519,6 +592,10 @@ def update_playing(game) -> None:
             game.grenade_group.add(grenade_obj)
             game.player.grenades -= 1
             game.grenade_thrown = True
+
+        if getattr(game, 'dash_input', False):
+            game.player.start_dash(game.moving_left, game.moving_right)
+            game.dash_input = False
 
         if game.player.in_air:
             game.player.update_action(2)
@@ -534,8 +611,12 @@ def update_playing(game) -> None:
             game.world.ramp_list,
             game.remote_players_group if getattr(game, 'is_multiplayer', False) else None,
         )
+        if target and getattr(game, 'use_mouse_aim', False):
+            game.player.face_point(*target)
+
         game.bg_scroll -= game.screen_scroll
         update_checkpoints(game)
+        update_boss_stages(game)
         track_safe_position(game)
         update_signs(game)
 
@@ -546,7 +627,8 @@ def update_playing(game) -> None:
             game.network_client.send_state(
                 local_world_x, local_world_y,
                 game.player.action, game.player.direction,
-                game.shoot, game.player.health
+                game.shoot, game.player.health,
+                aim=getattr(game.player, 'aim_angle', 0.0)
             )
             if game.run_frames % 60 == 1:
                 game.network_client.send_color(getattr(game.player, 'color', 0))

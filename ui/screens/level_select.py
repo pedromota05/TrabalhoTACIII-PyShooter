@@ -12,7 +12,7 @@ from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, RED, FONT_NAME, FPS
 from asset_manager import AssetManager
 from core import progress
 from game_state import GameState
-from ui.screens.common import draw_text_with_shadow, draw_text_with_outline
+from ui.screens.common import draw_text_with_shadow, draw_text_with_outline, ColorPicker
 from ui.screens.victory import format_time
 
 DONE_GREEN = (60, 220, 90)
@@ -71,8 +71,25 @@ class LevelSelectScreen:
         for btn in (self.challenge_locked, self.challenge_open):
             btn.rect.midtop = (SCREEN_WIDTH // 2, btn_y + sample_img.get_height() + 90)
 
+        # Seletor de cor do boneco (painel à direita da tela)
+        panel_x = SCREEN_WIDTH - 150
+        panel_y = SCREEN_HEIGHT // 2 - 10
+        self.color_picker = ColorPicker((panel_x, panel_y), self.font_bold, title="SEU BONECO")
+        self.prev_mouse_pressed = False
+        self._last_active_tick = 0
+
     def update(self, screen: pygame.Surface, game) -> None:
         game._draw_bg()
+        now = pygame.time.get_ticks()
+        if now - self._last_active_tick > 250:
+            self.color_picker.reload()
+        self._last_active_tick = now
+
+        mouse_pressed = pygame.mouse.get_pressed()[0]
+        if mouse_pressed and not self.prev_mouse_pressed:
+            self.color_picker.handle_click(pygame.mouse.get_pos())
+        self.prev_mouse_pressed = mouse_pressed
+
         saved = progress.carregar()  # relê do disco só quando o arquivo muda
         done = set(saved['fases_concluidas'])
 
@@ -134,6 +151,9 @@ class LevelSelectScreen:
             self.challenge_locked.draw(screen)
             draw_text_with_outline(screen, 'Zere a campanha para liberar', self.small_font, LOCKED_GREY,
                                    SCREEN_WIDTH // 2, self.challenge_locked.rect.bottom + 8)
+
+        # Seletor de cor do soldado
+        self.color_picker.draw(screen)
 
         # Dica para voltar
         hint = "ESC volta para o Multiplayer" if getattr(game, 'mp_host_pick', False) else 'Pressione ESC para voltar ao menu'

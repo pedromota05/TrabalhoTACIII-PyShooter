@@ -10,9 +10,11 @@ import os
 import csv
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, ROWS, COLS, TILE_SIZE, TILE_TYPES, WHITE, GREEN, RED, BLACK, EDITOR_MENU_BTN_SCALE, FONT_NAME
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, ROWS, COLS, TILE_SIZE, TILE_TYPES, CHECKPOINT_TILE, WHITE, GREEN, RED, BLACK, EDITOR_MENU_BTN_SCALE, FONT_NAME
 from asset_manager import AssetManager
 from game_state import GameState
+from entities.checkpoint import CheckpointFlag
+from entities.castle import Castle, FinishLine, CASTLE_THEMES
 
 
 EDITOR_LOWER_MARGIN = 100
@@ -36,10 +38,16 @@ class LevelEditorScreen:
         self.notification_msg = ""
         self.notification_timer = 0
         self._mouse_held_from_enter = False
+        self.move_mode = False
+        self.dragging: tuple[int, int, int] | None = None
+        self._prev_left = False
 
         self.font = pygame.font.SysFont(FONT_NAME, 24)
         self.font_bold = pygame.font.SysFont(FONT_NAME, 26, bold=True)
         self.font_small = pygame.font.SysFont(FONT_NAME, 18)
+
+        # Cache de castelo e linha de chegada por (level, r, c)
+        self._castle_cache: dict[tuple[int, int, int], tuple[Castle, FinishLine]] = {}
 
         # Matriz vazia de tiles (16 linhas x 200 colunas)
         self.world_data: list[list[int]] = []
@@ -58,6 +66,7 @@ class LevelEditorScreen:
 
     def _reset_grid(self) -> None:
         """Reinicia o grid vazio com chão na base."""
+        self._castle_cache.clear()
         self.world_data = []
         for _ in range(ROWS):
             self.world_data.append([-1] * COLS)
@@ -101,6 +110,26 @@ class LevelEditorScreen:
             surf.fill((200, 50, 50))
             self.img_list.append(surf)
 
+        # Tile ID 88: Bandeira de Checkpoint
+        try:
+            flag_img = CheckpointFlag(0, TILE_SIZE).image.copy()
+            if flag_img.get_width() > TILE_SIZE:
+                scale = TILE_SIZE / flag_img.get_width()
+                flag_img = pygame.transform.scale(
+                    flag_img,
+                    (TILE_SIZE, int(flag_img.get_height() * scale))
+                )
+            self.img_list.append(flag_img)
+        except Exception:
+            surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            pygame.draw.line(surf, (70, 50, 35), (TILE_SIZE // 4, 2), (TILE_SIZE // 4, TILE_SIZE - 2), 3)
+            pygame.draw.polygon(surf, (150, 150, 150), [
+                (TILE_SIZE // 4 + 2, 4),
+                (TILE_SIZE * 3 // 4, 4 + TILE_SIZE // 4),
+                (TILE_SIZE // 4 + 2, 4 + TILE_SIZE // 2)
+            ])
+            self.img_list.append(surf)
+
     def _init_buttons(self) -> None:
         """Inicializa botões da barra inferior de ferramentas."""
         save_img = self.assets.get_image('save_btn') if 'save_btn' in self.assets.images else pygame.image.load('img/save_btn.png').convert_alpha()
@@ -119,8 +148,28 @@ class LevelEditorScreen:
         self.back_button = button.Button(15, 0, menu_btn_img, EDITOR_MENU_BTN_SCALE)
         self.back_button.rect.centery = self.save_button.rect.centery
 
+        # Botão Mover (M) no painel inferior (ao lado dos botões Salvar/Carregar)
+        self.move_button_rect = pygame.Rect(EDITOR_VIEWPORT_WIDTH // 2 - 260, base_y, 120, 36)
+        self.move_button_rect.centery = self.save_button.rect.centery
+
+    def toggle_move_mode(self) -> None:
+        """Alterna o modo mover e cancela arrastos pendentes."""
+        self.move_mode = not self.move_mode
+        self._cancel_drag()
+        status_str = "LIGADO" if self.move_mode else "DESLIGADO"
+        self.notification_msg = f"Modo Mover: {status_str}"
+        self.notification_timer = 120
+
+    def _cancel_drag(self) -> None:
+        """Cancela o arrasto atual devolvendo o tile à célula de origem."""
+        if self.dragging is not None:
+            tile_id, orig_r, orig_c = self.dragging
+            self.world_data[orig_r][orig_c] = tile_id
+            self.dragging = None
+            self._castle_cache.clear()
+
     def _init_palette_buttons(self) -> None:
-        """Cria botões em grade (6 colunas) na barra lateral direita."""
+        """Cria botões em grade (7 colunas) na barra lateral direita (cabem os 89 tiles)."""
         self.tile_buttons = []
         col = 0
         row = 0
@@ -130,11 +179,11 @@ class LevelEditorScreen:
             scale = min(36 / max(1, btn_img.get_width()), 36 / max(1, btn_img.get_height()))
             scaled_img = pygame.transform.scale(btn_img, (max(1, int(btn_img.get_width() * scale)), max(1, int(btn_img.get_height() * scale))))
             
-            btn_x = start_x + (45 * col)
-            btn_y = 15 + (45 * row)
+            btn_x = start_x + (40 * col)
+            btn_y = 15 + (40 * row)
             self.tile_buttons.append(button.Button(btn_x, btn_y, scaled_img, 1.0))
             col += 1
-            if col == 6:
+            if col == 7:
                 row += 1
                 col = 0
 
@@ -144,10 +193,13 @@ class LevelEditorScreen:
         pygame.display.set_caption("PyShooter - Editor de Fases")
         self.scroll = 0
         self._mouse_held_from_enter = pygame.mouse.get_pressed()[0] == 1
+        self._prev_left = self._mouse_held_from_enter
+        self._cancel_drag()
         self.load_level_data(self.level)
 
     def on_exit(self, game) -> None:
         """Restaura as dimensões originais da janela do jogo."""
+        self._cancel_drag()
         game.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("PyShooter - TACIII")
 
@@ -170,6 +222,7 @@ class LevelEditorScreen:
 
     def load_level_data(self, level_num: int) -> None:
         """Carrega a matriz do arquivo CSV correspondente."""
+        self._castle_cache.clear()
         level_file = os.path.join('levels', f'level{level_num}_data.csv')
         if not os.path.exists(level_file):
             self.notification_msg = f"Fase {level_num} não encontrada (grid resetado)."
@@ -197,9 +250,11 @@ class LevelEditorScreen:
         """Processa eventos de teclado exclusivos do editor."""
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
+                self._cancel_drag()
                 self.level += 1
                 self.load_level_data(self.level)
             elif event.key == pygame.K_DOWN and self.level > 1:
+                self._cancel_drag()
                 self.level -= 1
                 self.load_level_data(self.level)
             elif event.key == pygame.K_LEFT:
@@ -208,9 +263,14 @@ class LevelEditorScreen:
                 self.scroll_right = True
             elif event.key in (pygame.K_RSHIFT, pygame.K_LSHIFT):
                 self.scroll_speed = 5
+            elif event.key == pygame.K_m:
+                self.toggle_move_mode()
             elif event.key == pygame.K_ESCAPE:
-                self.on_exit(game)
-                game.state = GameState.MENU
+                if self.dragging is not None:
+                    self._cancel_drag()
+                else:
+                    self.on_exit(game)
+                    game.state = GameState.MENU
 
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -233,6 +293,7 @@ class LevelEditorScreen:
         self._draw_background(screen)
         self._draw_grid(screen)
         self._draw_tiles(screen)
+        self._draw_move_overlay(screen)
 
         # 3. Desenho e interação com a paleta lateral
         pygame.draw.rect(screen, (35, 45, 55), (EDITOR_VIEWPORT_WIDTH, 0, EDITOR_SIDE_MARGIN, SCREEN_HEIGHT))
@@ -247,20 +308,60 @@ class LevelEditorScreen:
             active_rect = self.tile_buttons[self.current_tile].rect
             pygame.draw.rect(screen, RED, active_rect.inflate(4, 4), 3)
 
-        # 4. Modificação da grade pelo mouse (Pintar / Apagar)
+        # 4. Modificação da grade pelo mouse (Pintar / Apagar / Mover)
         mouse_buttons = pygame.mouse.get_pressed()
         if mouse_buttons[0] == 0:
             self._mouse_held_from_enter = False
 
+        left = mouse_buttons[0] == 1
+        pressed = left and not self._prev_left
+        released = (not left) and self._prev_left
+
         mouse_pos = pygame.mouse.get_pos()
-        if not self._mouse_held_from_enter and mouse_pos[0] < EDITOR_VIEWPORT_WIDTH and mouse_pos[1] < SCREEN_HEIGHT:
-            tile_col = (mouse_pos[0] + self.scroll) // TILE_SIZE
-            tile_row = mouse_pos[1] // TILE_SIZE
-            if 0 <= tile_row < ROWS and 0 <= tile_col < COLS:
-                if mouse_buttons[0] == 1:  # Botão esquerdo: Pintar
-                    self.world_data[tile_row][tile_col] = self.current_tile
-                elif mouse_buttons[2] == 1:  # Botão direito: Apagar
+        in_map_area = mouse_pos[0] < EDITOR_VIEWPORT_WIDTH and mouse_pos[1] < SCREEN_HEIGHT
+        tile_col = (mouse_pos[0] + self.scroll) // TILE_SIZE if in_map_area else -1
+        tile_row = mouse_pos[1] // TILE_SIZE if in_map_area else -1
+        valid_cell = in_map_area and (0 <= tile_row < ROWS and 0 <= tile_col < COLS)
+
+        if self.move_mode:
+            # Botão direito durante o arrasto: _cancel_drag()
+            if mouse_buttons[2] == 1 and self.dragging is not None:
+                self._cancel_drag()
+
+            # pressed sobre célula válida com tile != -1 e sem arrasto
+            if not self._mouse_held_from_enter and pressed and self.dragging is None:
+                if valid_cell and self.world_data[tile_row][tile_col] != -1:
+                    tile_id = self.world_data[tile_row][tile_col]
+                    self.dragging = (tile_id, tile_row, tile_col)
                     self.world_data[tile_row][tile_col] = -1
+
+            # released com arrasto: se célula válida na área do mapa, posiciona; se soltou fora, cancela
+            if released and self.dragging is not None:
+                if valid_cell:
+                    tile_id, orig_r, orig_c = self.dragging
+                    dest_tile = self.world_data[tile_row][tile_col]
+                    self.world_data[tile_row][tile_col] = tile_id
+                    if dest_tile != -1:
+                        self.world_data[orig_r][orig_c] = dest_tile
+                    self.dragging = None
+                    self._castle_cache.clear()
+                    self.notification_msg = f"Objeto movido para ({tile_row}, {tile_col})"
+                    self.notification_timer = 120
+                else:
+                    self._cancel_drag()
+        else:
+            # Modo normal (Pintar / Apagar)
+            if not self._mouse_held_from_enter and valid_cell:
+                if mouse_buttons[0] == 1:  # Botão esquerdo: Pintar
+                    if self.world_data[tile_row][tile_col] != self.current_tile:
+                        self.world_data[tile_row][tile_col] = self.current_tile
+                        self._castle_cache.clear()
+                elif mouse_buttons[2] == 1:  # Botão direito: Apagar
+                    if self.world_data[tile_row][tile_col] != -1:
+                        self.world_data[tile_row][tile_col] = -1
+                        self._castle_cache.clear()
+
+        self._prev_left = left
 
         # 5. Painel Inferior de Controle
         pygame.draw.rect(
@@ -275,17 +376,32 @@ class LevelEditorScreen:
             game.state = GameState.MENU
             return
 
+        # Botão Mover (M)
+        move_btn_bg = (60, 140, 70) if self.move_mode else (70, 75, 80)
+        pygame.draw.rect(screen, move_btn_bg, self.move_button_rect, border_radius=4)
+        pygame.draw.rect(screen, (120, 130, 140), self.move_button_rect, 2, border_radius=4)
+        move_text = self.font.render("Mover (M)", True, WHITE)
+        move_text_rect = move_text.get_rect(center=self.move_button_rect.center)
+        screen.blit(move_text, move_text_rect)
+
+        if self.move_button_rect.collidepoint(mouse_pos):
+            button.Button._cursor_hovered = True
+
+        if pressed and not self._mouse_held_from_enter and self.move_button_rect.collidepoint(mouse_pos):
+            self.toggle_move_mode()
+
         # Botões Salvar e Carregar
         if self.save_button.draw(screen):
             self.save_level_data()
         if self.load_button.draw(screen):
+            self._cancel_drag()
             self.load_level_data(self.level)
 
         # Informações de Nível e Atalhos
         info_x = EDITOR_VIEWPORT_WIDTH // 2 + 200
         lvl_text = self.font_bold.render(f"Fase Atual: {self.level}", True, WHITE)
         screen.blit(lvl_text, (info_x, SCREEN_HEIGHT + 18))
-        hint_text = self.font_small.render("Setas Cima/Baixo: Mudar Fase | Shift: Scroll Rápido", True, (200, 200, 200))
+        hint_text = self.font_small.render("Setas Cima/Baixo: Mudar Fase | Shift: Scroll Rápido | M: Mover objeto", True, (200, 200, 200))
         screen.blit(hint_text, (info_x, SCREEN_HEIGHT + 48))
 
         # Mensagem temporária de notificação
@@ -326,5 +442,68 @@ class LevelEditorScreen:
                     img = self.img_list[tile_id]
                     px = (c_idx * TILE_SIZE) - self.scroll
                     py = (r_idx * TILE_SIZE) + (TILE_SIZE - img.get_height())
-                    if -TILE_SIZE <= px <= EDITOR_VIEWPORT_WIDTH:
-                        screen.blit(img, (px, py))
+
+                    # Saídas (tiles 20 e 41) em fases temáticas: desenha castelo e linha de chegada
+                    if tile_id in (20, 41) and self.level in CASTLE_THEMES:
+                        cache_key = (self.level, r_idx, c_idx)
+                        if cache_key not in self._castle_cache:
+                            door = img.get_rect()
+                            door.midtop = (
+                                c_idx * TILE_SIZE + TILE_SIZE // 2,
+                                r_idx * TILE_SIZE + (TILE_SIZE - img.get_height())
+                            )
+                            castle = Castle(self.level, door)
+                            finish = FinishLine(door.centerx - 6 * TILE_SIZE, door.bottom)
+                            self._castle_cache[cache_key] = (castle, finish)
+                        else:
+                            castle, finish = self._castle_cache[cache_key]
+
+                        finish_rect = finish.rect.move(-self.scroll, 0)
+                        castle_rect = castle.rect.move(-self.scroll, 0)
+
+                        if finish_rect.right >= 0 and finish_rect.left <= EDITOR_VIEWPORT_WIDTH:
+                            screen.blit(finish.image, finish_rect)
+                        if castle_rect.right >= 0 and castle_rect.left <= EDITOR_VIEWPORT_WIDTH:
+                            screen.blit(castle.image, castle_rect)
+
+                        # Contorno fino amarelo na célula do tile 20/41 (porta)
+                        if -TILE_SIZE <= px <= EDITOR_VIEWPORT_WIDTH:
+                            pygame.draw.rect(screen, (255, 255, 0), (px, r_idx * TILE_SIZE, TILE_SIZE, TILE_SIZE), 1)
+                    else:
+                        if -TILE_SIZE <= px <= EDITOR_VIEWPORT_WIDTH:
+                            screen.blit(img, (px, py))
+
+    def _draw_move_overlay(self, screen: pygame.Surface) -> None:
+        """Desenha destaques visuais do modo mover e do tile sendo arrastado."""
+        if not self.move_mode:
+            return
+
+        mouse_pos = pygame.mouse.get_pos()
+        in_map = mouse_pos[0] < EDITOR_VIEWPORT_WIDTH and mouse_pos[1] < SCREEN_HEIGHT
+        tile_col = (mouse_pos[0] + self.scroll) // TILE_SIZE
+        tile_row = mouse_pos[1] // TILE_SIZE
+        valid_cell = in_map and (0 <= tile_row < ROWS and 0 <= tile_col < COLS)
+
+        # Contorno amarelo (255, 220, 60) de 2 px na célula sob o mouse (se dentro do mapa)
+        if valid_cell:
+            cell_x = (tile_col * TILE_SIZE) - self.scroll
+            cell_y = tile_row * TILE_SIZE
+            pygame.draw.rect(screen, (255, 220, 60), (cell_x, cell_y, TILE_SIZE, TILE_SIZE), 2)
+
+        # Durante o arrasto
+        if self.dragging is not None:
+            tile_id, orig_r, orig_c = self.dragging
+            # Retângulo vermelho simples (2 px) na célula de origem
+            orig_px = (orig_c * TILE_SIZE) - self.scroll
+            orig_py = orig_r * TILE_SIZE
+            if -TILE_SIZE <= orig_px <= EDITOR_VIEWPORT_WIDTH:
+                pygame.draw.rect(screen, (255, 50, 50), (orig_px, orig_py, TILE_SIZE, TILE_SIZE), 2)
+
+            # Imagem do tile arrastado desenhada semi-transparente alinhada à célula sob o mouse
+            if valid_cell and 0 <= tile_id < len(self.img_list):
+                img = self.img_list[tile_id]
+                drag_img = img.copy()
+                drag_img.set_alpha(170)
+                px = (tile_col * TILE_SIZE) - self.scroll
+                py = (tile_row * TILE_SIZE) + (TILE_SIZE - drag_img.get_height())
+                screen.blit(drag_img, (px, py))
