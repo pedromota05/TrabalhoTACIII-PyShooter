@@ -1,18 +1,22 @@
 # Diário — PyShooter
 
 ## Resumo
-- Jogo: campanha com 4 fases (vitória ao matar os 2 chefes da fase 4), progresso salvo, menu de fases com selos, checkpoints nas fases 1-3, mapas ajustados e Modo Desafio (fases 1 a 5 seguidas, com recorde de tempo).
-- Plano de melhorias (C:\Users\guilh\.claude\plans\agile-purring-stonebraker.md): etapas 1 a 7 prontas na branch trabalho-parte2.
-- Multiplayer: fase sincronizada ("level"/"levelreq"), bala remota só visual (sem dano em dobro nem fogo amigo), morto não cai por timeout, Restart renasce ao lado do parceiro, Pausa -> Sair desconecta.
-- 2026-11-19 (PC de casa, pygame-ce 2.5.8), VALIDADO com testes automáticos:
-  - `python tools/bot_fases.py todas`: fases 1 a 4 passam.
-  - `python tools/bot_fases.py --desafio --god --capturas docs/capturas`: fases 1-5 passam, sem problemas; sem --god o bot morre para o DragonBoss na fase 4 (dificuldade, não erro).
-  - `python tools/teste_multiplayer.py`: 7 de 7 itens OK, também com o cliente conectando pelo IP da rede Wi-Fi (`--ip 192.168.15.8`), após ajustar a medição dos itens 2 e 4.
-- Corrigido em 2026-11-19: HUD do Desafio mostrava "FASE 6/5" atrás da tela de vitória (core/renderer.py).
-- Capturas em docs/capturas/ (campanha fases 1-4, Desafio, duas telas do multiplayer no mesmo segundo); já colocadas no deck (slides novos "Quatro fases" e "A mesma luta nas duas telas"; Desafio com capturas reais). PowerPoint atualizado (17 slides) em docs/apresentacao/2026-11-19_slides-pyshooter_v2.pptx; o original sem capturas ficou ao lado.
-- Slides: https://claude.ai/artifact/RZB2ojfXmzJr6KcgQK63NL e docs/apresentacao/2026-11-19_slides-pyshooter.pptx; guia de estudo em docs/2026-11-19_guia-de-estudo-apresentacao.md.
+- Jogo: campanha com 4 fases (vitória ao matar os 2 chefes da fase 4), progresso salvo, menu de fases com selos, checkpoints nas fases 1-3 e Modo Desafio (fases 1 a 5 seguidas, com recorde).
+- 2026-11-21, branch `melhorias-coop` (a partir de trabalho-parte2, ainda sem push): Ctrl+V no IP, caixas flutuando e sumindo no parceiro, colisão entre jogadores, placas interativas (tecla E), cor do boneco (salva e sincronizada), 3 vidas compartilhadas (Host decide), Host escolhe fase ou Desafio no multiplayer, castelinho na saída das fases 1-3.
+- Validado em 2026-11-21: `python tools/bot_fases.py todas` e `--desafio --god` passam; `python tools/teste_multiplayer.py --porta 5601` 7/7 (o item 3 oscila entre 76% e 100%, também no código antigo: medição).
+- Multiplayer pelo Radmin VPN: Host passa o IP 26.x; liberar UDP 5555 no Firewall do Host.
+- "Fase 2 não terminou" (relato do Guilherme em 2026-11-21): não reproduzido; bot passa a fase 2 sozinho e no multiplayer. Falta saber o que aconteceu.
 - Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
-- Próximos passos: teste manual em 2 PCs com o Pedro (docs/checklist_teste_multiplayer.md); ler o guia, dividir a fala e ensaiar; relatório em PDF até 2026-11-24.
+- Próximos passos: push da `melhorias-coop` e teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD com as novidades.
+
+---
+
+### 2026-11-21 — Melhorias do cooperativo (delegadas ao Gemini)
+- Pedido: passo a passo do Radmin VPN; Ctrl+V no IP; colisão entre jogadores; cor do boneco P1/P2; coletáveis com animação e sumindo no parceiro; analisar fase 2; vidas compartilhadas; placas interativas; escolher fase/Desafio no multiplayer; castelinho no fim da fase.
+- Feito na branch `melhorias-coop` (7 commits, 09127fd a f3c0e81). Roteiros em `docs/tarefas/2026-11-21_fase-2_*.md` a `fase-7_*.md`, executados pelo Antigravity (ponte-agy) e revisados/testados aqui. Ctrl+V feito direto em `ui/screens/multiplayer_menu.py`.
+- Novos comandos de rede: `item`, `color`, `death`, `lives`; o `level` ganhou 5º campo (Desafio). Arquivos novos: `entities/sign.py`, `entities/castle.py`.
+- Resultados: bot campanha e Desafio OK; teste_multiplayer 7/7 (item 3 oscila). Fase 2: bot passou sozinho e no multiplayer; problema não reproduzido.
+- Próximos passos: push e teste com o Pedro; descobrir o que houve na fase 2.
 
 ---
 
