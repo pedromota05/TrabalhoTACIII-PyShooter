@@ -63,6 +63,9 @@ def draw_game_entities(game) -> None:
     game.grenade_group.draw(game.screen)
     game.explosion_group.draw(game.screen)
     game.item_box_group.draw(game.screen)
+    item_fx = getattr(game, 'item_fx_group', None)
+    if item_fx is not None:
+        item_fx.draw(game.screen)
     game.decoration_group.draw(game.screen)
     game.water_group.draw(game.screen)
     game.exit_group.draw(game.screen)

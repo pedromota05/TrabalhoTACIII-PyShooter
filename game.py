@@ -103,6 +103,7 @@ class Game:
         self.grenade_group = pygame.sprite.Group()
         self.explosion_group = pygame.sprite.Group()
         self.item_box_group = pygame.sprite.Group()
+        self.item_fx_group = pygame.sprite.Group()
         self.decoration_group = pygame.sprite.Group()
         self.water_group = pygame.sprite.Group()
         self.exit_group = pygame.sprite.Group()

@@ -16,6 +16,9 @@ def reset_groups(game) -> None:
     game.grenade_group.empty()
     game.explosion_group.empty()
     game.item_box_group.empty()
+    fx_grp = getattr(game, 'item_fx_group', None)
+    if fx_grp is not None:
+        fx_grp.empty()
     game.decoration_group.empty()
     game.water_group.empty()
     game.exit_group.empty()

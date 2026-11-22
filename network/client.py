@@ -20,6 +20,7 @@ from .protocol import (
     encode_enemy_shoot,
     encode_level,
     encode_level_request,
+    encode_item_pickup,
     parse_packet,
 )
 
@@ -56,6 +57,7 @@ class NetworkClient:
         self.host_level: tuple[int, bool] | None = None
         # Pedidos de troca de fase recebidos dos clientes (só o Host consome)
         self.pending_level_requests: List[int] = []
+        self.pending_item_pickups: List[tuple[int, int]] = []
         self.lock = threading.Lock()
 
     def connect(self) -> bool:
@@ -137,6 +139,8 @@ class NetworkClient:
                                 }
                     elif packet["type"] == "enemy_shoot":
                         self.pending_enemy_shoots.append(packet)
+                    elif packet["type"] == "item":
+                        self.pending_item_pickups.append((packet["level"], packet["item_id"]))
                     elif packet["type"] == "state":
                         target_pos = [packet["x"], packet["y"]]
                         if p_id in self.remote_players:
@@ -240,6 +244,18 @@ class NetworkClient:
             reqs = list(self.pending_level_requests)
             self.pending_level_requests.clear()
             return reqs
+
+    def send_item_pickup(self, level: int, item_id: int) -> None:
+        """Avisa que pegou uma caixa. Envia 3 vezes (UDP pode perder; remover é idempotente)."""
+        msg = encode_item_pickup(self.player_id, level, item_id)
+        for _ in range(3):
+            self._send(msg)
+
+    def pop_item_pickups(self) -> List[tuple[int, int]]:
+        with self.lock:
+            items = list(self.pending_item_pickups)
+            self.pending_item_pickups.clear()
+            return items
 
     def get_enemies_level(self) -> int:
         """Fase a que pertencem os inimigos guardados em remote_enemies."""
@@ -358,6 +374,7 @@ class NetworkClient:
             self.pending_enemy_shoots.clear()
             self.pending_enemy_hits.clear()
             self.pending_level_requests.clear()
+            self.pending_item_pickups.clear()
             self.host_level = None
             self.enemies_level = 0
         print(f"[REDE CLIENTE] Desconectado.")

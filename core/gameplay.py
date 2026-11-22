@@ -328,7 +328,19 @@ def update_game_entities(game) -> None:
         game.boss_group,
     )
     game.explosion_group.update(game.screen_scroll)
-    game.item_box_group.update(game.screen_scroll, game.player)
+    net_items = game.network_client if getattr(game, 'is_multiplayer', False) else None
+    if net_items is not None:
+        # Caixas que o parceiro pegou somem aqui também (sem dar o efeito).
+        for lvl, item_id in net_items.pop_item_pickups():
+            if lvl != game.level:
+                continue
+            for box in list(game.item_box_group):
+                if box.item_id == item_id:
+                    box.kill()
+    fx_group = getattr(game, 'item_fx_group', None)
+    game.item_box_group.update(game.screen_scroll, game.player, net_items, game.level, fx_group)
+    if fx_group is not None:
+        fx_group.update(game.screen_scroll)
     game.decoration_group.update(game.screen_scroll)
     game.water_group.update(game.screen_scroll)
     game.exit_group.update(game.screen_scroll)

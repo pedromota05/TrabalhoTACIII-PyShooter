@@ -78,6 +78,11 @@ def encode_enemy_shoot(
     )
 
 
+def encode_item_pickup(player_id: str, level: int, item_id: int) -> str:
+    """Qualquer jogador -> outros: pegou a caixa `item_id` da fase `level`."""
+    return f"{player_id},item,{level},{item_id}"
+
+
 def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     """
     Decodifica um pacote recebido na rede.
@@ -165,6 +170,13 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
                 "target_wy": float(parts[9]),
             }
         except (ValueError, IndexError):
+            return None
+
+    if command == "item" and len(parts) >= 4:
+        try:
+            return {"type": "item", "player_id": player_id,
+                    "level": int(parts[2]), "item_id": int(parts[3])}
+        except ValueError:
             return None
 
     try:
