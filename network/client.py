@@ -21,6 +21,7 @@ from .protocol import (
     encode_level,
     encode_level_request,
     encode_item_pickup,
+    encode_color,
     parse_packet,
 )
 
@@ -58,6 +59,7 @@ class NetworkClient:
         # Pedidos de troca de fase recebidos dos clientes (só o Host consome)
         self.pending_level_requests: List[int] = []
         self.pending_item_pickups: List[tuple[int, int]] = []
+        self.remote_colors: Dict[str, int] = {}
         self.lock = threading.Lock()
 
     def connect(self) -> bool:
@@ -103,6 +105,10 @@ class NetworkClient:
                     if packet["type"] in ("quit", "remove"):
                         if p_id in self.remote_players:
                             del self.remote_players[p_id]
+                        if p_id in self.remote_colors:
+                            del self.remote_colors[p_id]
+                    elif packet["type"] == "color":
+                        self.remote_colors[p_id] = packet["color"]
                     elif packet["type"] == "hit":
                         self.pending_enemy_hits.append((packet["target_id"], packet["damage"]))
                     elif packet["type"] == "level":
@@ -257,6 +263,15 @@ class NetworkClient:
             self.pending_item_pickups.clear()
             return items
 
+    def send_color(self, color: int) -> None:
+        """Envia a cor escolhida pelo jogador."""
+        self._send(encode_color(self.player_id, color))
+
+    def get_remote_color(self, player_id: str) -> int:
+        """Retorna a cor conhecida do jogador remoto (padrão 0)."""
+        with self.lock:
+            return self.remote_colors.get(player_id, 0)
+
     def get_enemies_level(self) -> int:
         """Fase a que pertencem os inimigos guardados em remote_enemies."""
         with self.lock:
@@ -370,6 +385,7 @@ class NetworkClient:
         self.receive_thread = None
         with self.lock:
             self.remote_players.clear()
+            self.remote_colors.clear()
             self.remote_enemies.clear()
             self.pending_enemy_shoots.clear()
             self.pending_enemy_hits.clear()

@@ -19,7 +19,7 @@ _cache = {'mtime': None, 'dados': None}
 
 
 def _vazio() -> dict:
-    return {'fases_concluidas': [], 'campanha_zerada': False, 'recorde_desafio': None}
+    return {'fases_concluidas': [], 'campanha_zerada': False, 'recorde_desafio': None, 'cor_jogador': 0}
 
 
 def carregar() -> dict:
@@ -38,6 +38,7 @@ def carregar() -> dict:
         dados['campanha_zerada'] = bool(lido.get('campanha_zerada', False))
         recorde = lido.get('recorde_desafio')
         dados['recorde_desafio'] = float(recorde) if recorde is not None else None
+        dados['cor_jogador'] = int(lido.get('cor_jogador', 0))
     except (OSError, ValueError, TypeError, AttributeError):
         dados = _vazio()
     _cache['mtime'], _cache['dados'] = mtime, dados
@@ -68,6 +69,13 @@ def marcar_campanha_zerada() -> None:
     if not dados['campanha_zerada']:
         dados['campanha_zerada'] = True
         _salvar(dados)
+
+
+def salvar_cor(indice: int) -> None:
+    """Registra a cor do soldado escolhida pelo jogador."""
+    dados = carregar()
+    dados['cor_jogador'] = int(indice)
+    _salvar(dados)
 
 
 def registrar_tempo_desafio(segundos: float) -> bool:

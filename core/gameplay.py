@@ -380,6 +380,7 @@ def update_game_entities(game) -> None:
             game.remote_players_map[p_id].update_from_network(
                 p_info, game.bg_scroll, game.bullet_group
             )
+            game.remote_players_map[p_id].set_color(net_client.get_remote_color(p_id))
 
         for p_id in list(game.remote_players_map.keys()):
             if p_id not in remote_data:
@@ -440,6 +441,8 @@ def update_playing(game) -> None:
                 game.player.action, game.player.direction,
                 game.shoot, game.player.health
             )
+            if game.run_frames % 60 == 1:
+                game.network_client.send_color(getattr(game.player, 'color', 0))
 
         if is_level_complete(game, level_complete):
             if getattr(game, 'is_multiplayer', False) and not game.is_host and game.network_client:

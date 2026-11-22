@@ -85,6 +85,8 @@ JUMP_VELOCITY = -14
 # ---------------------------------------------------------------------------
 PLAYER_SPEED = 5
 PLAYER_SCALE = 1.55
+# Cores do soldado: (nome, matiz HSV de destino; None = original verde)
+PLAYER_COLORS = [('VERDE', None), ('AZUL', 215), ('VERMELHO', 0), ('AMARELO', 50), ('ROXO', 285)]
 PLAYER_START_AMMO = 20
 PLAYER_START_GRENADES = 5
 

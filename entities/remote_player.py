@@ -38,6 +38,14 @@ class RemotePlayer(pygame.sprite.Sprite):
 
         # Fonte para identificação sobre a cabeça
         self.font = pygame.font.SysFont(FONT_NAME, 16, bold=True)
+        self.color = 0
+
+    def set_color(self, color: int) -> None:
+        if color == self.color:
+            return
+        self.color = color
+        self.animation_list = AssetManager().load_character_animations('player', PLAYER_SCALE, color)
+        self.frame_index = min(self.frame_index, len(self.animation_list[self.action]) - 1)
 
     def update_from_network(
         self,

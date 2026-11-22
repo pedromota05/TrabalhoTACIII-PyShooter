@@ -83,6 +83,11 @@ def encode_item_pickup(player_id: str, level: int, item_id: int) -> str:
     return f"{player_id},item,{level},{item_id}"
 
 
+def encode_color(player_id: str, color: int) -> str:
+    """Codifica a mensagem de escolha de cor do jogador."""
+    return f"{player_id},color,{color}"
+
+
 def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     """
     Decodifica um pacote recebido na rede.
@@ -176,6 +181,12 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
         try:
             return {"type": "item", "player_id": player_id,
                     "level": int(parts[2]), "item_id": int(parts[3])}
+        except ValueError:
+            return None
+
+    if command == "color" and len(parts) >= 3:
+        try:
+            return {"type": "color", "player_id": player_id, "color": int(parts[2])}
         except ValueError:
             return None
 

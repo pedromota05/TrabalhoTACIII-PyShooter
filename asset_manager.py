@@ -8,7 +8,23 @@ para animações de personagens e frames de explosão.
 
 import os
 import pygame
-from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT, SCREEN_WIDTH
+from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT, SCREEN_WIDTH, PLAYER_COLORS
+
+
+def recolor_surface(surf: pygame.Surface, target_hue: int) -> pygame.Surface:
+    """Troca só os tons verdes (uniforme) pelo matiz pedido; pele e arma ficam iguais."""
+    out = surf.copy()
+    w, h = out.get_size()
+    for x in range(w):
+        for y in range(h):
+            c = out.get_at((x, y))
+            if c.a == 0:
+                continue
+            hue, sat, val, alpha = c.hsva
+            if 70 <= hue <= 170 and sat >= 20:
+                c.hsva = (target_hue, sat, val, alpha)
+                out.set_at((x, y), c)
+    return out
 
 
 class AssetManager:
@@ -213,13 +229,25 @@ class AssetManager:
             sound.set_volume(volume)
 
     # ------------------------------------------------------------------
-    #  Animações de personagens (cache por char_type + scale)
+    #  Animações de personagens (cache por char_type + scale + color)
     # ------------------------------------------------------------------
-    def load_character_animations(self, char_type: str, scale: float) -> list:
+    def load_character_animations(self, char_type: str, scale: float, color: int = 0) -> list:
         """Carrega (ou retorna do cache) as sprite-sheets de um personagem."""
-        cache_key = (char_type, scale)
+        if char_type != 'player' or color < 0 or color >= len(PLAYER_COLORS):
+            color = 0
+
+        cache_key = (char_type, scale, color)
         if cache_key in self._anim_cache:
             return self._anim_cache[cache_key]
+
+        if color > 0:
+            target_hue = PLAYER_COLORS[color][1]
+            base_animations = self.load_character_animations(char_type, scale, 0)
+            recolored_list: list[list[pygame.Surface]] = []
+            for anim in base_animations:
+                recolored_list.append([recolor_surface(frame, target_hue) for frame in anim])
+            self._anim_cache[cache_key] = recolored_list
+            return recolored_list
 
         animation_types = ['Idle', 'Run', 'Jump', 'Death']
         animation_list: list[list[pygame.Surface]] = []

@@ -8,6 +8,7 @@ from config import (
     TILE_SIZE, SCROLL_THRESH,
     PLAYER_SCALE, PLAYER_SPEED, PLAYER_START_AMMO, PLAYER_START_GRENADES,
 )
+from asset_manager import AssetManager
 from .base import Character
 
 
@@ -19,6 +20,11 @@ class Player(Character):
                  grenades: int = PLAYER_START_GRENADES):
         super().__init__('player', x, y, scale, speed, ammo, grenades)
         self.invincible = 0
+        from core import progress  # import local evita ciclo
+        self.color = progress.carregar().get('cor_jogador', 0)
+        if self.color:
+            self.animation_list = AssetManager().load_character_animations('player', scale, self.color)
+            self.image = self.animation_list[self.action][self.frame_index]
 
     def update(self, enemy_group=None):
         super().update()
