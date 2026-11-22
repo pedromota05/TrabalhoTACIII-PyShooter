@@ -2,8 +2,8 @@
 ui/screens/level_select.py — Tela de Seleção de Fase do PyShooter.
 
 Mostra o progresso salvo (core/progress.py): selo "CONCLUÍDA" e contorno
-verde nas fases já vencidas, e o botão do Modo Desafio, que só é liberado
-depois de zerar a campanha.
+verde nas fases já vencidas, o botão do Modo Desafio (liberado após zerar a
+campanha) e opções de treino para iniciar o Desafio em qualquer fase após ter recorde.
 """
 
 import pygame
@@ -27,6 +27,17 @@ def _challenge_surface(text: str, fill: tuple, font: pygame.font.Font) -> pygame
     rect = surf.get_rect()
     pygame.draw.rect(surf, (20, 20, 20), rect, border_radius=12)
     pygame.draw.rect(surf, fill, rect.inflate(-6, -6), border_radius=10)
+    label = font.render(text, True, WHITE)
+    surf.blit(label, label.get_rect(center=rect.center))
+    return surf
+
+
+def _small_button_surface(text: str, fill: tuple, font: pygame.font.Font) -> pygame.Surface:
+    """Botão de fase do treino: retângulo arredondado 52x40 com borda escura e texto centralizado."""
+    surf = pygame.Surface((52, 40), pygame.SRCALPHA)
+    rect = surf.get_rect()
+    pygame.draw.rect(surf, (20, 20, 20), rect, border_radius=8)
+    pygame.draw.rect(surf, fill, rect.inflate(-4, -4), border_radius=6)
     label = font.render(text, True, WHITE)
     surf.blit(label, label.get_rect(center=rect.center))
     return surf
@@ -70,6 +81,23 @@ class LevelSelectScreen:
             0, 0, _challenge_surface('MODO DESAFIO', CHALLENGE_RED, self.font_bold), 1)
         for btn in (self.challenge_locked, self.challenge_open):
             btn.rect.midtop = (SCREEN_WIDTH // 2, btn_y + sample_img.get_height() + 90)
+
+        # Botões de início rápido para treino no Modo Desafio (fases 1 a 5)
+        self.challenge_start_buttons: list[button.Button] = []
+        small_btn_w = 52
+        small_spacing = 12
+        total_small_w = (small_btn_w * 5) + (small_spacing * 4)
+        small_start_x = (SCREEN_WIDTH - total_small_w) // 2
+        small_btn_y = self.challenge_open.rect.bottom + 62
+
+        for i in range(5):
+            bx = small_start_x + i * (small_btn_w + small_spacing)
+            btn = button.Button(
+                bx, small_btn_y,
+                _small_button_surface(str(i + 1), CHALLENGE_RED, self.badge_font), 1,
+            )
+            btn.rect.top = small_btn_y
+            self.challenge_start_buttons.append(btn)
 
         # Seletor de cor do boneco (painel à direita da tela)
         panel_x = SCREEN_WIDTH - 150
@@ -147,6 +175,13 @@ class LevelSelectScreen:
                         game.state = GameState.MULTIPLAYER_MENU
                 else:
                     game.start_challenge()
+
+            if record is not None and not getattr(game, 'mp_host_pick', False):
+                draw_text_with_outline(screen, 'Treino: começar na fase', self.small_font, WHITE,
+                                       SCREEN_WIDTH // 2, self.challenge_open.rect.bottom + 36)
+                for i, btn in enumerate(self.challenge_start_buttons):
+                    if btn.draw(screen):
+                        game.start_challenge(start_index=i)
         else:
             self.challenge_locked.draw(screen)
             draw_text_with_outline(screen, 'Zere a campanha para liberar', self.small_font, LOCKED_GREY,

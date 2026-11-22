@@ -183,6 +183,7 @@ HIT_FLASH_FRAMES = 6
 HORDE_LEVEL = 5
 HORDE_PAUSE_FRAMES = 180  # 3 s entre ondas
 HORDE_BANNER_FRAMES = 120
+HORDE_HINT_FRAMES = 480  # 8 s sem matar ninguém: mostra a seta para o inimigo mais próximo
 
 HORDE_WAVES = [
     # Onda 1: 3 Enemy

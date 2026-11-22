@@ -20,6 +20,7 @@
 - `python tools/teste_multiplayer.py`: rodada 1 (com outro teste rodando junto) 6/7, item 3 falhou por poucas fotos do host; rodada 2 (sozinho) 6/7, item 3 OK (43/46) e item 2 no limite (p95 13 px, tolerância 12). Variação de medição, não regressão.
 - Não commitado: `tools/bot_fases.py` e o roteiro.
 - Atalho de teste (Gemini, roteiro `docs/tarefas/2026-11-22_atalho-fase5.md`): `python main.py --fase5` abre o Desafio direto na fase 5; `Game.start_challenge(start_index)` e `challenge_cheat` evitam gravar recorde. Verificado headless (nível 5, hordas ligadas) e bot fase 1 OK.
+- Pedido do Guilherme (depois de testar): seta para o inimigo restante e escolher a fase do Desafio. Gemini (roteiro `docs/tarefas/2026-11-22_seta-inimigo-e-fase-desafio.md`): na fase 5, após 8 s sem matar ninguém (`HORDE_HINT_FRAMES` em `config.py`, contador `horde_idle` em `core/horde.py`) aparece uma seta amarela junto do jogador apontando para o inimigo vivo mais próximo e o texto "Siga a seta!" (`draw_enemy_arrow` em `core/renderer.py`); na seleção de fase, com recorde salvo, linha "Treino: começar na fase" com botões 1-5 (`ui/screens/level_select.py`; só solo, 2-5 não gravam recorde). Conferido com capturas e bot fase 1 OK.
 - Próximos passos: Guilherme testar na mão a fase 5 e as novidades; teste em dupla com o Pedro; opcional: ensinar o bot a pegar munição e subir plataformas na fase 5.
 
 ---

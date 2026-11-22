@@ -20,6 +20,8 @@ def start_horde(game) -> None:
     game.horde_pause = 90  # 1,5 s antes da 1ª onda
     game.horde_banner = 0
     game.horde_done = False
+    game.horde_idle = 0
+    game.horde_last_alive = 0
 
 
 def spawn_wave(game, n: int, base_x: float) -> None:
@@ -128,6 +130,19 @@ def update_horde(game) -> None:
     """Atualiza o ciclo de hordas a cada quadro de gameplay."""
     if not getattr(game, 'horde_active', False):
         return
+
+    spiders = getattr(game, 'spider_group', ())
+    n = (
+        sum(1 for e in game.enemy_group if getattr(e, 'alive', False))
+        + sum(1 for b in game.boss_group if getattr(b, 'alive', False))
+        + sum(1 for s in spiders if getattr(s, 'alive', False))
+    )
+    last_alive = getattr(game, 'horde_last_alive', 0)
+    if n == 0 or n < last_alive:
+        game.horde_idle = 0
+    else:
+        game.horde_idle = getattr(game, 'horde_idle', 0) + 1
+    game.horde_last_alive = n
 
     if getattr(game, 'horde_banner', 0) > 0:
         game.horde_banner -= 1

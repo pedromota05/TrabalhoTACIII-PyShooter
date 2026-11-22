@@ -1,11 +1,12 @@
 """Renderização do cenário, entidades e HUD."""
 
+import math
 import pygame
 
 from config import (
     BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH,
     WHITE, YELLOW, RED, BLACK, DASH_COOLDOWN, SHARED_LIVES,
-    COMBO_WINDOW_FRAMES,
+    COMBO_WINDOW_FRAMES, HORDE_HINT_FRAMES,
 )
 from game_state import GameState
 
@@ -145,6 +146,7 @@ def draw_game_entities(game) -> None:
             secs = max(1, (game.horde_pause + 59) // 60)
             _blit_shadowed(game, f'PRÓXIMA ONDA EM {secs}s', YELLOW, game.font_bold,
                            SCREEN_WIDTH // 2, 114)
+        draw_enemy_arrow(game)
 
     if getattr(game, 'challenge_spectating', False):
         _blit_shadowed(game, 'VOCÊ CAIU!', (235, 60, 50), game.title_font, SCREEN_WIDTH // 2, 150)
@@ -195,6 +197,50 @@ def _blit_shadowed(game, text: str, color: tuple, font, center_x: int, top: int)
     rect = image.get_rect(centerx=center_x, top=top)
     game.screen.blit(shadow, rect.move(2, 2))
     game.screen.blit(image, rect)
+
+
+def draw_enemy_arrow(game) -> None:
+    """Mostra seta apontando para o inimigo mais próximo se o jogador demorar a matar na horda."""
+    if not getattr(game, 'horde_active', False):
+        return
+    if getattr(game, 'horde_idle', 0) < HORDE_HINT_FRAMES:
+        return
+    player = getattr(game, 'player', None)
+    if player is None or not getattr(player, 'alive', False):
+        return
+
+    candidates = []
+    for grp in (getattr(game, 'enemy_group', ()), getattr(game, 'boss_group', ()), getattr(game, 'spider_group', ())):
+        for e in grp:
+            if getattr(e, 'alive', False) and hasattr(e, 'rect'):
+                candidates.append(e)
+
+    if not candidates:
+        return
+
+    px, py = player.rect.center
+    closest = min(candidates, key=lambda e: math.hypot(e.rect.centerx - px, e.rect.centery - py))
+    tx, ty = closest.rect.center
+
+    angle = math.atan2(ty - py, tx - px)
+    dist = 60.0 + 5.0 * math.sin(pygame.time.get_ticks() / 150.0)
+    cx = px + dist * math.cos(angle)
+    cy = py + dist * math.sin(angle)
+
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+
+    tip = (cx + 13.0 * cos_a, cy + 13.0 * sin_a)
+    base_center_x = cx - 13.0 * cos_a
+    base_center_y = cy - 13.0 * sin_a
+    left = (base_center_x - 9.0 * sin_a, base_center_y + 9.0 * cos_a)
+    right = (base_center_x + 9.0 * sin_a, base_center_y - 9.0 * cos_a)
+
+    points = [tip, left, right]
+    pygame.draw.polygon(game.screen, YELLOW, points)
+    pygame.draw.polygon(game.screen, BLACK, points, 2)
+
+    _blit_shadowed(game, 'Siga a seta!', YELLOW, game.font_bold, SCREEN_WIDTH // 2, 136)
 
 
 def draw_challenge_hud(game) -> None:
