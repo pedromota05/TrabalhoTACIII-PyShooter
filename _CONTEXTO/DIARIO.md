@@ -7,7 +7,17 @@
 - Multiplayer pelo Radmin VPN: Host passa o IP 26.x; liberar UDP 5555 no Firewall do Host.
 - "Fase 2 não terminou" (relato do Guilherme em 2026-11-21): não reproduzido; bot passa a fase 2 sozinho e no multiplayer. Falta saber o que aconteceu.
 - Apresentação final do T2: 2026-11-24, com relatório em PDF no Classroom.
-- Próximos passos: push da `melhorias-coop` e teste no Radmin com o Pedro; esclarecer o problema da fase 2; atualizar slides/GDD com as novidades.
+- 2026-11-21 (tarde): perder vida não mostra mais a tela vermelha; aparece "-1 VIDA" e o jogador renasce em 1 s ao lado do parceiro ou no último chão firme (GAME OVER só sem vidas). Saída das fases 1-3 movida para o chão plano do fim (coluna 186), com castelinho menor e linha de chegada.
+- Próximos passos: teste no Radmin com o Pedro (branch `melhorias-coop` já no GitHub); esclarecer o problema da fase 2; atualizar slides/GDD com as novidades.
+
+---
+
+### 2026-11-21 — Vidas sem tela vermelha e castelo no fim da fase
+- Pedido: no teste com o Pedro as vidas pareciam não cair; trocar a tela vermelha por aviso e renascer na hora; castelo menor, no chão plano do fim, depois de uma linha de chegada.
+- Diagnóstico: teste com 2 processos mostrou as vidas caindo certo (3-2-1-0 nos dois); provável versão antiga num dos PCs. Mesmo assim o cliente agora só aplica anúncio de vidas novo (`get_host_lives` consome o valor) em `network/client.py`.
+- Feito: `core/gameplay.py` (`track_safe_position`, `respawn_after_life_lost`, `_revive_at`, morte com vida = aviso + renascer em 1 s); aviso "-1 VIDA / Restam N" em `core/renderer.py`; `tools/teste_multiplayer.py` registra a volta automática no item 6. `entities/castle.py`: castelo 2x2,6 blocos e `FinishLine`; saídas movidas em `levels/level1-3_data.csv` para (linha 14, coluna 186).
+- Resultados: bot campanha 1-4 e Desafio passam; teste_multiplayer OK menos o item 3 (oscilação conhecida). Commits f48b6cb e seguinte, com push.
+- Próximos passos: testar com o Pedro pelo Radmin.
 
 ---
 

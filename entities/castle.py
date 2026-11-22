@@ -14,8 +14,8 @@ CASTLE_THEMES = {
 def _draw_castle(theme, flag_frame: int) -> pygame.Surface:
     """Gera a superfície do castelo com estilo temático e frame da bandeira."""
     wall_color, shadow_color, door_color, flag_color, top_detail = theme
-    w = 3 * TILE_SIZE
-    h = 4 * TILE_SIZE
+    w = 2 * TILE_SIZE
+    h = int(2.6 * TILE_SIZE)
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
 
     # Retângulos principais
@@ -84,8 +84,8 @@ def _draw_castle(theme, flag_frame: int) -> pygame.Surface:
         pygame.draw.rect(surf, door_color, (jx, jy, jw, jh))
 
     # Porta: arco escuro centrado embaixo
-    door_w = TILE_SIZE
-    door_h = int(1.4 * TILE_SIZE)
+    door_w = int(0.8 * TILE_SIZE)
+    door_h = int(1.15 * TILE_SIZE)
     door_x = (w - door_w) // 2
     door_top = h - door_h
     arc_h = door_w
@@ -129,3 +129,34 @@ class Castle(Decoration):
         self.rect.x += screen_scroll
         self.tick += 1
         self.image = self.frames[(self.tick // 20) % 2]
+
+
+def _draw_finish_line() -> pygame.Surface:
+    """Pórtico de chegada: dois postes com faixa quadriculada em cima e no chão."""
+    w = int(1.6 * TILE_SIZE)
+    h = int(2.6 * TILE_SIZE)
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    post_w = 6
+    post = (70, 70, 80)
+    pygame.draw.rect(surf, post, (0, 0, post_w, h))
+    pygame.draw.rect(surf, post, (w - post_w, 0, post_w, h))
+    sq = 6  # tamanho do quadradinho
+    for row, (y, rows) in enumerate(((4, 3), (h - sq, 1))):  # faixa de cima (3 linhas) e do chão
+        for r in range(rows):
+            for c in range(post_w // sq, (w - post_w) // sq + 1):
+                x = c * sq
+                if x + sq > w - post_w:
+                    break
+                color = (20, 20, 20) if (r + c) % 2 else (245, 245, 245)
+                pygame.draw.rect(surf, color, (x, y + r * sq, sq, sq))
+    pygame.draw.rect(surf, (20, 20, 20), (post_w, 4, w - 2 * post_w, 3 * sq), 1)
+    return surf
+
+
+class FinishLine(Decoration):
+    """Linha de chegada (só desenho) com o pé apoiado em `bottom`."""
+
+    def __init__(self, center_x: int, bottom: int):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = _draw_finish_line()
+        self.rect = self.image.get_rect(midbottom=(center_x, bottom))

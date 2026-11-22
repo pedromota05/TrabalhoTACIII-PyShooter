@@ -6,7 +6,7 @@ import os
 import pygame
 
 from config import CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE, SIGN_TEXTS, SIGN_DEFAULT_TEXT
-from entities.castle import Castle, CASTLE_THEMES
+from entities.castle import Castle, CASTLE_THEMES, FinishLine
 from entities.checkpoint import CheckpointFlag
 from entities.sign import Sign
 from world.level_builder import World
@@ -100,6 +100,8 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     if level_number in CASTLE_THEMES:
         for ex in game.exit_group:
             game.decoration_group.add(Castle(level_number, ex.rect))
+            # Linha de chegada no chão, 6 blocos antes do castelo
+            game.decoration_group.add(FinishLine(ex.rect.centerx - 6 * TILE_SIZE, ex.rect.bottom))
             ex.image = pygame.Surface(ex.rect.size, pygame.SRCALPHA)
 
     # Placas: textos pela ordem da esquerda para a direita
