@@ -22,6 +22,8 @@ from .protocol import (
     encode_level_request,
     encode_item_pickup,
     encode_color,
+    encode_death,
+    encode_lives,
     parse_packet,
 )
 
@@ -59,6 +61,8 @@ class NetworkClient:
         # Pedidos de troca de fase recebidos dos clientes (só o Host consome)
         self.pending_level_requests: List[int] = []
         self.pending_item_pickups: List[tuple[int, int]] = []
+        self.pending_deaths: List[tuple[str, int]] = []
+        self.host_lives: tuple[int, int] | None = None
         self.remote_colors: Dict[str, int] = {}
         self.lock = threading.Lock()
 
@@ -109,6 +113,10 @@ class NetworkClient:
                             del self.remote_colors[p_id]
                     elif packet["type"] == "color":
                         self.remote_colors[p_id] = packet["color"]
+                    elif packet["type"] == "death":
+                        self.pending_deaths.append((p_id, packet["seq"]))
+                    elif packet["type"] == "lives":
+                        self.host_lives = (packet["lives"], packet["reset"])
                     elif packet["type"] == "hit":
                         self.pending_enemy_hits.append((packet["target_id"], packet["damage"]))
                     elif packet["type"] == "level":
@@ -231,6 +239,28 @@ class NetworkClient:
             pass
 
     # ---------------- Sincronização de fase ----------------
+    def send_death(self, seq: int) -> None:
+        """Avisa a morte do jogador para o Host. Envia 3 vezes (UDP pode perder)."""
+        msg = encode_death(self.player_id, seq)
+        for _ in range(3):
+            self._send(msg)
+
+    def pop_deaths(self) -> List[tuple[str, int]]:
+        """Consome e limpa a lista de mortes pendentes recebidas dos clientes."""
+        with self.lock:
+            deaths = list(self.pending_deaths)
+            self.pending_deaths.clear()
+            return deaths
+
+    def send_lives(self, lives: int, reset: int) -> None:
+        """Host: anuncia a quantidade de vidas compartilhadas e o contador de reset."""
+        self._send(encode_lives(self.player_id, lives, reset))
+
+    def get_host_lives(self) -> tuple[int, int] | None:
+        """Retorna (vidas, reset) anunciado pelo Host ou None."""
+        with self.lock:
+            return self.host_lives
+
     def send_level(self, level: int, victory: bool = False) -> None:
         """Host: anuncia a fase atual (repetido periodicamente, pois UDP pode perder pacotes)."""
         self._send(encode_level(self.player_id, level, victory))
@@ -391,6 +421,8 @@ class NetworkClient:
             self.pending_enemy_hits.clear()
             self.pending_level_requests.clear()
             self.pending_item_pickups.clear()
+            self.pending_deaths.clear()
+            self.host_lives = None
             self.host_level = None
             self.enemies_level = 0
         print(f"[REDE CLIENTE] Desconectado.")

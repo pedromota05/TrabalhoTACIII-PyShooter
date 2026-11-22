@@ -24,6 +24,7 @@ from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS,
     BLACK,
     FONT_NAME, FONT_SIZE,
+    SHARED_LIVES,
 )
 from asset_manager import AssetManager
 from core.gameplay import update_game_entities, update_level_transition, update_playing
@@ -81,6 +82,13 @@ class Game:
         self.near_sign = None
         self.open_sign = None
         self.sign_toggle = False
+        self.lives = SHARED_LIVES
+        self.death_had_life = True
+        self.death_seq = 0
+        self.lives_reset_counter = 0
+        self.lives_reset_seen = 0
+        self.lives_reset_frames = 0
+        self.processed_deaths = set()
 
         # ----- Modo Desafio (maratona das fases 1 a 5 com uma vida) -----
         self.challenge_mode = False
@@ -237,6 +245,10 @@ class Game:
         self.is_multiplayer = True
         self.is_host = True
         self.level = 1
+        self.lives = SHARED_LIVES
+        self.lives_reset_counter = 0
+        self.lives_reset_seen = 0
+        self.processed_deaths = set()
         self.bg_scroll = 0
         self.run_frames = 0
         self.start_intro = True
@@ -256,6 +268,10 @@ class Game:
         self.is_multiplayer = True
         self.is_host = False
         self.level = 1
+        self.lives = SHARED_LIVES
+        self.lives_reset_counter = 0
+        self.lives_reset_seen = 0
+        self.processed_deaths = set()
         self.bg_scroll = 0
         self.run_frames = 0
         self.start_intro = True

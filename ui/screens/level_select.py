@@ -8,7 +8,7 @@ depois de zerar a campanha.
 
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, FONT_NAME, FPS
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, FONT_NAME, FPS, SHARED_LIVES
 from asset_manager import AssetManager
 from core import progress
 from game_state import GameState
@@ -97,6 +97,7 @@ class LevelSelectScreen:
             if btn.draw(screen):
                 game.challenge_mode = False
                 game.level = i + 1
+                game.lives = SHARED_LIVES
                 game.bg_scroll = 0
                 game.run_frames = 0
                 game.start_intro = True

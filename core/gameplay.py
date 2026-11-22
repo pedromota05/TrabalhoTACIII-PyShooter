@@ -3,7 +3,10 @@
 import pygame
 
 from asset_manager import AssetManager
-from config import BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_START_AMMO, SIGN_RANGE_X
+from config import (
+    BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_START_AMMO, SIGN_RANGE_X,
+    SHARED_LIVES, LIVES_RESET_FRAMES,
+)
 from core import progress
 from entities import DragonBoss, Grenade, RemotePlayer
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
@@ -35,7 +38,33 @@ def sync_multiplayer_level(game) -> None:
         for level in net.pop_level_requests():
             if level == game.level and game.state in (GameState.PLAYING, GameState.GAME_OVER):
                 game.state = GameState.LEVEL_TRANSITION
+        for pid, seq in net.pop_deaths():
+            if (pid, seq) not in game.processed_deaths and not getattr(game, 'challenge_mode', False):
+                game.processed_deaths.add((pid, seq))
+                game.lives = max(0, game.lives - 1)
+                net.send_lives(game.lives, game.lives_reset_counter)
+        if game.net_frames % LEVEL_ANNOUNCE_FRAMES == 1:
+            net.send_lives(game.lives, game.lives_reset_counter)
+        # Sem vidas e todos mortos: recomeça a fase para todos
+        everyone_dead = (game.state == GameState.GAME_OVER and not game.player.alive
+                         and all(not r.alive for r in game.remote_players_group))
+        if everyone_dead and game.lives == 0 and not getattr(game, 'challenge_mode', False):
+            game.lives_reset_frames += 1
+            if game.lives_reset_frames >= LIVES_RESET_FRAMES:
+                restart_level_with_lives(game)
+                game.lives_reset_counter += 1
+                net.send_lives(game.lives, game.lives_reset_counter)
+                net.send_level(game.level)
+        else:
+            game.lives_reset_frames = 0
         return
+
+    lives_info = net.get_host_lives()
+    if lives_info is not None:
+        game.lives, reset = lives_info
+        if reset > game.lives_reset_seen:
+            game.lives_reset_seen = reset
+            restart_level_with_lives(game)
 
     announced = net.get_host_level()
     if announced is None or game.state == GameState.LEVEL_TRANSITION:
@@ -51,6 +80,33 @@ def sync_multiplayer_level(game) -> None:
         game._load_level(level)
         game.game_over_screen.death_fade.fade_counter = 0
         game.state = GameState.PLAYING
+
+
+def register_death(game) -> None:
+    """Gasta uma vida (campanha). No cliente, o Host confirma pelo anúncio 'lives'."""
+    if getattr(game, 'challenge_mode', False):
+        game.death_had_life = True  # Desafio tem regra própria
+        return
+    game.death_had_life = game.lives > 0
+    game.lives = max(0, game.lives - 1)
+    net = game.network_client if getattr(game, 'is_multiplayer', False) else None
+    if net is None:
+        return
+    if game.is_host:
+        net.send_lives(game.lives, game.lives_reset_counter)
+    else:
+        game.death_seq += 1
+        net.send_death(game.death_seq)
+
+
+def restart_level_with_lives(game) -> None:
+    """Recomeça a fase atual do zero (sem checkpoint) com as vidas cheias."""
+    game.lives = SHARED_LIVES
+    game.lives_reset_frames = 0
+    game.start_intro = True
+    game._load_level(game.level)
+    game.game_over_screen.death_fade.fade_counter = 0
+    game.state = GameState.PLAYING
 
 
 def respawn_multiplayer(game) -> None:
@@ -454,6 +510,7 @@ def update_playing(game) -> None:
                 game.state = GameState.LEVEL_TRANSITION
     else:
         game.screen_scroll = 0
+        register_death(game)
         game.state = GameState.GAME_OVER
 
     if game.pause_button.draw(game.screen):

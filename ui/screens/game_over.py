@@ -13,7 +13,7 @@ from ui.screens.victory import format_time
 
 CHALLENGE_RED = (230, 50, 40)
 from core.level_loader import respawn
-from core.gameplay import respawn_multiplayer
+from core.gameplay import respawn_multiplayer, restart_level_with_lives
 
 
 class GameOverScreen:
@@ -37,36 +37,58 @@ class GameOverScreen:
         self.challenge_font = pygame.font.SysFont(FONT_NAME, 56, bold=True)
         self.info_font = pygame.font.SysFont(FONT_NAME, 30, bold=True)
 
+    def _draw_gif(self, screen: pygame.Surface) -> None:
+        current_time = pygame.time.get_ticks()
+        if current_time - self.go_last_update >= self.go_anim_cooldown:
+            self.go_frame_index += 1
+            self.go_last_update = current_time
+            if self.go_frame_index >= len(self.go_frames):
+                self.go_frame_index = 0
+
+        current_go_img = self.go_frames[self.go_frame_index]
+        go_rect = current_go_img.get_rect()
+        go_rect.centerx = SCREEN_WIDTH // 2
+        go_rect.centery = (SCREEN_HEIGHT // 2) - 100
+        screen.blit(current_go_img, go_rect)
+
     def update(self, screen: pygame.Surface, game) -> None:
         game.screen_scroll = 0
         game._update_game_entities()
         game._draw_game_entities()
 
         if self.death_fade.fade(screen):
-            current_time = pygame.time.get_ticks()
-            if current_time - self.go_last_update >= self.go_anim_cooldown:
-                self.go_frame_index += 1
-                self.go_last_update = current_time
-                if self.go_frame_index >= len(self.go_frames):
-                    self.go_frame_index = 0
-
-            current_go_img = self.go_frames[self.go_frame_index]
-            go_rect = current_go_img.get_rect()
-            go_rect.centerx = SCREEN_WIDTH // 2
-            go_rect.centery = (SCREEN_HEIGHT // 2) - 100
-            screen.blit(current_go_img, go_rect)
-
-            challenge = getattr(game, 'challenge_mode', False)
-            if challenge:
+            if getattr(game, 'challenge_mode', False):
+                self._draw_gif(screen)
                 draw_text_with_outline(screen, 'DESAFIO ENCERRADO', self.challenge_font, CHALLENGE_RED,
                                        SCREEN_WIDTH // 2, 40, thickness=3)
                 total = len(game.challenge_levels)
                 draw_text_with_outline(
                     screen, f'Fase {game.challenge_index + 1}/{total}  -  {format_time(game.run_frames)}',
                     self.info_font, WHITE, SCREEN_WIDTH // 2, 110)
-
-            if self.restart_button.draw(screen):
-                self.restart(game)
+                if self.restart_button.draw(screen):
+                    self.restart(game)
+            elif getattr(game, 'death_had_life', False):
+                draw_text_with_outline(screen, 'VOCÊ CAIU!', self.challenge_font, WHITE,
+                                       SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 120)
+                draw_text_with_outline(screen, f'Vidas restantes: {getattr(game, "lives", 0)}',
+                                       self.info_font, WHITE,
+                                       SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)
+                if self.restart_button.draw(screen):
+                    self.restart(game)
+            else:
+                self._draw_gif(screen)
+                draw_text_with_outline(screen, 'SEM VIDAS', self.info_font, WHITE,
+                                       SCREEN_WIDTH // 2, 40)
+                if not getattr(game, 'is_multiplayer', False):
+                    if self.restart_button.draw(screen):
+                        self.death_fade.fade_counter = 0
+                        restart_level_with_lives(game)
+                else:
+                    msg = ('Reiniciando a fase...'
+                           if (game.is_host and getattr(game, 'lives_reset_frames', 0) > 0)
+                           else 'Aguardando o parceiro...')
+                    draw_text_with_outline(screen, msg, self.info_font, WHITE,
+                                           SCREEN_WIDTH // 2, (SCREEN_HEIGHT // 2) + 50)
 
     def restart(self, game) -> None:
         """Ação do botão Restart (também usada pelo teste automático do multiplayer)."""

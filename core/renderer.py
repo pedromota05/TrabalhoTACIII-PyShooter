@@ -2,7 +2,7 @@
 
 import pygame
 
-from config import BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
+from config import BG_COLOR, MAX_LEVELS, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW, RED, BLACK
 
 
 def draw_background(game) -> None:
@@ -92,6 +92,12 @@ def draw_game_entities(game) -> None:
         fase, total = level_label(game)
         _blit_shadowed(game, f'FASE {fase}/{total}', WHITE, game.font_bold,
                        SCREEN_WIDTH // 2, 8)
+        draw_text(game, 'VIDAS:', WHITE, SCREEN_WIDTH - 200, 10, game.font_bold)
+        vidas_w = game.font_bold.size('VIDAS:')[0]
+        for i in range(getattr(game, 'lives', 0)):
+            cx = SCREEN_WIDTH - 200 + vidas_w + 14 + (i * 22)
+            pygame.draw.circle(game.screen, RED, (cx, 22), 8)
+            pygame.draw.circle(game.screen, BLACK, (cx, 22), 8, 2)
     draw_level_banner(game)
 
     if getattr(game, 'checkpoint_msg_frames', 0) > 0:

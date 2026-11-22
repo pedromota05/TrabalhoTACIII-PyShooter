@@ -88,6 +88,16 @@ def encode_color(player_id: str, color: int) -> str:
     return f"{player_id},color,{color}"
 
 
+def encode_death(player_id: str, seq: int) -> str:
+    """Cliente -> Host: notifica uma morte com número de sequência."""
+    return f"{player_id},death,{seq}"
+
+
+def encode_lives(player_id: str, lives: int, reset: int) -> str:
+    """Host -> clientes: vidas restantes compartilhadas e contador de resets."""
+    return f"{player_id},lives,{lives},{reset}"
+
+
 def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     """
     Decodifica um pacote recebido na rede.
@@ -187,6 +197,23 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
     if command == "color" and len(parts) >= 3:
         try:
             return {"type": "color", "player_id": player_id, "color": int(parts[2])}
+        except ValueError:
+            return None
+
+    if command == "death" and len(parts) >= 3:
+        try:
+            return {"type": "death", "player_id": player_id, "seq": int(parts[2])}
+        except ValueError:
+            return None
+
+    if command == "lives" and len(parts) >= 4:
+        try:
+            return {
+                "type": "lives",
+                "player_id": player_id,
+                "lives": int(parts[2]),
+                "reset": int(parts[3]),
+            }
         except ValueError:
             return None
 
