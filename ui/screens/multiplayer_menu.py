@@ -38,6 +38,7 @@ class MultiplayerMenuScreen:
         # Campo de entrada de IP
         self.ip_input = "127.0.0.1"
         self.input_active = False
+        self.select_all = False  # clique no campo / Ctrl+A: próxima tecla troca o IP inteiro
 
         # Botões pixel-art: escala uniforme (proporção intacta), sem tamanho fixo.
         self.host_btn = button.Button(0, 0, self.assets.get_image('lan_host_btn'), LAN_BUTTON_SCALE)
@@ -89,19 +90,36 @@ class MultiplayerMenuScreen:
                 self.color = (self.color + 1) % len(PLAYER_COLORS)
                 progress.salvar_cor(self.color)
             elif self.input_rect.collidepoint(event.pos):
+                # Clicar no campo seleciona tudo: digitar ou apagar troca o IP inteiro.
+                self.select_all = not self.input_active or not self.select_all
                 self.input_active = True
             else:
                 self.input_active = False
+                self.select_all = False
 
         elif event.type == pygame.KEYDOWN and self.input_active:
-            if event.key == pygame.K_BACKSPACE:
+            ctrl = event.mod & pygame.KMOD_CTRL
+            if event.key == pygame.K_a and ctrl:
+                self.select_all = True
+            elif event.key == pygame.K_DELETE or (event.key == pygame.K_BACKSPACE and (ctrl or self.select_all)):
+                self.ip_input = ""
+                self.select_all = False
+            elif event.key == pygame.K_BACKSPACE:
                 self.ip_input = self.ip_input[:-1]
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.input_active = False
-            elif event.key == pygame.K_v and event.mod & pygame.KMOD_CTRL:
+                self.select_all = False
+            elif event.key == pygame.K_v and ctrl:
                 self._paste_ip()
-            elif len(self.ip_input) < 15 and (event.unicode.isdigit() or event.unicode in ('.', ':')):
-                self.ip_input += event.unicode
+                self.select_all = False
+            elif event.unicode.isdigit() or event.unicode in ('.', ':'):
+                if self.select_all:
+                    self.ip_input = ""
+                    self.select_all = False
+                if len(self.ip_input) < 15:
+                    self.ip_input += event.unicode
+            elif event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_HOME, pygame.K_END):
+                self.select_all = False
 
     def _paste_ip(self) -> None:
         """Ctrl+V: troca o conteúdo do campo pelo IP da área de transferência.
@@ -143,9 +161,15 @@ class MultiplayerMenuScreen:
         pygame.draw.rect(screen, (30, 35, 45), self.input_rect, border_radius=6)
         pygame.draw.rect(screen, input_border_color, self.input_rect, 2, border_radius=6)
 
-        ip_display = self.ip_input + ("|" if self.input_active and (pygame.time.get_ticks() // 400) % 2 == 0 else "")
-        ip_surf = self.font_bold.render(ip_display, True, WHITE)
-        screen.blit(ip_surf, (self.input_rect.x + 12, self.input_rect.centery - ip_surf.get_height() // 2))
+        text_pos = (self.input_rect.x + 12, self.input_rect.centery - self.font_bold.get_height() // 2)
+        if self.select_all and self.ip_input:
+            # Texto selecionado: fundo azul, como num campo de texto comum
+            sel = self.font_bold.render(self.ip_input, True, WHITE)
+            pygame.draw.rect(screen, (50, 100, 200), sel.get_rect(topleft=text_pos).inflate(4, 2))
+            screen.blit(sel, text_pos)
+        else:
+            ip_display = self.ip_input + ("|" if self.input_active and (pygame.time.get_ticks() // 400) % 2 == 0 else "")
+            screen.blit(self.font_bold.render(ip_display, True, WHITE), text_pos)
 
         # 2. Botão Join
         if self.join_btn.draw(screen):
