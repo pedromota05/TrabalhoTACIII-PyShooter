@@ -19,7 +19,9 @@ from ui.screens.common import draw_text_with_shadow, draw_text_with_outline
 
 SUBTITLE_TEXT = "Jogue cooperativamente em rede local via UDP (Porta 5555)"
 SUBTITLE_Y = 120
-STACK_START_Y = 190   # topo do primeiro botão (abaixo do subtítulo)
+HELP_TEXT = "Quem cria o servidor escolhe a fase (ou o Desafio)"
+HELP_Y = 160
+STACK_START_Y = 210   # topo do primeiro botão (abaixo do subtítulo e linha de ajuda)
 
 
 class MultiplayerMenuScreen:
@@ -124,16 +126,16 @@ class MultiplayerMenuScreen:
             screen, SUBTITLE_TEXT, self.font, WHITE, SCREEN_WIDTH // 2, SUBTITLE_Y,
             outline_color=BLACK, thickness=2,
         )
+        draw_text_with_outline(
+            screen, HELP_TEXT, self.font, WHITE, SCREEN_WIDTH // 2, HELP_Y,
+            outline_color=BLACK, thickness=2,
+        )
 
         # 1. Botão Host
         if self.host_btn.draw(screen):
-            self.status_msg = "Iniciando Servidor Host..."
-            self.status_color = GREEN
-            if game.start_multiplayer_host():
-                self.status_msg = "Servidor ativo! Entrando na partida..."
-            else:
-                self.status_msg = "Erro ao iniciar o servidor na porta 5555."
-                self.status_color = RED
+            self.status_msg = ""
+            game.mp_host_pick = True
+            game.state = GameState.LEVEL_SELECT
 
         # Caixa de texto para o IP do Host
         draw_text_with_shadow(screen, "IP do Servidor Host:", self.font, WHITE, SCREEN_WIDTH // 2, self.ip_label_y)

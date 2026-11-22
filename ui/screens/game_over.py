@@ -57,7 +57,7 @@ class GameOverScreen:
         game._draw_game_entities()
 
         if self.death_fade.fade(screen):
-            if getattr(game, 'challenge_mode', False):
+            if getattr(game, 'challenge_mode', False) and not getattr(game, 'is_multiplayer', False):
                 self._draw_gif(screen)
                 draw_text_with_outline(screen, 'DESAFIO ENCERRADO', self.challenge_font, CHALLENGE_RED,
                                        SCREEN_WIDTH // 2, 40, thickness=3)
@@ -93,12 +93,12 @@ class GameOverScreen:
     def restart(self, game) -> None:
         """Ação do botão Restart (também usada pelo teste automático do multiplayer)."""
         self.death_fade.fade_counter = 0
-        if getattr(game, 'challenge_mode', False):
-            game.start_challenge()  # Desafio recomeça da fase 1
-            return
         if getattr(game, 'is_multiplayer', False):
             respawn_multiplayer(game)  # renasce ao lado do parceiro, fase continua
             game.state = GameState.PLAYING
+            return
+        if getattr(game, 'challenge_mode', False):
+            game.start_challenge()  # Desafio recomeça da fase 1
             return
         game.start_intro = True
         game.bg_scroll = 0

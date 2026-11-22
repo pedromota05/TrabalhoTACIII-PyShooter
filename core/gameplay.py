@@ -34,7 +34,7 @@ def sync_multiplayer_level(game) -> None:
     if game.is_host:
         victory = game.state == GameState.VICTORY
         if game.net_frames % LEVEL_ANNOUNCE_FRAMES == 1:
-            net.send_level(game.level, victory)
+            net.send_level(game.level, victory, challenge=getattr(game, 'challenge_mode', False))
         for level in net.pop_level_requests():
             if level == game.level and game.state in (GameState.PLAYING, GameState.GAME_OVER):
                 game.state = GameState.LEVEL_TRANSITION
@@ -54,7 +54,7 @@ def sync_multiplayer_level(game) -> None:
                 restart_level_with_lives(game)
                 game.lives_reset_counter += 1
                 net.send_lives(game.lives, game.lives_reset_counter)
-                net.send_level(game.level)
+                net.send_level(game.level, challenge=getattr(game, 'challenge_mode', False))
         else:
             game.lives_reset_frames = 0
         return
@@ -70,10 +70,18 @@ def sync_multiplayer_level(game) -> None:
     if announced is None or game.state == GameState.LEVEL_TRANSITION:
         return
     level, victory = announced
+    challenge = net.get_host_challenge()
+    mode_changed = challenge != getattr(game, 'challenge_mode', False)
+    if mode_changed:
+        game.challenge_mode = challenge
+        if challenge:
+            game.run_frames = 0
+    if challenge and level in game.challenge_levels:
+        game.challenge_index = game.challenge_levels.index(level)
     if victory:
         if game.state != GameState.VICTORY:
             game.state = GameState.VICTORY
-    elif level != game.level:
+    elif level != game.level or mode_changed:
         game.level = level
         game.level_request_frames = 0
         game.start_intro = True
@@ -540,12 +548,14 @@ def update_level_transition(game) -> None:
     """Carrega a próxima fase ou vai para a tela de vitória ao fim da campanha."""
     game.screen.fill(BLACK)
     game.start_intro = True
-    if getattr(game, 'challenge_mode', False):
-        update_challenge_transition(game)
-        return
-    progress.marcar_fase(game.level)
     host_net = (game.network_client
                 if getattr(game, 'is_multiplayer', False) and getattr(game, 'is_host', False) else None)
+    if getattr(game, 'challenge_mode', False):
+        update_challenge_transition(game)
+        if host_net:
+            host_net.send_level(game.level, game.state == GameState.VICTORY, challenge=True)
+        return
+    progress.marcar_fase(game.level)
     game.game_over_screen.death_fade.fade_counter = 0
     if game.level >= MAX_LEVELS:
         # Só conta como campanha zerada quando todas as fases já foram vencidas
@@ -554,10 +564,10 @@ def update_level_transition(game) -> None:
             progress.marcar_campanha_zerada()
         game.state = GameState.VICTORY
         if host_net:
-            host_net.send_level(game.level, True)
+            host_net.send_level(game.level, True, challenge=getattr(game, 'challenge_mode', False))
         return
     game.level += 1
     game._load_level(game.level)
     game.state = GameState.PLAYING
     if host_net:
-        host_net.send_level(game.level)  # anúncio imediato; repetido a cada 0,5 s
+        host_net.send_level(game.level, challenge=getattr(game, 'challenge_mode', False))  # anúncio imediato; repetido a cada 0,5 s

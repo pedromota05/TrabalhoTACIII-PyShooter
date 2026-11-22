@@ -50,9 +50,9 @@ def encode_enemies_state(player_id: str, enemies_payload: str, level: int = 0) -
     return f"{player_id},enemies,{enemies_payload},{level}"
 
 
-def encode_level(player_id: str, level: int, victory: bool = False) -> str:
+def encode_level(player_id: str, level: int, victory: bool = False, challenge: bool = False) -> str:
     """Host -> clientes: fase atual da partida (e se a campanha terminou)."""
-    return f"{player_id},level,{level},{1 if victory else 0}"
+    return f"{player_id},level,{level},{1 if victory else 0},{1 if challenge else 0}"
 
 
 def encode_level_request(player_id: str, level: int) -> str:
@@ -159,8 +159,13 @@ def parse_packet(raw_message: str) -> Optional[Dict[str, Any]]:
 
     if command == "level" and len(parts) >= 4:
         try:
-            return {"type": "level", "player_id": player_id,
-                    "level": int(parts[2]), "victory": parts[3] == "1"}
+            return {
+                "type": "level",
+                "player_id": player_id,
+                "level": int(parts[2]),
+                "victory": parts[3] == "1",
+                "challenge": len(parts) >= 5 and parts[4] == "1",
+            }
         except ValueError:
             return None
 

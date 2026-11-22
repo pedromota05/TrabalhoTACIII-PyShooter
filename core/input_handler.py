@@ -33,7 +33,10 @@ def handle_events(game) -> None:
                 game.player.jump = True
                 game.assets.get_sound('jump').play()
             if event.key == pygame.K_ESCAPE:
-                if game.state in (GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.MULTIPLAYER_MENU):
+                if game.state == GameState.LEVEL_SELECT and getattr(game, 'mp_host_pick', False):
+                    game.mp_host_pick = False
+                    game.state = GameState.MULTIPLAYER_MENU
+                elif game.state in (GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.MULTIPLAYER_MENU):
                     game.state = GameState.MENU
                 elif game.state == GameState.OPTIONS:
                     game.state = game.previous_state if game.previous_state else GameState.MENU

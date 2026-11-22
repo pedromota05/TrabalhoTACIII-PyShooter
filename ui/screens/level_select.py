@@ -8,7 +8,7 @@ depois de zerar a campanha.
 
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, FONT_NAME, FPS, SHARED_LIVES
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, WHITE, PINK, RED, FONT_NAME, FPS, SHARED_LIVES
 from asset_manager import AssetManager
 from core import progress
 from game_state import GameState
@@ -77,7 +77,8 @@ class LevelSelectScreen:
         done = set(saved['fases_concluidas'])
 
         # Título centralizado
-        draw_text_with_shadow(screen, 'SELECIONE A FASE', self.font_bold, WHITE, SCREEN_WIDTH // 2, 80)
+        title = 'MULTIPLAYER: ESCOLHA A FASE' if getattr(game, 'mp_host_pick', False) else 'SELECIONE A FASE'
+        draw_text_with_shadow(screen, title, self.font_bold, WHITE, SCREEN_WIDTH // 2, 80)
 
         # Rótulos acima, contorno verde e selo "CONCLUÍDA" abaixo das fases vencidas
         for i, btn in enumerate(self.level_buttons):
@@ -95,14 +96,22 @@ class LevelSelectScreen:
         # Desenhar botões e checar cliques (todas as fases continuam abertas)
         for i, btn in enumerate(self.level_buttons):
             if btn.draw(screen):
-                game.challenge_mode = False
-                game.level = i + 1
-                game.lives = SHARED_LIVES
-                game.bg_scroll = 0
-                game.run_frames = 0
-                game.start_intro = True
-                game._load_level(game.level)
-                game.state = GameState.PLAYING
+                if getattr(game, 'mp_host_pick', False):
+                    game.mp_host_pick = False
+                    ok = game.start_multiplayer_host(level=i + 1)
+                    if not ok:
+                        game.multiplayer_screen.status_msg = "Erro ao iniciar o servidor na porta 5555."
+                        game.multiplayer_screen.status_color = RED
+                        game.state = GameState.MULTIPLAYER_MENU
+                else:
+                    game.challenge_mode = False
+                    game.level = i + 1
+                    game.lives = SHARED_LIVES
+                    game.bg_scroll = 0
+                    game.run_frames = 0
+                    game.start_intro = True
+                    game._load_level(game.level)
+                    game.state = GameState.PLAYING
 
         # Modo Desafio: cinza e sem ação até a campanha ser zerada
         if saved['campanha_zerada']:
@@ -112,13 +121,22 @@ class LevelSelectScreen:
             draw_text_with_outline(screen, info, self.small_font, WHITE,
                                    SCREEN_WIDTH // 2, self.challenge_open.rect.bottom + 8)
             if clicked:
-                game.start_challenge()
+                if getattr(game, 'mp_host_pick', False):
+                    game.mp_host_pick = False
+                    ok = game.start_multiplayer_host(challenge=True)
+                    if not ok:
+                        game.multiplayer_screen.status_msg = "Erro ao iniciar o servidor na porta 5555."
+                        game.multiplayer_screen.status_color = RED
+                        game.state = GameState.MULTIPLAYER_MENU
+                else:
+                    game.start_challenge()
         else:
             self.challenge_locked.draw(screen)
             draw_text_with_outline(screen, 'Zere a campanha para liberar', self.small_font, LOCKED_GREY,
                                    SCREEN_WIDTH // 2, self.challenge_locked.rect.bottom + 8)
 
         # Dica para voltar
+        hint = "ESC volta para o Multiplayer" if getattr(game, 'mp_host_pick', False) else 'Pressione ESC para voltar ao menu'
         draw_text_with_shadow(
-            screen, 'Pressione ESC para voltar ao menu', self.font_bold, PINK, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60
+            screen, hint, self.font_bold, PINK, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60
         )

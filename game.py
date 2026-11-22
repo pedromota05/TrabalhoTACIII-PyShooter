@@ -136,6 +136,7 @@ class Game:
         # ----- Multiplayer LAN (Cliente/Servidor) -----
         self.is_multiplayer = False
         self.is_host = False
+        self.mp_host_pick = False
         self.network_server: GameServer | None = None
         self.network_client: NetworkClient | None = None
         self.remote_players_group = pygame.sprite.Group()
@@ -228,7 +229,7 @@ class Game:
     # ==================================================================
     #  Controle de Multiplayer LAN
     # ==================================================================
-    def start_multiplayer_host(self, port: int = 5555) -> bool:
+    def start_multiplayer_host(self, port: int = 5555, level: int = 1, challenge: bool = False) -> bool:
         """Inicia servidor local em LAN e conecta o jogador como Host (P1)."""
         self.clean_multiplayer()
         self.network_server = GameServer(host="0.0.0.0", port=port)
@@ -244,11 +245,14 @@ class Game:
         self.challenge_mode = False
         self.is_multiplayer = True
         self.is_host = True
-        self.level = 1
+        self.level = level
         self.lives = SHARED_LIVES
         self.lives_reset_counter = 0
         self.lives_reset_seen = 0
         self.processed_deaths = set()
+        if challenge:
+            self.start_challenge()
+            return True
         self.bg_scroll = 0
         self.run_frames = 0
         self.start_intro = True

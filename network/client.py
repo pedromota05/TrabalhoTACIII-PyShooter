@@ -58,6 +58,7 @@ class NetworkClient:
         self.enemies_level = 0
         # Última fase anunciada pelo Host: (fase, vitória) ou None
         self.host_level: tuple[int, bool] | None = None
+        self.host_challenge: bool = False
         # Pedidos de troca de fase recebidos dos clientes (só o Host consome)
         self.pending_level_requests: List[int] = []
         self.pending_item_pickups: List[tuple[int, int]] = []
@@ -121,6 +122,7 @@ class NetworkClient:
                         self.pending_enemy_hits.append((packet["target_id"], packet["damage"]))
                     elif packet["type"] == "level":
                         self.host_level = (packet["level"], packet["victory"])
+                        self.host_challenge = packet.get("challenge", False)
                     elif packet["type"] == "level_request":
                         self.pending_level_requests.append(packet["level"])
                     elif packet["type"] == "enemies":
@@ -261,9 +263,9 @@ class NetworkClient:
         with self.lock:
             return self.host_lives
 
-    def send_level(self, level: int, victory: bool = False) -> None:
+    def send_level(self, level: int, victory: bool = False, challenge: bool = False) -> None:
         """Host: anuncia a fase atual (repetido periodicamente, pois UDP pode perder pacotes)."""
-        self._send(encode_level(self.player_id, level, victory))
+        self._send(encode_level(self.player_id, level, victory, challenge))
 
     def send_level_request(self, level: int) -> None:
         """Cliente: avisa o Host que chegou ao fim da fase `level`."""
@@ -273,6 +275,11 @@ class NetworkClient:
         """Última fase anunciada pelo Host: (fase, vitória) ou None."""
         with self.lock:
             return self.host_level
+
+    def get_host_challenge(self) -> bool:
+        """Indica se o Host está no Modo Desafio."""
+        with self.lock:
+            return self.host_challenge
 
     def pop_level_requests(self) -> List[int]:
         """Consome os pedidos de troca de fase enviados pelos clientes."""
@@ -424,5 +431,6 @@ class NetworkClient:
             self.pending_deaths.clear()
             self.host_lives = None
             self.host_level = None
+            self.host_challenge = False
             self.enemies_level = 0
         print(f"[REDE CLIENTE] Desconectado.")
