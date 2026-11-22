@@ -3,7 +3,10 @@
 import csv
 import os
 
+import pygame
+
 from config import CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE, SIGN_TEXTS, SIGN_DEFAULT_TEXT
+from entities.castle import Castle, CASTLE_THEMES
 from entities.checkpoint import CheckpointFlag
 from entities.sign import Sign
 from world.level_builder import World
@@ -88,6 +91,13 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     if hasattr(game, 'checkpoint_group') and checkpoints_enabled(game):
         for col in CHECKPOINTS.get(level_number, []):
             game.checkpoint_group.add(CheckpointFlag(col, _ground_top(game.world, col)))
+
+    # Castelinho na saída (fases com tema). A Exit continua sendo o gatilho;
+    # a imagem dela fica invisível e o castelo é só desenho (decoração).
+    if level_number in CASTLE_THEMES:
+        for ex in game.exit_group:
+            game.decoration_group.add(Castle(level_number, ex.rect))
+            ex.image = pygame.Surface(ex.rect.size, pygame.SRCALPHA)
 
     # Placas: textos pela ordem da esquerda para a direita
     signs = sorted((d for d in game.decoration_group if isinstance(d, Sign)), key=lambda s: s.rect.x)
