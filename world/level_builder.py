@@ -3,7 +3,7 @@ world/level_builder.py — Processador da matriz de tiles e construtor do mundo.
 """
 
 import pygame
-from config import TILE_SIZE, SPIDER_TILE, ROWS
+from config import SCREEN_WIDTH, TILE_SIZE, SPIDER_TILE, BOSS_GATE_TILE, ROWS
 from asset_manager import AssetManager
 from entities.player import Player
 from entities.enemies import Enemy, Sniper, RobotEnemy, SkeletonEnemy, DragonBoss, Boss
@@ -21,7 +21,22 @@ class World:
         self.ramp_list = []
         self.crates = []
         self.spider_spawns = []
+        self.boss_gate_tiles = []
         self.level_length = 0
+
+    def open_boss_gate(self) -> list[pygame.Rect]:
+        """Remove os blocos do Portão de Boss das colisões e do desenho.
+
+        Retorna cópias dos retângulos removidos (posição atual na tela) para
+        efeitos visuais como explosões.
+        """
+        removed = []
+        for gate in self.boss_gate_tiles:
+            if gate in self.obstacle_list:
+                self.obstacle_list.remove(gate)
+            removed.append(gate[1].copy())
+        self.boss_gate_tiles.clear()
+        return removed
 
     def process_data(self, data, enemy_group, item_box_group,
                      decoration_group, water_group, exit_group, boss_group, level: int = 1):
@@ -30,7 +45,14 @@ class World:
         Retorna uma tupla (player, health_bar).
         """
         assets = AssetManager()
-        self.level_length = len(data[0])
+        # Limita o comprimento útil do mapa à última coluna preenchida (evita
+        # a câmera rolar sobre colunas vazias após a parede final da fase).
+        last_col = max(
+            (x for row in data for x, tile in enumerate(row) if tile != -1),
+            default=len(data[0]) - 1,
+        )
+        min_cols = (SCREEN_WIDTH + TILE_SIZE - 1) // TILE_SIZE
+        self.level_length = max(min_cols, last_col + 1)
         player = None
         health_bar = None
 
@@ -44,6 +66,15 @@ class World:
 
                 if tile == SPIDER_TILE:
                     self.spider_spawns.append((x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE))
+                    continue
+
+                if tile == BOSS_GATE_TILE:
+                    # Portão da Arena: sólido (bloqueia jogador/projéteis e rola com a câmera
+                    # por estar em obstacle_list) e removível por open_boss_gate().
+                    gate_img = assets.boss_gate_image
+                    gate_data = (gate_img, gate_img.get_rect(topleft=(x * TILE_SIZE, y * TILE_SIZE)))
+                    self.obstacle_list.append(gate_data)
+                    self.boss_gate_tiles.append(gate_data)
                     continue
 
                 if 0 <= tile < len(assets.tile_images):

@@ -73,6 +73,7 @@ def spawn_wave(game, n: int, base_x: float) -> None:
             y_pe = 11 * TILE_SIZE
             x_tela = x_mundo - game.bg_scroll
             dragon = DragonBoss(x_tela, y_pe)
+            dragon.activated = True  # na Horda o Dragão já nasce acordado (sem arena)
             dragon.rect.midbottom = (int(x_tela), int(y_pe))
             dragon.target_id = target_id
             game.boss_group.add(dragon)

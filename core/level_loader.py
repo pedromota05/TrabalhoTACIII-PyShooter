@@ -9,6 +9,7 @@ from config import CHECKPOINT_TILE, CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVE
 from entities import effects
 from entities.castle import Castle, CASTLE_THEMES, FinishLine
 from entities.checkpoint import CheckpointFlag
+from entities.enemies import DragonBoss
 from entities.sign import Sign
 from world.level_builder import World
 
@@ -72,6 +73,11 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
     game.screen_scroll = 0
     game.bg_scroll = 0
     game.boss_clear_frames = 0
+    game.gate_opened = False
+    game.arena_msg = ''
+    game.arena_msg_frames = 0
+    game.arena_msg_color = (255, 255, 255)
+    game.arena_msg_big = True
     game.respawn_pending = False
     game.challenge_spectating = False
     world_data = [[-1] * COLS for _ in range(ROWS)]
@@ -113,7 +119,13 @@ def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
         boss.target_id = target_id
         target_id += 1
 
-    if len(game.boss_group) >= 2:
+    # Boss Arena (Portão de Boss ou DragonBoss no mapa): todos os chefes ficam
+    # no boss_group desde o início — o DragonBoss permanece adormecido em Idle
+    # (activated=False) na Arena 2 até o Demônio morrer e o jogador se aproximar.
+    is_boss_arena = (bool(game.world.boss_gate_tiles)
+                     or any(isinstance(b, DragonBoss) for b in game.boss_group))
+
+    if len(game.boss_group) >= 2 and not is_boss_arena:
         sorted_bosses = sorted(game.boss_group, key=lambda b: b.rect.x)
         game.boss_group.empty()
         game.boss_group.add(sorted_bosses[0])

@@ -94,7 +94,8 @@ class Bullet(pygame.sprite.Sprite):
                 break
 
         if self.visual_only:
-            alvos = [e for grp in (enemy_group, boss_group or ()) if grp for e in grp if e.alive]
+            alvos = [e for grp in (enemy_group, boss_group or ()) if grp for e in grp
+                     if e.alive and getattr(e, 'activated', True)]
             for e in alvos:
                 if pygame.sprite.collide_rect(self, e):
                     e.hit_flash = HIT_FLASH_FRAMES
@@ -130,7 +131,8 @@ class Bullet(pygame.sprite.Sprite):
         if not self.has_hit and boss_group:
             boss_hit_list = pygame.sprite.spritecollide(self, boss_group, False)
             for boss in boss_hit_list:
-                if boss.alive:
+                # DragonBoss adormecido (fora da arena) ignora dano: a bala passa direto
+                if boss.alive and getattr(boss, 'activated', True):
                     self.kill()  # Bala some
                     boss.health -= 25
                     boss.hit_flash = HIT_FLASH_FRAMES
@@ -249,7 +251,7 @@ class Grenade(pygame.sprite.Sprite):
                 for boss in boss_group:
                     if (abs(self.rect.centerx - boss.rect.centerx) < GRENADE_BLAST_RADIUS
                             and abs(self.rect.centery - boss.rect.centery) < GRENADE_BLAST_RADIUS):
-                        if boss.alive:
+                        if boss.alive and getattr(boss, 'activated', True):
                             boss.health -= GRENADE_DAMAGE
                             boss.hit_flash = HIT_FLASH_FRAMES
                             effects.damage_text(boss.rect.centerx, boss.rect.top, GRENADE_DAMAGE)

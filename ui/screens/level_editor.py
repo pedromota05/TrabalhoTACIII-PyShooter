@@ -10,8 +10,8 @@ import os
 import csv
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, ROWS, COLS, TILE_SIZE, TILE_TYPES, CHECKPOINT_TILE, WHITE, GREEN, RED, BLACK, EDITOR_MENU_BTN_SCALE, FONT_NAME
-from asset_manager import AssetManager
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, ROWS, COLS, TILE_SIZE, TILE_TYPES, CHECKPOINT_TILE, BOSS_GATE_TILE, WHITE, GREEN, RED, BLACK, EDITOR_MENU_BTN_SCALE, FONT_NAME
+from asset_manager import AssetManager, load_boss_gate_tile
 from game_state import GameState
 from entities.checkpoint import CheckpointFlag
 from entities.castle import Castle, FinishLine, CASTLE_THEMES
@@ -146,6 +146,11 @@ class LevelEditorScreen:
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             pygame.draw.ellipse(surf, (20, 20, 20), (TILE_SIZE // 4, TILE_SIZE // 4, TILE_SIZE // 2, TILE_SIZE // 3))
             self.img_list.append(surf)
+
+        # Tile ID 90 (BOSS_GATE_TILE): Portão da Arena de Chefes (PNG ou procedural)
+        while len(self.img_list) < BOSS_GATE_TILE:
+            self.img_list.append(pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA))
+        self.img_list.append(load_boss_gate_tile(TILE_SIZE))
 
     def _init_buttons(self) -> None:
         """Inicializa botões da barra inferior de ferramentas."""

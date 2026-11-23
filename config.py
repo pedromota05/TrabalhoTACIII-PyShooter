@@ -43,6 +43,11 @@ TILE_SIZE = SCREEN_HEIGHT // ROWS  # 37
 TILE_TYPES = 87
 CHECKPOINT_TILE = 88  # bandeira de checkpoint (só editor/loader; o level_builder ignora)
 SPIDER_TILE = 89      # aranha no editor (passo 12)
+# Portão da Arena de Chefes: bloco sólido removido quando todos os Demônios morrem.
+# 87 = spawn do DragonBoss, 88 = checkpoint e 89 = aranha já estão em uso → 90.
+BOSS_GATE_TILE = 90
+ARENA_MSG_FRAMES = 3 * 60  # avisos da arena ("PASSAGEM LIBERADA!" etc.) por ~3 s
+DRAGON_WAKE_RANGE = 500    # distância horizontal (px) que desperta o DragonBoss
 MAX_LEVELS = 4
 
 # Checkpoints da campanha: colunas (tiles) das bandeiras em cada fase.

@@ -4,7 +4,7 @@ ui/screens/game_over.py — Tela de Game Over com animação GIF e botão de rei
 
 import pygame
 import button
-from config import SCREEN_WIDTH, SCREEN_HEIGHT, PINK, GAME_OVER_BUTTON_SCALE, FONT_NAME, WHITE
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, PINK, MENU_SCALE, FONT_NAME, WHITE
 from asset_manager import AssetManager
 from game_state import GameState
 from ui.transitions import ScreenFade
@@ -23,17 +23,18 @@ class GameOverScreen:
         self.assets = assets
         self.death_fade = ScreenFade(2, PINK, 35)
 
-        # Escala uniforme (preserva a proporção da arte) e centralização pelo
-        # próprio rect, em vez de um deslocamento fixo de -100 px.
-        self.restart_button = button.Button(
-            0, 0, self.assets.get_image('restart_btn'), GAME_OVER_BUTTON_SCALE,
-        )
-        self.restart_button.rect.midtop = (SCREEN_WIDTH // 2, (SCREEN_HEIGHT // 2) + 50)
-
         self.go_frames = load_gif_frames('img/icons/game-over-game.gif', max_width=SCREEN_WIDTH * 0.8)
         self.go_frame_index = 0
         self.go_last_update = pygame.time.get_ticks()
         self.go_anim_cooldown = 100
+
+        # Escala consistente com os demais menus (MENU_SCALE = 0.28),
+        # centralizado no eixo X e com 40 px de folga abaixo do logo GAME OVER.
+        self.restart_button = button.Button(
+            0, 0, self.assets.get_image('restart_btn'), MENU_SCALE,
+        )
+        go_bottom = ((SCREEN_HEIGHT // 2) - 100) + (self.go_frames[0].get_height() // 2)
+        self.restart_button.rect.midtop = (SCREEN_WIDTH // 2, go_bottom + 40)
         self.challenge_font = pygame.font.SysFont(FONT_NAME, 56, bold=True)
         self.info_font = pygame.font.SysFont(FONT_NAME, 30, bold=True)
 

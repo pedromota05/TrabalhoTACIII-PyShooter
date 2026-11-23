@@ -8,7 +8,7 @@ para animações de personagens e frames de explosão.
 
 import os
 import pygame
-from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT, SCREEN_WIDTH, PLAYER_COLORS
+from config import TILE_SIZE, TILE_TYPES, SCREEN_HEIGHT, SCREEN_WIDTH, PLAYER_COLORS, BOSS_GATE_TILE
 
 
 def recolor_surface(surf: pygame.Surface, target_hue: int) -> pygame.Surface:
@@ -51,6 +51,67 @@ def create_heart_icon(size: int = 36) -> pygame.Surface:
         (size // 2, size * 7 // 8)
     ])
     return surf
+
+
+def create_boss_gate_tile(size: int = TILE_SIZE) -> pygame.Surface:
+    """Tile procedural do Portão de Boss: grade metálica escura com energia vermelha (pixel art).
+
+    Desenhado só com retângulos (sem antialiasing) numa grade de 'pixels' de
+    size/16, para combinar com os demais tiles em pixel art.
+    """
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    p = max(1, size // 16)  # tamanho de um "pixel" da arte
+
+    def px(x: int, y: int, w: int, h: int, color: tuple) -> None:
+        pygame.draw.rect(surf, color, (x * p, y * p, w * p, h * p))
+
+    dark, metal, light, black = (28, 30, 38), (62, 66, 80), (112, 118, 136), (10, 10, 14)
+    red_dark, red, red_glow = (110, 12, 18), (210, 30, 40), (255, 120, 90)
+    n = size // p  # nº de pixels por lado (16)
+
+    # Fundo escuro translúcido (o cenário aparece levemente através da grade)
+    px(0, 0, n, n, (12, 6, 10, 150))
+    # Moldura superior/inferior
+    px(0, 0, n, 2, dark)
+    px(0, n - 2, n, 2, dark)
+    px(0, 0, n, 1, metal)
+    px(0, n - 1, n, 1, black)
+
+    # Barras verticais com brilho à esquerda e sombra à direita
+    for bx in (1, 5, 9, 13):
+        px(bx, 1, 2, n - 2, metal)
+        px(bx, 1, 1, n - 2, light)
+        px(bx + 1, 1, 1, n - 2, (44, 46, 58))
+
+    # Travessa central com faixa de energia vermelha
+    mid = n // 2 - 1
+    px(0, mid - 1, n, 4, dark)
+    px(0, mid, n, 2, red_dark)
+    px(0, mid, n, 1, red)
+    for gx in range(1, n, 4):
+        px(gx, mid, 1, 1, red_glow)
+
+    # Rebites nas interseções das barras com a travessa
+    for bx in (1, 5, 9, 13):
+        px(bx, mid - 1, 2, 1, light)
+        px(bx, mid + 2, 2, 1, black)
+
+    # Pontas afiadas no topo das barras e brilho vermelho na base
+    for bx in (1, 5, 9, 13):
+        px(bx, 0, 2, 1, light)
+        px(bx, n - 2, 2, 1, red_dark)
+    return surf
+
+
+def load_boss_gate_tile(size: int = TILE_SIZE) -> pygame.Surface:
+    """Carrega img/tile/{BOSS_GATE_TILE}.png ou gera o tile proceduralmente se não existir."""
+    path = f'img/tile/{BOSS_GATE_TILE}.png'
+    if os.path.exists(path):
+        try:
+            return pygame.transform.scale(pygame.image.load(path).convert_alpha(), (size, size))
+        except pygame.error:
+            pass
+    return create_boss_gate_tile(size)
 
 
 class AssetManager:
@@ -161,6 +222,26 @@ class AssetManager:
             'ESC': get_key_image(extras_sheet, 32, 0, 32, 16, 3.5)
         }
 
+        # Ícones de mouse e coração para a tela de controles.
+        # Escalados com transform.scale (sem suavização) para manter o pixel art nítido,
+        # com altura igual à altura visível das teclas (~42 px).
+        key_height = self.keys_ui['A'].get_bounding_rect().height
+
+        def scale_to_height(image: pygame.Surface, height: int) -> pygame.Surface:
+            width = max(1, round(image.get_width() * height / image.get_height()))
+            return pygame.transform.scale(image, (width, height))
+
+        mouse_left = pygame.image.load('img/icons/mouse/left.png').convert_alpha()
+        mouse_right = pygame.image.load('img/icons/mouse/right.png').convert_alpha()
+
+        heart_sheet = pygame.image.load('img/icons/heartDisplay.png').convert_alpha()
+        heart_frame = heart_sheet.subsurface((0, 0, heart_sheet.get_width() // 3, heart_sheet.get_height()))
+        heart_frame = heart_frame.subsurface(heart_frame.get_bounding_rect())
+
+        self.keys_ui['MOUSE_LEFT'] = scale_to_height(mouse_left, key_height)
+        self.keys_ui['MOUSE_RIGHT'] = scale_to_height(mouse_right, key_height)
+        self.keys_ui['HEART'] = scale_to_height(heart_frame, key_height)
+
         # Botão Pause
         self.images['pause_btn'] = pygame.image.load('img/icons/pause_button.png').convert_alpha()
 
@@ -199,6 +280,9 @@ class AssetManager:
             else:
                 img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
             self.tile_images.append(img)
+
+        # Portão da Arena de Chefes (tile BOSS_GATE_TILE, fora da faixa 0..TILE_TYPES-1)
+        self.boss_gate_image = load_boss_gate_tile(TILE_SIZE)
 
         # Ícones
         self.images['bullet'] = pygame.image.load('img/icons/bullet.png').convert_alpha()

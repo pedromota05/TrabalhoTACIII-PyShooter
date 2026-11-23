@@ -187,6 +187,11 @@ def draw_game_entities(game) -> None:
         game.screen.blit(shadow, rect.move(3, 3))
         game.screen.blit(msg, rect)
 
+    if getattr(game, 'arena_msg_frames', 0) > 0 and getattr(game, 'arena_msg', ''):
+        msg_font = game.title_font if getattr(game, 'arena_msg_big', True) else game.font_bold
+        msg_color = getattr(game, 'arena_msg_color', WHITE)
+        _blit_shadowed(game, game.arena_msg, msg_color, msg_font, SCREEN_WIDTH // 2, 105)
+
     draw_sign_ui(game)
 
 

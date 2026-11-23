@@ -39,30 +39,33 @@ class OptionsScreen:
         bar_base = self.assets.get_image('bar_base')
         bar_fill = self.assets.get_image('bar_fill')
         slider_knob = self.assets.get_image('slider_knob')
-        bar_x = center_x - (bar_base.get_width() // 2) + 20
+        # Conjunto [ícone 40 px + 30 px espaço + barra 400 px] = 470 px centralizado em center_x
+        icon_offset = 50  # distância do centro do ícone até bar_x
+        group_width = bar_base.get_width() + icon_offset + 20  # 470 px
+        bar_x = center_x - (group_width // 2) + icon_offset + 20
 
         # MÚSICA
-        music_y = bg_y + 140
+        music_y = bg_y + 115
         music_rect = draw_volume_bar(
             screen, bar_x, music_y, game.music_vol, 12, bar_base, bar_fill, slider_knob
         )
         music_icon = self.assets.get_image('music_on') if game.music_vol > 0 else self.assets.get_image('music_off')
-        music_icon_rect = music_icon.get_rect(center=(bar_x - 50, music_y + 20))
+        music_icon_rect = music_icon.get_rect(center=(bar_x - icon_offset, music_y + 20))
         screen.blit(music_icon, music_icon_rect)
 
         # SFX
-        sfx_y = bg_y + 260
+        sfx_y = bg_y + 205
         sfx_rect = draw_volume_bar(
             screen, bar_x, sfx_y, game.sfx_vol, 12, bar_base, bar_fill, slider_knob
         )
         sfx_icon = self.assets.get_image('sound_on') if game.sfx_vol > 0 else self.assets.get_image('sound_off')
-        sfx_icon_rect = sfx_icon.get_rect(center=(bar_x - 50, sfx_y + 20))
+        sfx_icon_rect = sfx_icon.get_rect(center=(bar_x - icon_offset, sfx_y + 20))
         screen.blit(sfx_icon, sfx_icon_rect)
 
-        # TELA CHEIA (liga/desliga; o F11 faz o mesmo em qualquer tela)
+        # TELA CHEIA (alinhado à largura do conjunto ícone + slider, com folga uniforme)
         ligada = getattr(game, 'fullscreen', False)
-        fs_rect = pygame.Rect(0, 0, 500, 44)
-        fs_rect.center = (center_x, bg_y + 340)
+        fs_rect = pygame.Rect(0, 0, group_width, 46)
+        fs_rect.center = (center_x, bg_y + 318)
         mouse_sobre = fs_rect.collidepoint(pygame.mouse.get_pos())
         cor_fundo = (60, 140, 70) if ligada else (110, 50, 50)
         if mouse_sobre:

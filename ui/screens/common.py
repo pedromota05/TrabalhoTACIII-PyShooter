@@ -142,11 +142,17 @@ class ColorPicker:
 
         pygame.draw.rect(screen, (30, 35, 45), self.color_left, border_radius=6)
         pygame.draw.rect(screen, (140, 140, 160), self.color_left, 2, border_radius=6)
-        draw_text_with_shadow(screen, "<", self.font_bold, WHITE, self.color_left.centerx, self.color_left.centery)
+        lx, ly = self.color_left.center
+        left_tri = [(lx - 6, ly), (lx + 5, ly - 7), (lx + 5, ly + 7)]
+        pygame.draw.polygon(screen, (0, 0, 0), [(x + 1, y + 1) for x, y in left_tri])
+        pygame.draw.polygon(screen, WHITE, left_tri)
 
         pygame.draw.rect(screen, (30, 35, 45), self.color_right, border_radius=6)
         pygame.draw.rect(screen, (140, 140, 160), self.color_right, 2, border_radius=6)
-        draw_text_with_shadow(screen, ">", self.font_bold, WHITE, self.color_right.centerx, self.color_right.centery)
+        rx, ry = self.color_right.center
+        right_tri = [(rx + 6, ry), (rx - 5, ry - 7), (rx - 5, ry + 7)]
+        pygame.draw.polygon(screen, (0, 0, 0), [(x + 1, y + 1) for x, y in right_tri])
+        pygame.draw.polygon(screen, WHITE, right_tri)
 
         color_name = PLAYER_COLORS[self.color][0]
         draw_text_with_shadow(screen, color_name, self.font_bold, WHITE, panel_x, panel_y + 70)

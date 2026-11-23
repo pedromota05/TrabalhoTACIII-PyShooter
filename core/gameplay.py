@@ -8,10 +8,10 @@ from config import (
     BLACK, CHECKPOINT_MSG_FRAMES, FPS, MAX_LEVELS, PLAYER_COLORS, PLAYER_START_AMMO, SIGN_RANGE_X,
     SHARED_LIVES, MAX_LIVES, LIVES_RESET_FRAMES, TILE_SIZE, SCREEN_WIDTH,
     KILL_POINTS, COMBO_WINDOW_FRAMES, COMBO_MAX, DROP_CHANCES,
-    MELEE_DAMAGE, CRATE_DROPS,
+    MELEE_DAMAGE, CRATE_DROPS, ARENA_MSG_FRAMES,
 )
 from core import progress
-from entities import DragonBoss, Explosion, Grenade, RemotePlayer, effects
+from entities import Boss, DragonBoss, Explosion, Grenade, RemotePlayer, effects
 from entities.spider import Spider
 from entities.combat.projectiles import Bullet, SniperBullet, Arrow, RobotBullet, DragonFire
 from entities.items import ItemBox
@@ -218,6 +218,11 @@ def is_level_complete(game, touched_exit: bool) -> bool:
             return False
         return getattr(game, 'horde_done', False)
     if touched_exit:
+        # Portal de saída trancado enquanto houver chefe (Boss ou DragonBoss) vivo
+        if bosses_remaining(game):
+            show_arena_message(game, 'Derrote todos os chefes para liberar a saída!',
+                               (255, 210, 90), big=False)
+            return False
         return True
     if len(game.exit_group) or not len(game.boss_group):
         return False
@@ -403,7 +408,7 @@ def update_melee(game) -> None:
 
     # Chefes
     for boss in game.boss_group:
-        if boss.alive and m_rect.colliderect(boss.rect):
+        if boss.alive and getattr(boss, 'activated', True) and m_rect.colliderect(boss.rect):
             if is_mp and not is_host and net and hasattr(boss, 'target_id'):
                 net.send_enemy_hit(boss.target_id, MELEE_DAMAGE)
                 effects.damage_text(boss.rect.centerx, boss.rect.top, MELEE_DAMAGE)
@@ -435,6 +440,58 @@ def update_melee(game) -> None:
         for crate in list(game.world.crates):
             if m_rect.colliderect(crate['tile'][1]):
                 break_crate(game, crate, sync=True)
+
+
+def show_arena_message(game, text: str, color: tuple = (255, 255, 255), big: bool = True) -> None:
+    """Mostra um aviso temporário (~3 s) no topo/centro da tela (desenhado pelo renderer)."""
+    game.arena_msg = text
+    game.arena_msg_color = color
+    game.arena_msg_big = big
+    game.arena_msg_frames = ARENA_MSG_FRAMES
+
+
+def reset_arena_state(game) -> None:
+    """Zera as flags da Arena de Chefes (chamado ao carregar/reiniciar a fase)."""
+    game.gate_opened = False
+    game.arena_msg = ''
+    game.arena_msg_frames = 0
+
+
+def bosses_remaining(game) -> bool:
+    """True se ainda existe algum chefe vivo na fase (inclusive na fila de reserva)."""
+    groups = (game.boss_group, getattr(game, 'boss_reserve_group', ()))
+    return any(boss.alive for grp in groups for boss in grp) or bool(getattr(game, 'boss_queue', None))
+
+
+def demons_alive(game) -> bool:
+    """True se algum Boss Demônio da fase ainda está vivo."""
+    groups = (game.boss_group, getattr(game, 'boss_reserve_group', ()))
+    return any(isinstance(b, Boss) and b.alive for grp in groups for b in grp)
+
+
+def update_boss_arena(game) -> None:
+    """Arena de Chefes: abre o Portão quando todos os Demônios morrem e
+    atualiza o contador 'CHEFE x/y' conforme os chefes caem."""
+    if getattr(game, 'horde_active', False) or not hasattr(game, 'world'):
+        return
+
+    world = game.world
+    demons = [b for b in game.boss_group if isinstance(b, Boss)]
+    if (world.boss_gate_tiles and demons and not getattr(game, 'gate_opened', False)
+            and all(not b.alive for b in demons)):
+        removed = world.open_boss_gate()
+        game.gate_opened = True
+        AssetManager().get_sound('grenade').play()
+        effects.shake(20, 8)
+        targets = removed if len(removed) <= 6 else removed[::2]
+        for rect in targets:
+            game.explosion_group.add(Explosion(rect.centerx, rect.centery, 1.5))
+        show_arena_message(game, 'PASSAGEM LIBERADA!', (90, 230, 120))
+
+    # Sem fila sequencial (arena), a etapa acompanha quantos chefes já caíram
+    if not getattr(game, 'boss_queue', None) and getattr(game, 'boss_stage_total', 0) >= 2:
+        dead = sum(1 for b in game.boss_group if not b.alive)
+        game.boss_stage = min(game.boss_stage_total, 1 + dead)
 
 
 def update_boss_stages(game) -> None:
@@ -595,6 +652,20 @@ def update_game_entities(game) -> None:
                 if hasattr(boss, 'update_animation'):
                     boss.update_animation(game.player)
 
+            # O Host é quem roda a IA; aqui só espelhamos o "despertar" do Dragão
+            # (para os tiros do cliente passarem a causar dano e mostrar o aviso).
+            if isinstance(boss, DragonBoss) and not boss.activated and boss.alive:
+                host_awake = t_id in enemies_snapshot and enemies_snapshot[t_id]["action"] in (1, 2)
+                if host_awake:
+                    boss.activated = True
+                else:
+                    boss.try_activate(game.player, not demons_alive(game))
+                if boss.activated:
+                    show_arena_message(game, 'CHEFE FINAL: DRAGÃO DESPERTOU!', (235, 60, 50))
+            if isinstance(boss, DragonBoss) and boss.alive and not boss.enraged and boss.health <= boss.max_health * 0.5:
+                boss.enraged = True
+                show_arena_message(game, 'O DRAGÃO ENTROU EM FÚRIA!', (255, 120, 30))
+
     else:
         # === MODO HOST OU SINGLE PLAYER: Executa IA e Física Local ===
         if is_multiplayer and is_host and net_client:
@@ -612,7 +683,7 @@ def update_game_entities(game) -> None:
                 for target_id, damage in incoming_hits:
                     if target_id in target_map:
                         target = target_map[target_id]
-                        if target.alive:
+                        if target.alive and getattr(target, 'activated', True):
                             target.health -= damage
                             if target.health <= 0:
                                 target.health = 0
@@ -634,17 +705,26 @@ def update_game_entities(game) -> None:
             )
             enemy.update()
 
+        can_wake_dragon = not demons_alive(game)
         for boss in game.boss_group:
             boss.rect.x += game.screen_scroll
             target_player = get_target_player(boss, game.player, game.remote_players_group)
             if isinstance(boss, DragonBoss):
+                was_active = boss.activated
+                was_enraged = boss.enraged
+                # screen_scroll já foi aplicado acima (não passar de novo para não rolar em dobro)
                 boss.update(
                     target_player,
                     game.world.obstacle_list,
                     bullet_group=game.bullet_group,
                     network_client=net_client if (is_multiplayer and is_host) else None,
                     bg_scroll=game.bg_scroll,
+                    can_activate=can_wake_dragon,
                 )
+                if boss.activated and not was_active:
+                    show_arena_message(game, 'CHEFE FINAL: DRAGÃO DESPERTOU!', (235, 60, 50))
+                elif boss.enraged and not was_enraged:
+                    show_arena_message(game, 'O DRAGÃO ENTROU EM FÚRIA!', (255, 120, 30))
             else:
                 boss.update(target_player, game.world.obstacle_list, 0.75)
 
@@ -820,6 +900,7 @@ def update_playing(game) -> None:
         game.bg_scroll -= game.screen_scroll
         update_checkpoints(game)
         update_boss_stages(game)
+        update_boss_arena(game)
         update_horde(game)
         update_signs(game)
         update_fun(game)
@@ -915,6 +996,8 @@ def update_playing(game) -> None:
 
     if getattr(game, 'life_lost_frames', 0) > 0:
         game.life_lost_frames -= 1
+    if getattr(game, 'arena_msg_frames', 0) > 0:
+        game.arena_msg_frames -= 1
 
     if game.pause_button.draw(game.screen):
         game.state = GameState.PAUSE
