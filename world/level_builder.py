@@ -177,6 +177,43 @@ class World:
                         boss = Boss(mid_x, bottom_y)
                         boss_group.add(boss)
 
+        # Configura os limites reais de voo da Arena 2 para cada DragonBoss do mapa
+        solid_ids = (
+            set(range(0, 9))
+            | set(range(24, 36))
+            | {12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84}
+        )
+        num_cols = len(data[0]) if data else 0
+        for boss in boss_group:
+            if not isinstance(boss, DragonBoss):
+                continue
+            dragon_col = int(boss.rect.centerx // TILE_SIZE)
+
+            # Limite esquerdo: ~60 px à direita da parede divisória / portão da Arena 1
+            gate_rights = [r.right for _, r in self.boss_gate_tiles if r.right <= boss.rect.centerx]
+            if gate_rights:
+                arena_min_x = max(gate_rights) + 60
+            else:
+                arena_min_x = 40
+                for c in range(dragon_col - 1, -1, -1):
+                    solid_count = sum(1 for r in range(min(12, len(data))) if data[r][c] in solid_ids)
+                    if solid_count >= 6:
+                        arena_min_x = (c + 1) * TILE_SIZE + 60
+                        break
+
+            # Limite direito: margem interna de 20 px à esquerda da parede final da Arena 2
+            arena_max_x = self.level_length * TILE_SIZE - 20
+            for c in range(dragon_col + 1, num_cols):
+                if all(data[r][c] in solid_ids for r in range(min(6, len(data)))):
+                    arena_max_x = c * TILE_SIZE - 20
+                    break
+
+            # Nível da água dentro da Arena 2 (para o Dragão nunca encostar no lago)
+            arena_waters = [w.rect.top for w in water_group if arena_min_x <= w.rect.centerx <= arena_max_x]
+            water_y = min(arena_waters) if arena_waters else None
+
+            boss.set_arena_bounds(arena_min_x, arena_max_x, water_y=water_y, horde_mode=False)
+
         return player, health_bar
 
     def draw(self, screen: pygame.Surface, screen_scroll: int):

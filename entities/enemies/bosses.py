@@ -16,10 +16,13 @@ from entities.combat.projectiles import DragonFire
 class DragonBoss(pygame.sprite.Sprite):
     """Boss Dragão voador com perseguição dinâmica, transição de Fúria e 3 padrões de ataque."""
 
-    def __init__(self, x: int, y: int, scale: float = 1.5):
+    def __init__(self, x: int, y: int, scale: float = 1.5,
+                 arena_min_x: float | None = None,
+                 arena_max_x: float | None = None,
+                 horde_mode: bool = False):
         super().__init__()
-        self.base_speed = 3.5
-        self.enraged_speed = 4.5
+        self.base_speed = 3.8
+        self.enraged_speed = 5.0
         self.speed = self.base_speed
         self._fx = 0.0
         self._fy = 0.0
@@ -42,11 +45,22 @@ class DragonBoss(pygame.sprite.Sprite):
         # Enquanto False: fica em Idle ancorado no cenário e ignora dano.
         self.activated = False
 
-        # Movimentação dinâmica e limites da Arena 2 (acompanham o screen_scroll)
-        self.arena_min_x = x - 18 * TILE_SIZE
-        self.arena_max_x = x + 6 * TILE_SIZE
-        self.min_y = 65
-        self.max_y = SCREEN_HEIGHT - 2 * TILE_SIZE - 20  # acima do chão/água
+        # Movimentação dinâmica e limites da Arena 2 / Modo Horda (acompanham o screen_scroll)
+        self.horde_mode = horde_mode
+        if horde_mode:
+            self.arena_min_x = 40.0
+            self.arena_max_x = float(SCREEN_WIDTH - 40)
+        else:
+            # Fallback cobre toda a Arena 2 (lago + plataformas + caixas até ~60 px da parede da Arena 1)
+            self.arena_min_x = float(arena_min_x) if arena_min_x is not None else float(x - 38 * TILE_SIZE)
+            self.arena_max_x = float(arena_max_x) if arena_max_x is not None else float(x + 8 * TILE_SIZE)
+
+        self.home_x = float(x)
+        self.patrol_x = float(x)
+        self.min_y = 80
+        self.flight_max_y = SCREEN_HEIGHT - 220  # faixa de combate normal (y = 80 .. 420)
+        self.water_level_y = SCREEN_HEIGHT - 4 * TILE_SIZE  # nível da água na Arena 2 (y = 480)
+        self.max_y = self.water_level_y - 12  # limite absoluto sempre acima da água
         self.patrol_side = 1  # +1 direita do jogador, -1 esquerda
         self.last_side_switch = pygame.time.get_ticks()
 
@@ -85,18 +99,67 @@ class DragonBoss(pygame.sprite.Sprite):
 
         self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect(midbottom=(x, y))
-        self._expected_x = self.rect.x
+        self._expected_centerx = self.rect.centerx
+
+    def set_arena_bounds(self, arena_min_x: float, arena_max_x: float,
+                         water_y: int | None = None, horde_mode: bool = False) -> None:
+        """Define os limites reais de voo da Arena 2 (em coordenadas atuais) ou do Modo Horda."""
+        self.horde_mode = horde_mode
+        self.arena_min_x = float(arena_min_x)
+        self.arena_max_x = float(arena_max_x)
+        if water_y is not None:
+            self.water_level_y = int(water_y)
+            self.max_y = min(SCREEN_HEIGHT - 2 * TILE_SIZE - 20, self.water_level_y - 12)
+        self._expected_centerx = self.rect.centerx
 
     def _sync_scroll_bounds(self, screen_scroll: int) -> None:
-        """Mantém limites da arena e alvo de mergulho sincronizados com qualquer scroll."""
-        ext_scroll = self.rect.x - self._expected_x
+        """Mantém limites da arena, pontos de patrulha e alvo de mergulho sincronizados com o scroll."""
+        ext_scroll = self.rect.centerx - self._expected_centerx
         total_scroll = ext_scroll + screen_scroll
         if total_scroll:
-            self.arena_min_x += total_scroll
-            self.arena_max_x += total_scroll
+            if not self.horde_mode:
+                self.arena_min_x += total_scroll
+                self.arena_max_x += total_scroll
+            self.home_x += total_scroll
+            self.patrol_x += total_scroll
             self.dive_target_x += total_scroll
         if screen_scroll:
             self.rect.x += screen_scroll
+
+    def _get_left_bounds(self) -> tuple[float, float]:
+        """Retorna (min_left, max_left) válidos para self.rect.left sem cortar o sprite nem invadir a Arena 1."""
+        w = self.rect.width
+        if self.horde_mode:
+            min_left = 40.0
+            max_left = max(min_left, float(SCREEN_WIDTH - w - 40))
+            return min_left, max_left
+
+        arena_left = min(self.arena_min_x, self.arena_max_x)
+        arena_right = max(self.arena_min_x, self.arena_max_x)
+        max_left_arena = max(arena_left, arena_right - w)
+        screen_max_left = float(SCREEN_WIDTH - w - 20)
+
+        # Se a Arena 2 está visível na tela, respeita também a margem direita da janela
+        # para o sprite nunca ficar cortado; se o jogador recuou para a Arena 1 e toda a
+        # Arena 2 ficou à direita da tela, jamais puxa o Dragão para a esquerda de arena_min_x.
+        if arena_left <= screen_max_left:
+            max_left = min(max_left_arena, screen_max_left)
+        else:
+            max_left = max_left_arena
+
+        min_left = arena_left
+        if min_left < 20.0 <= max_left:
+            min_left = 20.0
+
+        if max_left < min_left:
+            max_left = min_left
+        return min_left, max_left
+
+    def _get_centerx_bounds(self) -> tuple[float, float]:
+        """Retorna (min_cx, max_cx) válidos para self.rect.centerx."""
+        min_left, max_left = self._get_left_bounds()
+        half_w = self.rect.width * 0.5
+        return min_left + half_w, max_left + half_w
 
     def _move_smooth(self, vx: float, vy: float) -> None:
         """Aplica deslocamento float sem tremulação de arredondamento."""
@@ -111,14 +174,13 @@ class DragonBoss(pygame.sprite.Sprite):
         self.rect.y += my
 
     def _clamp_to_arena(self) -> None:
-        """Mantém o Dragão contido nos limites horizontais e verticais da Arena 2."""
-        left_limit = max(20, min(self.arena_min_x, self.arena_max_x))
-        right_limit = min(SCREEN_WIDTH - 20, max(self.arena_min_x, self.arena_max_x))
-        if right_limit > left_limit + self.rect.width:
-            if self.rect.centerx < left_limit:
-                self.rect.centerx = int(left_limit)
-            elif self.rect.centerx > right_limit:
-                self.rect.centerx = int(right_limit)
+        """Mantém o Dragão contido nos limites horizontais e verticais da Arena 2 (ou tela na Horda)."""
+        min_left, max_left = self._get_left_bounds()
+        if self.rect.left < min_left:
+            self.rect.left = int(round(min_left))
+        elif self.rect.left > max_left:
+            self.rect.left = int(round(max_left))
+
         if self.rect.top < self.min_y:
             self.rect.top = self.min_y
         if self.rect.bottom > self.max_y:
@@ -194,7 +256,7 @@ class DragonBoss(pygame.sprite.Sprite):
         if not self.alive:
             self.invulnerable = False
             self.update_animation(player, None)
-            self._expected_x = self.rect.x
+            self._expected_centerx = self.rect.centerx
             return
 
         if not self.activated:
@@ -203,7 +265,7 @@ class DragonBoss(pygame.sprite.Sprite):
             self.update_action(0)
             self.update_animation(player, None)
             self.try_activate(player, can_activate)
-            self._expected_x = self.rect.x
+            self._expected_centerx = self.rect.centerx
             return
 
         now = pygame.time.get_ticks()
@@ -228,7 +290,8 @@ class DragonBoss(pygame.sprite.Sprite):
                 self.rect.y += int(round(math.sin(now * 0.05) * 2))
                 self._clamp_to_arena()
                 self.update_animation(player, None)
-                self._expected_x = self.rect.x
+                self._clamp_to_arena()
+                self._expected_centerx = self.rect.centerx
                 return
             self.invulnerable = False
 
@@ -239,11 +302,14 @@ class DragonBoss(pygame.sprite.Sprite):
             self.flip = player.rect.centerx < self.rect.centerx
             self.direction = -1 if self.flip else 1
 
+        min_cx, max_cx = self._get_centerx_bounds()
+        half_h = self.rect.height * 0.5
+
         # ------------------------------------------------------------------
-        # Ataque C — Mergulho Rasante (Dive Attack, na Fúria a cada ~4.5 s)
+        # Ataque C — Mergulho Rasante (Dive Attack, na Fúria a cada ~4.2 s)
         # ------------------------------------------------------------------
         if (self.enraged and self.attack_state == 'fly'
-                and now - self.last_dive_time >= 4500):
+                and now - self.last_dive_time >= 4200):
             self.attack_state = 'dive_telegraph'
             self.dive_telegraph_until = now + 450
             self.last_dive_time = now
@@ -253,8 +319,10 @@ class DragonBoss(pygame.sprite.Sprite):
             # Aviso de 0.45s: para no ar, sobe levemente e trava na posição do jogador
             self._move_smooth(0.0, -1.5)
             self._clamp_to_arena()
-            self.dive_target_x = float(player.rect.centerx)
-            self.dive_target_y = float(min(player.rect.centery, self.max_y - 30))
+            # Alvo do mergulho acompanha o jogador por toda a Arena 2 (respeitando arena_min_x e nível da água)
+            self.dive_target_x = float(max(min_cx, min(max_cx, player.rect.centerx)))
+            self.dive_target_y = float(max(self.min_y + half_h,
+                                           min(player.rect.centery, self.max_y - half_h)))
             if now >= self.dive_telegraph_until:
                 dx = self.dive_target_x - self.rect.centerx
                 dy = self.dive_target_y - self.rect.centery
@@ -264,18 +332,21 @@ class DragonBoss(pygame.sprite.Sprite):
                 self.dive_vy = (dy / dist) * dive_speed
                 self.flip = dx < 0
                 self.direction = -1 if dx < 0 else 1
-                self.dive_end_time = now + 850
+                # Duração proporcional à distância para alcançar até a rampa de caixas/entrada do lago
+                dive_ms = min(1400, max(700, int((dist / dive_speed) * (1000 / 60)) + 150))
+                self.dive_end_time = now + dive_ms
                 self.attack_state = 'dive_rush'
                 self.update_action(2)
 
         elif self.attack_state == 'dive_rush':
             self._move_smooth(self.dive_vx, self.dive_vy)
+            min_left, max_left = self._get_left_bounds()
             reached = (
                 math.hypot(self.dive_target_x - self.rect.centerx,
                            self.dive_target_y - self.rect.centery) < 35
                 or self.rect.bottom >= self.max_y
-                or self.rect.centerx <= self.arena_min_x + 20
-                or self.rect.centerx >= self.arena_max_x - 20
+                or (self.dive_vx < 0 and self.rect.left <= min_left + 4)
+                or (self.dive_vx > 0 and self.rect.left >= max_left - 4)
                 or now >= self.dive_end_time
             )
             self._clamp_to_arena()
@@ -286,10 +357,11 @@ class DragonBoss(pygame.sprite.Sprite):
                 self.last_shot_time = now
 
         elif self.attack_state == 'dive_recover':
-            # Sobe de volta para altura de voo enquanto cruza para o lado oposto
-            target_x = player.rect.centerx + self.patrol_side * 280
-            target_x = max(self.arena_min_x, min(self.arena_max_x, target_x))
-            target_y = 175
+            # Sobe de volta para a faixa de combate enquanto cruza para o lado oposto do jogador
+            recover_offset = 165 if self.enraged else 220
+            target_x = max(min_cx, min(max_cx, player.rect.centerx + self.patrol_side * recover_offset))
+            self.patrol_x = float(target_x)
+            target_y = max(self.min_y + half_h, min(self.flight_max_y - half_h, 190))
             vx = self.speed if target_x > self.rect.centerx + 12 else (-self.speed if target_x < self.rect.centerx - 12 else 0.0)
             vy = -3.8 if self.rect.centery > target_y + 10 else 0.0
             self._move_smooth(vx, vy)
@@ -300,24 +372,36 @@ class DragonBoss(pygame.sprite.Sprite):
 
         else:
             # ------------------------------------------------------------------
-            # Movimentação dinâmica (onda senoidal + troca periódica de lado)
+            # Movimentação dinâmica (perseguição agressiva + troca periódica de lado)
             # ------------------------------------------------------------------
-            switch_interval = 2400 if self.enraged else 3500
+            switch_interval = 2000 if self.enraged else 3200
             if now - self.last_side_switch >= switch_interval:
                 self.patrol_side *= -1
                 self.last_side_switch = now
 
-            target_x = player.rect.centerx + self.patrol_side * 250
-            target_x = max(self.arena_min_x, min(self.arena_max_x, target_x))
-            wave_amp = 60 if self.enraged else 45
-            target_y = max(self.min_y + 50, min(self.max_y - 90, 195 + math.sin(now * 0.004) * wave_amp))
+            # Distância horizontal de pressão: ~200–250 px (Normal) e ~130–180 px (Fúria)
+            hover_offset = 155 if self.enraged else 220
+            target_x = player.rect.centerx + self.patrol_side * hover_offset
+            target_x = max(min_cx, min(max_cx, target_x))
+            self.patrol_x = float(target_x)
+
+            # Altura de voo: faixa normal entre y = 80 e y = SCREEN_HEIGHT - 220,
+            # descendo um pouco mais na perseguição em Fúria mas sempre acima da água.
+            wave_amp = 48 if self.enraged else 38
+            wave = math.sin(now * 0.004) * wave_amp
+            base_y = (player.rect.centery - 45) if self.enraged else (player.rect.centery - 75)
+            min_cy = self.min_y + half_h
+            max_cy_limit = (self.max_y - half_h) if self.enraged else min(self.flight_max_y - half_h, self.max_y - half_h)
+            if max_cy_limit < min_cy:
+                max_cy_limit = min_cy
+            target_y = max(min_cy, min(max_cy_limit, base_y + wave))
 
             dx = target_x - self.rect.centerx
             dy = target_y - self.rect.centery
-            vx = max(-self.speed, min(self.speed, dx * 0.06))
-            if abs(dx) > 25 and abs(vx) < self.speed * 0.65:
-                vx = self.speed * 0.65 * (1 if dx > 0 else -1)
-            vy = max(-3.0, min(3.0, dy * 0.08))
+            vx = max(-self.speed, min(self.speed, dx * 0.08))
+            if abs(dx) > 20 and abs(vx) < self.speed * 0.7:
+                vx = self.speed * 0.7 * (1 if dx > 0 else -1)
+            vy = max(-3.2, min(3.2, dy * 0.08))
             self._move_smooth(vx, vy)
             self._clamp_to_arena()
 
@@ -352,7 +436,9 @@ class DragonBoss(pygame.sprite.Sprite):
             network_client=network_client,
             bg_scroll=bg_scroll,
         )
-        self._expected_x = self.rect.x
+        # Reaplica clamp após troca de frame (largura/altura variam entre Idle/Walk/Attack)
+        self._clamp_to_arena()
+        self._expected_centerx = self.rect.centerx
 
     def update_animation(self, player, bullet_group=None, network_client=None, bg_scroll: int = 0):
         animation_cooldown = 85 if self.enraged else 100
