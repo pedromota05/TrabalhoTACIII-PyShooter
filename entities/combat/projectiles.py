@@ -95,7 +95,7 @@ class Bullet(pygame.sprite.Sprite):
 
         if self.visual_only:
             alvos = [e for grp in (enemy_group, boss_group or ()) if grp for e in grp
-                     if e.alive and getattr(e, 'activated', True)]
+                     if e.alive and getattr(e, 'activated', True) and not getattr(e, 'invulnerable', False)]
             for e in alvos:
                 if pygame.sprite.collide_rect(self, e):
                     e.hit_flash = HIT_FLASH_FRAMES
@@ -131,9 +131,13 @@ class Bullet(pygame.sprite.Sprite):
         if not self.has_hit and boss_group:
             boss_hit_list = pygame.sprite.spritecollide(self, boss_group, False)
             for boss in boss_hit_list:
-                # DragonBoss adormecido (fora da arena) ignora dano: a bala passa direto
+                # DragonBoss adormecido (fora da arena) ignora dano: a bala passa direto;
+                # durante transição de fúria (invulnerable), a bala é absorvida sem causar dano.
                 if boss.alive and getattr(boss, 'activated', True):
                     self.kill()  # Bala some
+                    self.has_hit = True
+                    if getattr(boss, 'invulnerable', False):
+                        break
                     boss.health -= 25
                     boss.hit_flash = HIT_FLASH_FRAMES
                     effects.damage_text(boss.rect.centerx, boss.rect.top, 25)
@@ -251,7 +255,7 @@ class Grenade(pygame.sprite.Sprite):
                 for boss in boss_group:
                     if (abs(self.rect.centerx - boss.rect.centerx) < GRENADE_BLAST_RADIUS
                             and abs(self.rect.centery - boss.rect.centery) < GRENADE_BLAST_RADIUS):
-                        if boss.alive and getattr(boss, 'activated', True):
+                        if boss.alive and getattr(boss, 'activated', True) and not getattr(boss, 'invulnerable', False):
                             boss.health -= GRENADE_DAMAGE
                             boss.hit_flash = HIT_FLASH_FRAMES
                             effects.damage_text(boss.rect.centerx, boss.rect.top, GRENADE_DAMAGE)
@@ -448,27 +452,48 @@ class Arrow(pygame.sprite.Sprite):
 #  DRAGON FIRE
 # ======================================================================
 class DragonFire(pygame.sprite.Sprite):
-    """Projétil animado disparado pelo DragonBoss."""
+    """Projétil animado disparado pelo DragonBoss (escala dano/velocidade na Fúria)."""
 
-    def __init__(self, x: float, y: float, target_x: float, target_y: float, scale: float = 1.5):
+    _frame_cache: dict[tuple[float, bool], list[pygame.Surface]] = {}
+
+    @classmethod
+    def _get_frames(cls, scale: float, enraged: bool) -> list[pygame.Surface]:
+        key = (round(scale, 2), enraged)
+        if key not in cls._frame_cache:
+            frames = []
+            for frame_number in range(1, 7):
+                image = pygame.image.load(
+                    f'img/enemy/Dragon/Fire_Attack{frame_number}.png'
+                ).convert_alpha()
+                image = image.subsurface(image.get_bounding_rect())
+                image = pygame.transform.scale(
+                    image,
+                    (int(image.get_width() * scale),
+                     int(image.get_height() * scale))
+                )
+                if enraged:
+                    tinted = image.copy()
+                    tinted.fill((110, 25, 0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+                    image = tinted
+                frames.append(image)
+            cls._frame_cache[key] = frames
+        return cls._frame_cache[key]
+
+    def __init__(self, x: float, y: float, target_x: float, target_y: float,
+                 scale: float = 1.5, damage: int | None = None,
+                 speed: float | None = None, enraged: bool = False):
         super().__init__()
+        self.enraged = enraged
+        # Fase normal: 20 de dano (20% de 100 HP) e vel 7.5
+        # Fase fúria:  32 de dano (+60%), vel 10.5 e tamanho 1.25x
+        self.damage = damage if damage is not None else (32 if enraged else 20)
+        self.speed = speed if speed is not None else (10.5 if enraged else 7.5)
+        eff_scale = scale * 1.25 if enraged else scale
 
-        self.animation_list = []
-        for frame_number in range(1, 7):
-            image = pygame.image.load(
-                f'img/enemy/Dragon/Fire_Attack{frame_number}.png'
-            ).convert_alpha()
-            image = image.subsurface(image.get_bounding_rect())
-            image = pygame.transform.scale(
-                image,
-                (int(image.get_width() * scale),
-                 int(image.get_height() * scale))
-            )
-            self.animation_list.append(image)
-
+        self.animation_list = self._get_frames(eff_scale, enraged)
         self.frame_index = 0
         self.animation_timer = pygame.time.get_ticks()
-        self.animation_cooldown = 80
+        self.animation_cooldown = 65 if enraged else 80
         self.image = self.animation_list[self.frame_index]
         self.rect = self.image.get_rect(center=(int(x), int(y)))
 
@@ -479,8 +504,8 @@ class DragonFire(pygame.sprite.Sprite):
             self.vel_x = 0.0
             self.vel_y = 0.0
         else:
-            self.vel_x = (target_x - x) / distance * 6
-            self.vel_y = (target_y - y) / distance * 6
+            self.vel_x = (target_x - x) / distance * self.speed
+            self.vel_y = (target_y - y) / distance * self.speed
 
     def update(self, screen_scroll: int, obstacle_list: list, player,
                bullet_group, enemy_group, boss_group=None):
@@ -507,6 +532,6 @@ class DragonFire(pygame.sprite.Sprite):
 
         if pygame.sprite.collide_rect(self, player):
             if player.alive and getattr(player, 'invincible', 0) == 0:
-                player.health -= BULLET_DAMAGE_TO_PLAYER
+                player.health -= self.damage
                 player.invincible = 60
             self.kill()

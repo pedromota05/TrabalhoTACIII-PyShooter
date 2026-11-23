@@ -408,7 +408,9 @@ def update_melee(game) -> None:
 
     # Chefes
     for boss in game.boss_group:
-        if boss.alive and getattr(boss, 'activated', True) and m_rect.colliderect(boss.rect):
+        if (boss.alive and getattr(boss, 'activated', True)
+                and not getattr(boss, 'invulnerable', False)
+                and m_rect.colliderect(boss.rect)):
             if is_mp and not is_host and net and hasattr(boss, 'target_id'):
                 net.send_enemy_hit(boss.target_id, MELEE_DAMAGE)
                 effects.damage_text(boss.rect.centerx, boss.rect.top, MELEE_DAMAGE)
@@ -588,10 +590,10 @@ def update_game_entities(game) -> None:
             elif b_type == "robot":
                 game.bullet_group.add(RobotBullet(sx, sy, shoot_data["vel_x"], shoot_data["vel_y"]))
                 AssetManager().get_sound('robot_shoot').play()
-            elif b_type == "dragon":
+            elif b_type in ("dragon", "dragon_fury"):
                 tx = shoot_data["target_wx"] - game.bg_scroll
                 ty = shoot_data["target_wy"]
-                game.bullet_group.add(DragonFire(sx, sy, tx, ty))
+                game.bullet_group.add(DragonFire(sx, sy, tx, ty, enraged=(b_type == "dragon_fury")))
 
         # 2. Interpola e sincroniza estado dos inimigos com a visão do Host
         net_client.pop_enemy_hits()  # acertos são do Host; aqui só esvazia a fila
@@ -683,7 +685,8 @@ def update_game_entities(game) -> None:
                 for target_id, damage in incoming_hits:
                     if target_id in target_map:
                         target = target_map[target_id]
-                        if target.alive and getattr(target, 'activated', True):
+                        if (target.alive and getattr(target, 'activated', True)
+                                and not getattr(target, 'invulnerable', False)):
                             target.health -= damage
                             if target.health <= 0:
                                 target.health = 0
