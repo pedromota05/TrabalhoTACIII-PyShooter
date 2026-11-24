@@ -92,7 +92,7 @@ class RobotEnemy(Character):
         self.rect.x += dx
         self.rect.y += dy
 
-    def shoot(self, bullet_group, target_x: float, target_y: float):
+    def shoot(self, bullet_group, target_x: float, target_y: float, network_client=None, bg_scroll: int = 0):
         """Sobrescreve tiro para usar RobotBullet e mira vetorial."""
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = SHOOT_COOLDOWN
@@ -114,8 +114,10 @@ class RobotEnemy(Character):
             bullet_group.add(bullet)
             self.ammo -= 1
             AssetManager().get_sound('robot_shoot').play()
+            if network_client and getattr(network_client, 'running', False) and hasattr(self, 'target_id'):
+                network_client.send_enemy_shoot("robot", spawn_x + bg_scroll, spawn_y, self.direction, vel_x, vel_y)
 
-    def ai(self, player, screen_scroll: int, obstacle_list: list, water_group, bullet_group):
+    def ai(self, player, screen_scroll: int, obstacle_list: list, water_group, bullet_group, network_client=None, bg_scroll: int = 0):
         if self.flip_cooldown > 0:
             self.flip_cooldown -= 1
 
@@ -130,7 +132,7 @@ class RobotEnemy(Character):
                     self.flip = False
 
                 self.update_action(2)  # Attack animation (action 2)
-                self.shoot(bullet_group, player.rect.centerx, player.rect.centery)
+                self.shoot(bullet_group, player.rect.centerx, player.rect.centery, network_client=network_client, bg_scroll=bg_scroll)
             else:
                 if not self.idling and random.randint(1, 200) == 1:
                     self.update_action(0)  # Idle

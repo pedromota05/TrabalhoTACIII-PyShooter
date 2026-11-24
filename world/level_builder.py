@@ -3,12 +3,13 @@ world/level_builder.py — Processador da matriz de tiles e construtor do mundo.
 """
 
 import pygame
-from config import TILE_SIZE
+from config import SCREEN_WIDTH, TILE_SIZE, SPIDER_TILE, BOSS_GATE_TILE, ROWS
 from asset_manager import AssetManager
 from entities.player import Player
 from entities.enemies import Enemy, Sniper, RobotEnemy, SkeletonEnemy, DragonBoss, Boss
 from entities.items import ItemBox
 from entities.environment import Decoration, Water, Exit
+from entities.sign import Sign
 from ui.hud import HealthBar
 
 
@@ -18,7 +19,24 @@ class World:
     def __init__(self):
         self.obstacle_list = []
         self.ramp_list = []
+        self.crates = []
+        self.spider_spawns = []
+        self.boss_gate_tiles = []
         self.level_length = 0
+
+    def open_boss_gate(self) -> list[pygame.Rect]:
+        """Remove os blocos do Portão de Boss das colisões e do desenho.
+
+        Retorna cópias dos retângulos removidos (posição atual na tela) para
+        efeitos visuais como explosões.
+        """
+        removed = []
+        for gate in self.boss_gate_tiles:
+            if gate in self.obstacle_list:
+                self.obstacle_list.remove(gate)
+            removed.append(gate[1].copy())
+        self.boss_gate_tiles.clear()
+        return removed
 
     def process_data(self, data, enemy_group, item_box_group,
                      decoration_group, water_group, exit_group, boss_group, level: int = 1):
@@ -27,7 +45,14 @@ class World:
         Retorna uma tupla (player, health_bar).
         """
         assets = AssetManager()
-        self.level_length = len(data[0])
+        # Limita o comprimento útil do mapa à última coluna preenchida (evita
+        # a câmera rolar sobre colunas vazias após a parede final da fase).
+        last_col = max(
+            (x for row in data for x, tile in enumerate(row) if tile != -1),
+            default=len(data[0]) - 1,
+        )
+        min_cols = (SCREEN_WIDTH + TILE_SIZE - 1) // TILE_SIZE
+        self.level_length = max(min_cols, last_col + 1)
         player = None
         health_bar = None
 
@@ -37,6 +62,19 @@ class World:
                     mid_x = x * TILE_SIZE + (TILE_SIZE // 2)
                     bottom_y = y * TILE_SIZE + TILE_SIZE
                     boss_group.add(DragonBoss(mid_x, bottom_y))
+                    continue
+
+                if tile == SPIDER_TILE:
+                    self.spider_spawns.append((x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE))
+                    continue
+
+                if tile == BOSS_GATE_TILE:
+                    # Portão da Arena: sólido (bloqueia jogador/projéteis e rola com a câmera
+                    # por estar em obstacle_list) e removível por open_boss_gate().
+                    gate_img = assets.boss_gate_image
+                    gate_data = (gate_img, gate_img.get_rect(topleft=(x * TILE_SIZE, y * TILE_SIZE)))
+                    self.obstacle_list.append(gate_data)
+                    self.boss_gate_tiles.append(gate_data)
                     continue
 
                 if 0 <= tile < len(assets.tile_images):
@@ -51,6 +89,11 @@ class World:
                             tile in (12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84)):
                         # Obstáculo sólido
                         self.obstacle_list.append(tile_data)
+                        if tile == 12:
+                            solid_ids = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84, 85}
+                            has_solid_above = (y > 0 and data[y - 1][x] in solid_ids)
+                            if y != ROWS - 1 and not has_solid_above:
+                                self.crates.append({'col': x, 'row': y, 'tile': tile_data})
                     elif tile == 85:
                         # Rampa inclinada (colisão em rampa de 45 graus)
                         self.ramp_list.append(tile_data)
@@ -109,9 +152,12 @@ class World:
                         item_box = ItemBox('Speed', x * TILE_SIZE, y * TILE_SIZE)
                         item_box_group.add(item_box)
                     elif tile == 23:                 # Placa de Aviso (Warning Sign)
-                        decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
+                        decoration = Sign(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
-                    elif tile in (36, 40, 42, 49):   # Decorações de neve (boneco, placa, árvores)
+                    elif tile == 40:
+                        decoration = Sign(img, x * TILE_SIZE, y * TILE_SIZE)
+                        decoration_group.add(decoration)
+                    elif tile in (36, 42, 49):   # Decorações de neve (boneco, árvores)
                         decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
                     elif tile in (37, 38, 43, 44, 45):  # Água gelada de superfície
@@ -130,6 +176,43 @@ class World:
                         bottom_y = y * TILE_SIZE + TILE_SIZE
                         boss = Boss(mid_x, bottom_y)
                         boss_group.add(boss)
+
+        # Configura os limites reais de voo da Arena 2 para cada DragonBoss do mapa
+        solid_ids = (
+            set(range(0, 9))
+            | set(range(24, 36))
+            | {12, 47, 48, 50, 58, 59, 60, 61, 65, 66, 73, 74, 75, 76, 77, 83, 84}
+        )
+        num_cols = len(data[0]) if data else 0
+        for boss in boss_group:
+            if not isinstance(boss, DragonBoss):
+                continue
+            dragon_col = int(boss.rect.centerx // TILE_SIZE)
+
+            # Limite esquerdo: ~60 px à direita da parede divisória / portão da Arena 1
+            gate_rights = [r.right for _, r in self.boss_gate_tiles if r.right <= boss.rect.centerx]
+            if gate_rights:
+                arena_min_x = max(gate_rights) + 60
+            else:
+                arena_min_x = 40
+                for c in range(dragon_col - 1, -1, -1):
+                    solid_count = sum(1 for r in range(min(12, len(data))) if data[r][c] in solid_ids)
+                    if solid_count >= 6:
+                        arena_min_x = (c + 1) * TILE_SIZE + 60
+                        break
+
+            # Limite direito: margem interna de 20 px à esquerda da parede final da Arena 2
+            arena_max_x = self.level_length * TILE_SIZE - 20
+            for c in range(dragon_col + 1, num_cols):
+                if all(data[r][c] in solid_ids for r in range(min(6, len(data)))):
+                    arena_max_x = c * TILE_SIZE - 20
+                    break
+
+            # Nível da água dentro da Arena 2 (para o Dragão nunca encostar no lago)
+            arena_waters = [w.rect.top for w in water_group if arena_min_x <= w.rect.centerx <= arena_max_x]
+            water_y = min(arena_waters) if arena_waters else None
+
+            boss.set_arena_bounds(arena_min_x, arena_max_x, water_y=water_y, horde_mode=False)
 
         return player, health_bar
 

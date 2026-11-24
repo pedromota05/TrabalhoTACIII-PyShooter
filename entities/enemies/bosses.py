@@ -2,8 +2,11 @@
 entities/enemies/bosses.py — Chefes do jogo: DragonBoss e Boss (Demon).
 """
 
+import math
 import pygame
-from config import SCREEN_WIDTH, SCREEN_HEIGHT
+from asset_manager import AssetManager
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, DRAGON_WAKE_RANGE
+from entities import effects
 from entities.combat.projectiles import DragonFire
 
 
@@ -11,21 +14,69 @@ from entities.combat.projectiles import DragonFire
 #  DRAGON BOSS
 # ======================================================================
 class DragonBoss(pygame.sprite.Sprite):
-    """Boss Dragão voador com perseguição aérea e baforada de fogo."""
+    """Boss Dragão voador com perseguição dinâmica, transição de Fúria e 3 padrões de ataque."""
 
-    def __init__(self, x: int, y: int, scale: float = 1.5):
+    def __init__(self, x: int, y: int, scale: float = 1.5,
+                 arena_min_x: float | None = None,
+                 arena_max_x: float | None = None,
+                 horde_mode: bool = False):
         super().__init__()
-        self.speed = 2
+        self.base_speed = 3.8
+        self.enraged_speed = 5.0
+        self.speed = self.base_speed
+        self._fx = 0.0
+        self._fy = 0.0
         self.action = 0
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
         self.flip = False
         self.direction = 1
-        self.max_health = 150
+        self.max_health = 650
         self.health = self.max_health
         self.alive = True
+        self.enraged = False
+        self.invulnerable = False
+        self.fury_transition_until = 0
+        self.hit_flash = 0
         self.last_shot_time = 0
+        self.last_contact_hit_time = 0
         self.shot_frame_fired = False
+        # Adormecido até o jogador chegar à Arena 2 sem Demônios vivos (ver try_activate).
+        # Enquanto False: fica em Idle ancorado no cenário e ignora dano.
+        self.activated = False
+
+        # Movimentação dinâmica e limites da Arena 2 / Modo Horda (acompanham o screen_scroll)
+        self.horde_mode = horde_mode
+        if horde_mode:
+            self.arena_min_x = 40.0
+            self.arena_max_x = float(SCREEN_WIDTH - 40)
+        else:
+            # Fallback cobre toda a Arena 2 (lago + plataformas + caixas até ~60 px da parede da Arena 1)
+            self.arena_min_x = float(arena_min_x) if arena_min_x is not None else float(x - 38 * TILE_SIZE)
+            self.arena_max_x = float(arena_max_x) if arena_max_x is not None else float(x + 8 * TILE_SIZE)
+
+        self.home_x = float(x)
+        self.patrol_x = float(x)
+        self.min_y = 80
+        self.flight_max_y = SCREEN_HEIGHT - 220  # faixa de combate normal (y = 80 .. 420)
+        self.water_level_y = SCREEN_HEIGHT - 4 * TILE_SIZE  # nível da água na Arena 2 (y = 480)
+        self.max_y = self.water_level_y - 12  # limite absoluto sempre acima da água
+        self.patrol_side = 1  # +1 direita do jogador, -1 esquerda
+        self.last_side_switch = pygame.time.get_ticks()
+
+        # Máquina de estados de ataques na Fúria:
+        # 'fly', 'burst', 'dive_telegraph', 'dive_rush', 'dive_recover'
+        self.attack_state = 'fly'
+        self.fury_cycle = 0
+        self.burst_remaining = 0
+        self.next_burst_time = 0
+        self.last_dive_time = 0
+        self.dive_telegraph_until = 0
+        self.dive_target_x = float(x)
+        self.dive_target_y = float(y)
+        self.dive_vx = 0.0
+        self.dive_vy = 0.0
+        self.dive_end_time = 0
 
         self.animation_list = []
         for prefix in ('Idle', 'Walk', 'Attack', 'Death'):
@@ -48,54 +99,349 @@ class DragonBoss(pygame.sprite.Sprite):
 
         self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect(midbottom=(x, y))
+        self._expected_centerx = self.rect.centerx
+
+    def set_arena_bounds(self, arena_min_x: float, arena_max_x: float,
+                         water_y: int | None = None, horde_mode: bool = False) -> None:
+        """Define os limites reais de voo da Arena 2 (em coordenadas atuais) ou do Modo Horda."""
+        self.horde_mode = horde_mode
+        self.arena_min_x = float(arena_min_x)
+        self.arena_max_x = float(arena_max_x)
+        if water_y is not None:
+            self.water_level_y = int(water_y)
+            self.max_y = min(SCREEN_HEIGHT - 2 * TILE_SIZE - 20, self.water_level_y - 12)
+        self._expected_centerx = self.rect.centerx
+
+    def _sync_scroll_bounds(self, screen_scroll: int) -> None:
+        """Mantém limites da arena, pontos de patrulha e alvo de mergulho sincronizados com o scroll."""
+        ext_scroll = self.rect.centerx - self._expected_centerx
+        total_scroll = ext_scroll + screen_scroll
+        if total_scroll:
+            if not self.horde_mode:
+                self.arena_min_x += total_scroll
+                self.arena_max_x += total_scroll
+            self.home_x += total_scroll
+            self.patrol_x += total_scroll
+            self.dive_target_x += total_scroll
+        if screen_scroll:
+            self.rect.x += screen_scroll
+
+    def _get_left_bounds(self) -> tuple[float, float]:
+        """Retorna (min_left, max_left) válidos para self.rect.left sem cortar o sprite nem invadir a Arena 1."""
+        w = self.rect.width
+        if self.horde_mode:
+            min_left = 40.0
+            max_left = max(min_left, float(SCREEN_WIDTH - w - 40))
+            return min_left, max_left
+
+        arena_left = min(self.arena_min_x, self.arena_max_x)
+        arena_right = max(self.arena_min_x, self.arena_max_x)
+        max_left_arena = max(arena_left, arena_right - w)
+        screen_max_left = float(SCREEN_WIDTH - w - 20)
+
+        # Se a Arena 2 está visível na tela, respeita também a margem direita da janela
+        # para o sprite nunca ficar cortado; se o jogador recuou para a Arena 1 e toda a
+        # Arena 2 ficou à direita da tela, jamais puxa o Dragão para a esquerda de arena_min_x.
+        if arena_left <= screen_max_left:
+            max_left = min(max_left_arena, screen_max_left)
+        else:
+            max_left = max_left_arena
+
+        min_left = arena_left
+        if min_left < 20.0 <= max_left:
+            min_left = 20.0
+
+        if max_left < min_left:
+            max_left = min_left
+        return min_left, max_left
+
+    def _get_centerx_bounds(self) -> tuple[float, float]:
+        """Retorna (min_cx, max_cx) válidos para self.rect.centerx."""
+        min_left, max_left = self._get_left_bounds()
+        half_w = self.rect.width * 0.5
+        return min_left + half_w, max_left + half_w
+
+    def _move_smooth(self, vx: float, vy: float) -> None:
+        """Aplica deslocamento float sem tremulação de arredondamento."""
+        self._fx += vx
+        mx = int(self._fx)
+        self._fx -= mx
+        self.rect.x += mx
+
+        self._fy += vy
+        my = int(self._fy)
+        self._fy -= my
+        self.rect.y += my
+
+    def _clamp_to_arena(self) -> None:
+        """Mantém o Dragão contido nos limites horizontais e verticais da Arena 2 (ou tela na Horda)."""
+        min_left, max_left = self._get_left_bounds()
+        if self.rect.left < min_left:
+            self.rect.left = int(round(min_left))
+        elif self.rect.left > max_left:
+            self.rect.left = int(round(max_left))
+
+        if self.rect.top < self.min_y:
+            self.rect.top = self.min_y
+        if self.rect.bottom > self.max_y:
+            self.rect.bottom = self.max_y
+
+    def _fire_projectile(self, bullet_group, tx: float, ty: float,
+                         network_client=None, bg_scroll: int = 0) -> None:
+        """Instancia um DragonFire (normal ou fúria) e replica na rede se Host."""
+        if bullet_group is None:
+            return
+        bullet_group.add(DragonFire(
+            self.rect.centerx,
+            self.rect.centery,
+            tx,
+            ty,
+            enraged=self.enraged,
+        ))
+        if network_client and getattr(network_client, 'running', False) and hasattr(self, 'target_id'):
+            b_type = "dragon_fury" if self.enraged else "dragon"
+            network_client.send_enemy_shoot(
+                b_type,
+                self.rect.centerx + bg_scroll,
+                self.rect.centery,
+                self.direction,
+                target_wx=tx + bg_scroll,
+                target_wy=ty,
+            )
+
+    def _apply_contact_damage(self, player, now: int) -> None:
+        """Dano de contato do corpo do Dragão (20 normal, 35 fúria, 38 mergulho; cd 800 ms)."""
+        if self.invulnerable or not player or not getattr(player, 'alive', False):
+            return
+        if now - self.last_contact_hit_time < 800:
+            return
+        body = self.rect.inflate(-30, -20)
+        if body.colliderect(player.rect) and getattr(player, 'invincible', 0) == 0:
+            if self.attack_state == 'dive_rush':
+                dmg = 38
+            elif self.enraged:
+                dmg = 35
+            else:
+                dmg = 20
+            player.health -= dmg
+            player.invincible = 45
+            self.last_contact_hit_time = now
+
+    def try_activate(self, player, can_activate: bool = True) -> bool:
+        """Desperta o Dragão quando permitido e o jogador entra na Arena 2.
+
+        Usa só distâncias relativas na tela (rect do Dragão x rect do jogador),
+        então funciona com qualquer valor de screen_scroll / bg_scroll.
+        Retorna True apenas no quadro em que o Dragão desperta.
+        """
+        if self.activated or not self.alive or not can_activate or player is None:
+            return False
+        near = abs(self.rect.centerx - player.rect.centerx) <= DRAGON_WAKE_RANGE
+        on_screen = self.rect.left <= SCREEN_WIDTH - 60 and self.rect.right >= 60
+        if near or on_screen:
+            self.activated = True
+            now = pygame.time.get_ticks()
+            self.update_time = now
+            self.last_side_switch = now
+            self.last_dive_time = now
+            return True
+        return False
 
     def update(self, player, obstacle_list=None, gravity=None,
-               bullet_group=None, screen_scroll: int = 0):
+               bullet_group=None, screen_scroll: int = 0,
+               network_client=None, bg_scroll: int = 0,
+               can_activate: bool = True):
+        self._sync_scroll_bounds(screen_scroll)
+
         if not self.alive:
-            self.update_animation(player, bullet_group)
+            self.invulnerable = False
+            self.update_animation(player, None)
+            self._expected_centerx = self.rect.centerx
             return
 
-        distance_x = abs(player.rect.centerx - self.rect.centerx)
+        if not self.activated:
+            # Adormecido: ancorado no cenário (acompanha o scroll), em Idle,
+            # sem perseguir o jogador nem disparar DragonFire.
+            self.update_action(0)
+            self.update_animation(player, None)
+            self.try_activate(player, can_activate)
+            self._expected_centerx = self.rect.centerx
+            return
 
-        if distance_x > 250:
+        now = pygame.time.get_ticks()
+
+        # Transição para Fúria (≤ 50% HP): 0.8s invulnerável + screen shake + som
+        if not self.enraged and self.health <= self.max_health * 0.5:
+            self.enraged = True
+            self.invulnerable = True
+            self.fury_transition_until = now + 800
+            self.attack_state = 'fly'
+            self.burst_remaining = 0
+            self.last_dive_time = now
+            effects.shake(22, 10)
+            try:
+                AssetManager().get_sound('grenade').play()
+            except Exception:
+                pass
+
+        if self.invulnerable:
+            if now < self.fury_transition_until:
+                self.update_action(0)
+                self.rect.y += int(round(math.sin(now * 0.05) * 2))
+                self._clamp_to_arena()
+                self.update_animation(player, None)
+                self._clamp_to_arena()
+                self._expected_centerx = self.rect.centerx
+                return
+            self.invulnerable = False
+
+        self.speed = self.enraged_speed if self.enraged else self.base_speed
+
+        # Vira para o jogador (exceto durante a investida reta do mergulho)
+        if self.attack_state != 'dive_rush':
+            self.flip = player.rect.centerx < self.rect.centerx
+            self.direction = -1 if self.flip else 1
+
+        min_cx, max_cx = self._get_centerx_bounds()
+        half_h = self.rect.height * 0.5
+
+        # ------------------------------------------------------------------
+        # Ataque C — Mergulho Rasante (Dive Attack, na Fúria a cada ~4.2 s)
+        # ------------------------------------------------------------------
+        if (self.enraged and self.attack_state == 'fly'
+                and now - self.last_dive_time >= 4200):
+            self.attack_state = 'dive_telegraph'
+            self.dive_telegraph_until = now + 450
+            self.last_dive_time = now
+            self.update_action(0)
+
+        if self.attack_state == 'dive_telegraph':
+            # Aviso de 0.45s: para no ar, sobe levemente e trava na posição do jogador
+            self._move_smooth(0.0, -1.5)
+            self._clamp_to_arena()
+            # Alvo do mergulho acompanha o jogador por toda a Arena 2 (respeitando arena_min_x e nível da água)
+            self.dive_target_x = float(max(min_cx, min(max_cx, player.rect.centerx)))
+            self.dive_target_y = float(max(self.min_y + half_h,
+                                           min(player.rect.centery, self.max_y - half_h)))
+            if now >= self.dive_telegraph_until:
+                dx = self.dive_target_x - self.rect.centerx
+                dy = self.dive_target_y - self.rect.centery
+                dist = max(1.0, math.hypot(dx, dy))
+                dive_speed = 11.5
+                self.dive_vx = (dx / dist) * dive_speed
+                self.dive_vy = (dy / dist) * dive_speed
+                self.flip = dx < 0
+                self.direction = -1 if dx < 0 else 1
+                # Duração proporcional à distância para alcançar até a rampa de caixas/entrada do lago
+                dive_ms = min(1400, max(700, int((dist / dive_speed) * (1000 / 60)) + 150))
+                self.dive_end_time = now + dive_ms
+                self.attack_state = 'dive_rush'
+                self.update_action(2)
+
+        elif self.attack_state == 'dive_rush':
+            self._move_smooth(self.dive_vx, self.dive_vy)
+            min_left, max_left = self._get_left_bounds()
+            reached = (
+                math.hypot(self.dive_target_x - self.rect.centerx,
+                           self.dive_target_y - self.rect.centery) < 35
+                or self.rect.bottom >= self.max_y
+                or (self.dive_vx < 0 and self.rect.left <= min_left + 4)
+                or (self.dive_vx > 0 and self.rect.left >= max_left - 4)
+                or now >= self.dive_end_time
+            )
+            self._clamp_to_arena()
+            if reached:
+                self.attack_state = 'dive_recover'
+                self.patrol_side *= -1  # cruza para o lado oposto da arena
+                self.last_side_switch = now
+                self.last_shot_time = now
+
+        elif self.attack_state == 'dive_recover':
+            # Sobe de volta para a faixa de combate enquanto cruza para o lado oposto do jogador
+            recover_offset = 165 if self.enraged else 220
+            target_x = max(min_cx, min(max_cx, player.rect.centerx + self.patrol_side * recover_offset))
+            self.patrol_x = float(target_x)
+            target_y = max(self.min_y + half_h, min(self.flight_max_y - half_h, 190))
+            vx = self.speed if target_x > self.rect.centerx + 12 else (-self.speed if target_x < self.rect.centerx - 12 else 0.0)
+            vy = -3.8 if self.rect.centery > target_y + 10 else 0.0
+            self._move_smooth(vx, vy)
+            self._clamp_to_arena()
             self.update_action(1)
+            if self.rect.centery <= target_y + 18:
+                self.attack_state = 'fly'
 
-            target_y = player.rect.centery - 150
-            if self.rect.bottom < target_y:
-                self.rect.y += 2
-            elif self.rect.bottom > target_y:
-                self.rect.y -= 2
-
-            if player.rect.centerx > self.rect.centerx:
-                self.rect.x += self.speed
-                self.flip = False
-                self.direction = 1
-            else:
-                self.rect.x -= self.speed
-                self.flip = True
-                self.direction = -1
         else:
-            self.update_action(2)
+            # ------------------------------------------------------------------
+            # Movimentação dinâmica (perseguição agressiva + troca periódica de lado)
+            # ------------------------------------------------------------------
+            switch_interval = 2000 if self.enraged else 3200
+            if now - self.last_side_switch >= switch_interval:
+                self.patrol_side *= -1
+                self.last_side_switch = now
 
-            # Permite que o Dragão vire caso o player passe para as costas dele
-            if player.rect.centerx > self.rect.centerx:
-                self.flip = False
-                self.direction = 1
+            # Distância horizontal de pressão: ~200–250 px (Normal) e ~130–180 px (Fúria)
+            hover_offset = 155 if self.enraged else 220
+            target_x = player.rect.centerx + self.patrol_side * hover_offset
+            target_x = max(min_cx, min(max_cx, target_x))
+            self.patrol_x = float(target_x)
+
+            # Altura de voo: faixa normal entre y = 80 e y = SCREEN_HEIGHT - 220,
+            # descendo um pouco mais na perseguição em Fúria mas sempre acima da água.
+            wave_amp = 48 if self.enraged else 38
+            wave = math.sin(now * 0.004) * wave_amp
+            base_y = (player.rect.centery - 45) if self.enraged else (player.rect.centery - 75)
+            min_cy = self.min_y + half_h
+            max_cy_limit = (self.max_y - half_h) if self.enraged else min(self.flight_max_y - half_h, self.max_y - half_h)
+            if max_cy_limit < min_cy:
+                max_cy_limit = min_cy
+            target_y = max(min_cy, min(max_cy_limit, base_y + wave))
+
+            dx = target_x - self.rect.centerx
+            dy = target_y - self.rect.centery
+            vx = max(-self.speed, min(self.speed, dx * 0.08))
+            if abs(dx) > 20 and abs(vx) < self.speed * 0.7:
+                vx = self.speed * 0.7 * (1 if dx > 0 else -1)
+            vy = max(-3.2, min(3.2, dy * 0.08))
+            self._move_smooth(vx, vy)
+            self._clamp_to_arena()
+
+            # Ataque B — Rajada Rápida Mirada (3 DragonFire a cada 180 ms)
+            if self.attack_state == 'burst':
+                self.update_action(2)
+                if self.burst_remaining > 0 and now >= self.next_burst_time:
+                    self._fire_projectile(
+                        bullet_group, player.rect.centerx, player.rect.centery,
+                        network_client=network_client, bg_scroll=bg_scroll,
+                    )
+                    self.burst_remaining -= 1
+                    self.next_burst_time = now + 180
+                if self.burst_remaining <= 0:
+                    self.attack_state = 'fly'
+                    self.last_shot_time = now
             else:
-                self.flip = True
-                self.direction = -1
+                attack_cooldown = 800 if self.enraged else 1200
+                if now - self.last_shot_time >= attack_cooldown:
+                    self.update_action(2)
+                else:
+                    self.update_action(1)
 
-            target_y = player.rect.bottom
-            if self.rect.bottom < target_y:
-                self.rect.y += 4
-            elif self.rect.bottom > target_y:
-                self.rect.y -= 2
+        # Dano de contato do corpo do Dragão
+        self._apply_contact_damage(player, now)
 
-        self.rect.x += screen_scroll
-        self.update_animation(player, bullet_group)
+        # Atualiza animação (dispara projéteis no frame 2 de Attack quando em 'fly')
+        allow_anim_fire = (self.attack_state == 'fly')
+        self.update_animation(
+            player,
+            bullet_group if allow_anim_fire else None,
+            network_client=network_client,
+            bg_scroll=bg_scroll,
+        )
+        # Reaplica clamp após troca de frame (largura/altura variam entre Idle/Walk/Attack)
+        self._clamp_to_arena()
+        self._expected_centerx = self.rect.centerx
 
-    def update_animation(self, player, bullet_group=None):
-        animation_cooldown = 100
+    def update_animation(self, player, bullet_group=None, network_client=None, bg_scroll: int = 0):
+        animation_cooldown = 85 if self.enraged else 100
         old_bottom = self.rect.bottom
         old_centerx = self.rect.centerx
 
@@ -106,16 +452,30 @@ class DragonBoss(pygame.sprite.Sprite):
         self.rect.centerx = old_centerx
 
         now = pygame.time.get_ticks()
+        shot_cooldown = 800 if self.enraged else 1200
         if self.action == 2 and self.frame_index == 2:
             if (not self.shot_frame_fired and bullet_group is not None and
-                    now - self.last_shot_time > 2000):
-                bullet_group.add(DragonFire(
-                    self.rect.centerx,
-                    self.rect.centery,
-                    player.rect.centerx,
-                    player.rect.centery,
-                ))
-                self.last_shot_time = now
+                    now - self.last_shot_time >= shot_cooldown):
+                if self.enraged:
+                    # Alterna entre Ataque A (Leque de 5) e Ataque B (Burst de 3 mirados)
+                    if self.fury_cycle % 2 == 0:
+                        for dy in (-140, -70, 0, 70, 140):
+                            self._fire_projectile(
+                                bullet_group, player.rect.centerx, player.rect.centery + dy,
+                                network_client=network_client, bg_scroll=bg_scroll,
+                            )
+                        self.last_shot_time = now
+                    else:
+                        self.attack_state = 'burst'
+                        self.burst_remaining = 3
+                        self.next_burst_time = now
+                    self.fury_cycle += 1
+                else:
+                    self._fire_projectile(
+                        bullet_group, player.rect.centerx, player.rect.centery,
+                        network_client=network_client, bg_scroll=bg_scroll,
+                    )
+                    self.last_shot_time = now
                 self.shot_frame_fired = True
         elif self.action != 2 or self.frame_index != 2:
             self.shot_frame_fired = False
@@ -126,8 +486,8 @@ class DragonBoss(pygame.sprite.Sprite):
             if self.frame_index >= len(self.animation_list[self.action]):
                 if self.action == 3:  # Morte
                     self.frame_index = len(self.animation_list[self.action]) - 1
-                elif self.action == 2:  # Fim do ataque → volta para Idle
-                    self.action = 0
+                elif self.action == 2:  # Fim do ataque → volta para Walk/Idle
+                    self.action = 1 if self.activated else 0
                     self.frame_index = 0
                 else:
                     self.frame_index = 0
@@ -139,21 +499,54 @@ class DragonBoss(pygame.sprite.Sprite):
             self.update_time = pygame.time.get_ticks()
 
     def draw(self, screen: pygame.Surface):
-        screen.blit(self.image, self.rect)
+        draw_rect = self.image.get_rect(midbottom=self.rect.midbottom)
+        if self.alive and self.enraged:
+            # Aura de fogo pulsante em volta do Dragão em Fúria
+            pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.014)
+            aura_w = draw_rect.width + 24
+            aura_h = draw_rect.height + 24
+            aura = pygame.Surface((aura_w, aura_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(aura, (255, 70, 15, int(45 + 45 * pulse)), aura.get_rect())
+            screen.blit(aura, aura.get_rect(center=draw_rect.center))
+
+        screen.blit(self.image, draw_rect)
+
+        if self.alive and self.attack_state == 'dive_telegraph':
+            # Pisca vermelho brilhante durante o aviso do Mergulho Rasante
+            if (pygame.time.get_ticks() // 65) % 2 == 0:
+                tele = pygame.mask.from_surface(self.image).to_surface(
+                    setcolor=(255, 30, 30, 175), unsetcolor=(0, 0, 0, 0)
+                )
+                screen.blit(tele, draw_rect)
+        elif self.alive and self.enraged:
+            # Tint avermelhado pulsante sobre o sprite durante a Fúria
+            pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.012)
+            tint = pygame.mask.from_surface(self.image).to_surface(
+                setcolor=(255, 55, 10, int(40 + 45 * pulse)), unsetcolor=(0, 0, 0, 0)
+            )
+            screen.blit(tint, draw_rect)
+
+        if getattr(self, 'hit_flash', 0) > 0:
+            self.hit_flash -= 1
+            white = pygame.mask.from_surface(self.image).to_surface(
+                setcolor=(255, 255, 255, 200), unsetcolor=(0, 0, 0, 0)
+            )
+            screen.blit(white, draw_rect)
 
     def draw_health_bar(self, surface: pygame.Surface):
         if self.health > 0:
-            bar_width = 80
-            bar_height = 8
+            bar_width = 96 if self.enraged else 80
+            bar_height = 9 if self.enraged else 8
             x = self.rect.centerx - (bar_width // 2)
-            y = self.rect.top - 15
+            y = self.rect.top - 16
             ratio = max(0, self.health) / self.max_health
-            pygame.draw.rect(surface, (255, 0, 0),
-                             (x, y, bar_width, bar_height))
-            pygame.draw.rect(surface, (0, 255, 0),
-                             (x, y, bar_width * ratio, bar_height))
-            pygame.draw.rect(surface, (0, 0, 0),
-                             (x, y, bar_width, bar_height), 1)
+            is_enraged = self.enraged or (self.health <= self.max_health * 0.5)
+            bg_col = (60, 10, 10) if is_enraged else (180, 0, 0)
+            fill_col = (255, 35, 20) if is_enraged else (0, 255, 0)
+            border_col = (255, 170, 40) if is_enraged else (0, 0, 0)
+            pygame.draw.rect(surface, bg_col, (x, y, bar_width, bar_height))
+            pygame.draw.rect(surface, fill_col, (x, y, bar_width * ratio, bar_height))
+            pygame.draw.rect(surface, border_col, (x, y, bar_width, bar_height), 2 if is_enraged else 1)
 
 
 # ======================================================================
@@ -164,8 +557,12 @@ class Boss(pygame.sprite.Sprite):
 
     def __init__(self, x: int, y: int, scale: float = 1.5):
         super().__init__()
-        self.speed = 2
+        self.base_speed = 3
+        self.enraged_speed = 4
+        self.speed = self.base_speed
         self.dy = 0
+        self.in_air = False
+        self.last_jump_time = 0
 
         # Máquina de Estados: 0='Idle', 1='Walk', 2='Attack', 3='Death'
         self.action = 0
@@ -175,9 +572,10 @@ class Boss(pygame.sprite.Sprite):
         self.flip = False
         self.direction = 1
 
-        self.max_health = 100
+        self.max_health = 350
         self.health = self.max_health
         self.alive = True
+        self.hit_flash = 0
         self.last_hit_time = 0
 
         self.animation_list = []
@@ -199,7 +597,11 @@ class Boss(pygame.sprite.Sprite):
             self.animation_list.append(temp_list)
 
         self.image = self.animation_list[self.action][self.frame_index]
-        self.rect = self.image.get_rect()
+        # Hitbox fixa baseada no frame Idle[0] (largura ajustada ao corpo, sem a ponta
+        # do tridente) para que animações de ataque não empurrem a colisão contra paredes.
+        base_w, base_h = self.animation_list[0][0].get_size()
+        hitbox_w = max(40, int(base_w * 0.65))
+        self.rect = pygame.Rect(0, 0, hitbox_w, base_h)
         self.rect.midbottom = (x, y)
 
     def update(self, player, obstacle_list: list, GRAVITY: float):
@@ -207,19 +609,25 @@ class Boss(pygame.sprite.Sprite):
             self.update_animation(player)
             return
 
+        now = pygame.time.get_ticks()
+        enraged = self.health <= self.max_health * 0.5
+        self.speed = self.enraged_speed if enraged else self.base_speed
+
         dx = 0
         dist_x = player.rect.centerx - self.rect.centerx
         abs_dist_x = abs(dist_x)
+        abs_dist_y = abs(player.rect.centery - self.rect.centery)
 
-        if abs_dist_x <= 100:
-            self.update_action(2)
-        elif abs_dist_x < 250:
-            self.update_action(1)
-            dx = self.speed * self.direction
-        else:
-            self.update_action(0)
+        # Jogador fora da Arena 1 (ex.: renasceu no penhasco elevado inicial):
+        # mantém o Demônio em Idle dentro da arena em vez de pular contra a parede.
+        player_outside_arena = (
+            (player.rect.bottom < self.rect.top - TILE_SIZE * 4
+             or player.rect.bottom < self.rect.bottom - TILE_SIZE * 5)
+            and abs_dist_x > TILE_SIZE * 4
+        )
 
-        if self.action != 2:
+        # Vira para o jogador quando não está no meio da animação de golpe
+        if self.action != 2 and not player_outside_arena:
             if dist_x > 0:
                 self.direction = 1
                 self.flip = False
@@ -227,37 +635,71 @@ class Boss(pygame.sprite.Sprite):
                 self.direction = -1
                 self.flip = True
 
-        self.rect.x += dx
-        self.dy += GRAVITY
+        # Persegue continuamente dentro da arena (<= 700 px), sem o antigo limite de 250 px
+        if player_outside_arena or abs_dist_x > 700:
+            self.update_action(0)
+        elif abs_dist_x <= 100 and abs_dist_y <= 90:
+            self.update_action(2)
+        else:
+            self.update_action(1)
+            dx = self.speed * self.direction
+            # Contra-ataque a quem fica parado em plataforma: só salta se estiver no chão
+            # e não houver obstáculo sólido logo acima da cabeça.
+            if (player.rect.bottom < self.rect.top - 20
+                    and not self.in_air
+                    and now - self.last_jump_time >= 2500):
+                head_probe = pygame.Rect(self.rect.x, self.rect.top - TILE_SIZE, self.rect.width, TILE_SIZE)
+                blocked_above = any(tile[1].colliderect(head_probe) for tile in obstacle_list)
+                if not blocked_above:
+                    self.dy = -13
+                    self.in_air = True
+                    self.last_jump_time = now
 
+        # Passo A — Resolução de colisão no Eixo X (Horizontal)
+        if dx != 0:
+            for tile in obstacle_list:
+                if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.rect.width, self.rect.height):
+                    if dx > 0:
+                        dx = min(dx, tile[1].left - self.rect.right)
+                    elif dx < 0:
+                        dx = max(dx, tile[1].right - self.rect.left)
+        self.rect.x += dx
+
+        # Passo B — Resolução de colisão no Eixo Y (Vertical)
+        self.dy = min(self.dy + GRAVITY, 12)
+        on_ground = False
         for tile in obstacle_list:
             if tile[1].colliderect(self.rect.x, self.rect.y + self.dy, self.rect.width, self.rect.height):
-                if self.dy >= 0:
-                    self.dy = 0
+                if self.dy > 0:
                     self.rect.bottom = tile[1].top
+                    self.dy = 0
+                    on_ground = True
+                elif self.dy < 0:
+                    self.rect.top = tile[1].bottom
+                    self.dy = 0
 
-        self.rect.y += self.dy
+        if on_ground:
+            self.in_air = False
+        else:
+            self.rect.y += self.dy
+            self.in_air = True
+
         self.update_animation(player)
 
     def update_animation(self, player):
         ANIMATION_COOLDOWN = 100
-        old_bottom = self.rect.bottom
-        old_centerx = self.rect.centerx
-
+        # Atualiza apenas o sprite visual; self.rect (hitbox fixa) não muda por frame.
         self.image = pygame.transform.flip(self.animation_list[self.action][self.frame_index], self.flip, False)
-        self.rect = self.image.get_rect()
-
-        self.rect.bottom = old_bottom
-        self.rect.centerx = old_centerx
 
         if pygame.time.get_ticks() - self.update_time > ANIMATION_COOLDOWN:
             self.update_time = pygame.time.get_ticks()
             self.frame_index += 1
 
             if self.action == 2 and self.frame_index in [2, 3]:
-                if pygame.time.get_ticks() - self.last_hit_time > 1500:
+                if pygame.time.get_ticks() - self.last_hit_time > 950:
                     dist_x_hit = abs(player.rect.centerx - self.rect.centerx)
-                    if dist_x_hit <= 130:
+                    dist_y_hit = abs(player.rect.centery - self.rect.centery)
+                    if dist_x_hit <= 130 and dist_y_hit <= 90:
                         olhando_direita = (not self.flip and player.rect.centerx >= self.rect.centerx)
                         olhando_esquerda = (self.flip and player.rect.centerx <= self.rect.centerx)
                         if olhando_direita or olhando_esquerda:
@@ -279,7 +721,14 @@ class Boss(pygame.sprite.Sprite):
             self.update_time = pygame.time.get_ticks()
 
     def draw(self, screen: pygame.Surface):
-        screen.blit(self.image, self.rect)
+        draw_rect = self.image.get_rect(midbottom=self.rect.midbottom)
+        screen.blit(self.image, draw_rect)
+        if getattr(self, 'hit_flash', 0) > 0:
+            self.hit_flash -= 1
+            white = pygame.mask.from_surface(self.image).to_surface(
+                setcolor=(255, 255, 255, 200), unsetcolor=(0, 0, 0, 0)
+            )
+            screen.blit(white, draw_rect)
 
     def draw_health_bar(self, surface: pygame.Surface):
         if self.health > 0:
@@ -292,6 +741,9 @@ class Boss(pygame.sprite.Sprite):
             vida_atual = max(0, self.health)
             ratio = vida_atual / self.max_health
 
-            pygame.draw.rect(surface, (255, 0, 0), (x, y, bar_width, bar_height))
-            pygame.draw.rect(surface, (0, 255, 0), (x, y, bar_width * ratio, bar_height))
+            enraged = self.health <= self.max_health * 0.5
+            bg_col = (90, 15, 15) if enraged else (255, 0, 0)
+            fill_col = (255, 120, 0) if enraged else (0, 255, 0)
+            pygame.draw.rect(surface, bg_col, (x, y, bar_width, bar_height))
+            pygame.draw.rect(surface, fill_col, (x, y, bar_width * ratio, bar_height))
             pygame.draw.rect(surface, (0, 0, 0), (x, y, bar_width, bar_height), 1)

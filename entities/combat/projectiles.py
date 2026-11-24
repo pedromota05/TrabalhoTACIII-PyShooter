@@ -19,8 +19,10 @@ from config import (
     GRENADE_SPEED, GRENADE_INITIAL_VEL_Y, GRENADE_TIMER,
     GRENADE_DAMAGE, GRENADE_BLAST_RADIUS,
     EXPLOSION_SPEED, EXPLOSION_SCALE,
+    HIT_FLASH_FRAMES,
 )
 from asset_manager import AssetManager
+from entities import effects
 
 
 # ======================================================================
@@ -29,15 +31,32 @@ from asset_manager import AssetManager
 class Bullet(pygame.sprite.Sprite):
     """Projétil linear padrão disparado pelo jogador e por soldados inimigos."""
 
-    def __init__(self, x: float, y: float, direction: int):
+    def __init__(self, x: float, y: float, direction: int, network_client=None,
+                 visual_only: bool = False, angle: float | None = None, owner=None):
         super().__init__()
+        # Quem atirou: a bala nunca acerta o próprio dono (com a mira inclinada
+        # o cano pode ficar encostado no corpo).
+        self.owner = owner
         self.speed = BULLET_SPEED
-        self.image = AssetManager().get_image('bullet')
-        self.rect = self.image.get_rect()
-        self.rect.center = (int(x), int(y))
+        # visual_only: bala de um jogador remoto. Só aparece na tela; o dano
+        # chega pela mensagem "hit" de quem atirou (evita dano em dobro no Host
+        # e fogo amigo no jogador local).
+        self.visual_only = visual_only
+        self.angle = angle
+        if angle is not None:
+            self.vel_x = math.cos(angle) * self.speed
+            self.vel_y = math.sin(angle) * self.speed
+            self.fx, self.fy = float(x), float(y)
+            self.image = pygame.transform.rotate(AssetManager().get_image('bullet'), -math.degrees(angle))
+            self.rect = self.image.get_rect(center=(int(x), int(y)))
+        else:
+            self.image = AssetManager().get_image('bullet')
+            self.rect = self.image.get_rect()
+            self.rect.center = (int(x), int(y))
         self.direction = direction
         self.has_hit = False
         self.hit_timer = 0
+        self.network_client = network_client
 
     def update(self, screen_scroll: int, obstacle_list: list, player,
                bullet_group, enemy_group, boss_group=None):
@@ -47,14 +66,24 @@ class Bullet(pygame.sprite.Sprite):
             if self.hit_timer > 2:
                 self.kill()
             # A bala acompanha o scroll da tela enquanto congela para feedback visual
-            self.rect.x += screen_scroll
+            if self.angle is not None:
+                self.fx += screen_scroll
+                self.rect.center = (int(self.fx), int(self.fy))
+            else:
+                self.rect.x += screen_scroll
             return
 
         # Movimento normal
-        self.rect.x += (self.direction * self.speed) + screen_scroll
+        if self.angle is None:
+            self.rect.x += (self.direction * self.speed) + screen_scroll
+        else:
+            self.fx += self.vel_x + screen_scroll
+            self.fy += self.vel_y
+            self.rect.center = (int(self.fx), int(self.fy))
 
         # Fora da tela
-        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
+        if (self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or
+                self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT):
             self.kill()
             return
 
@@ -64,8 +93,19 @@ class Bullet(pygame.sprite.Sprite):
                 self.has_hit = True
                 break
 
+        if self.visual_only:
+            alvos = [e for grp in (enemy_group, boss_group or ()) if grp for e in grp
+                     if e.alive and getattr(e, 'activated', True) and not getattr(e, 'invulnerable', False)]
+            for e in alvos:
+                if pygame.sprite.collide_rect(self, e):
+                    e.hit_flash = HIT_FLASH_FRAMES
+                    self.has_hit = True
+                    break
+            return
+
         # Colisão com jogador
-        if not self.has_hit and pygame.sprite.collide_rect(self, player):
+        if (not self.has_hit and player is not self.owner
+                and pygame.sprite.collide_rect(self, player)):
             if player.alive and getattr(player, 'invincible', 0) == 0:
                 player.health -= BULLET_DAMAGE_TO_PLAYER
                 player.invincible = 60  # Garante frames de invencibilidade para o player
@@ -74,9 +114,13 @@ class Bullet(pygame.sprite.Sprite):
         # Colisão com inimigos
         if not self.has_hit:
             for enemy in enemy_group:
-                if pygame.sprite.collide_rect(self, enemy):
+                if enemy is not self.owner and pygame.sprite.collide_rect(self, enemy):
                     if enemy.alive:
                         enemy.health -= BULLET_DAMAGE_TO_ENEMY
+                        enemy.hit_flash = HIT_FLASH_FRAMES
+                        effects.damage_text(enemy.rect.centerx, enemy.rect.top, BULLET_DAMAGE_TO_ENEMY)
+                        if self.network_client and hasattr(enemy, 'target_id'):
+                            self.network_client.send_enemy_hit(enemy.target_id, BULLET_DAMAGE_TO_ENEMY)
                         # Feedback visual de hit (se a animação 4 "Hurt" existir)
                         if hasattr(enemy, 'animation_list') and len(enemy.animation_list) > 4:
                             enemy.update_action(4)
@@ -87,9 +131,18 @@ class Bullet(pygame.sprite.Sprite):
         if not self.has_hit and boss_group:
             boss_hit_list = pygame.sprite.spritecollide(self, boss_group, False)
             for boss in boss_hit_list:
-                if boss.alive:
+                # DragonBoss adormecido (fora da arena) ignora dano: a bala passa direto;
+                # durante transição de fúria (invulnerable), a bala é absorvida sem causar dano.
+                if boss.alive and getattr(boss, 'activated', True):
                     self.kill()  # Bala some
+                    self.has_hit = True
+                    if getattr(boss, 'invulnerable', False):
+                        break
                     boss.health -= 25
+                    boss.hit_flash = HIT_FLASH_FRAMES
+                    effects.damage_text(boss.rect.centerx, boss.rect.top, 25)
+                    if self.network_client and hasattr(boss, 'target_id'):
+                        self.network_client.send_enemy_hit(boss.target_id, 25)
                     if boss.health <= 0:
                         boss.health = 0
                         boss.alive = False
@@ -131,7 +184,7 @@ class Explosion(pygame.sprite.Sprite):
 class Grenade(pygame.sprite.Sprite):
     """Granada com trajetória parabólica, ricochete e dano em área."""
 
-    def __init__(self, x: float, y: float, direction: int):
+    def __init__(self, x: float, y: float, direction: int, network_client=None):
         super().__init__()
         self.timer = GRENADE_TIMER
         self.vel_y = GRENADE_INITIAL_VEL_Y
@@ -142,6 +195,7 @@ class Grenade(pygame.sprite.Sprite):
         self.width = self.image.get_width()
         self.height = self.image.get_height()
         self.direction = direction
+        self.network_client = network_client
 
     def update(self, screen_scroll: int, obstacle_list: list, player,
                enemy_group, explosion_group, boss_group=None):
@@ -178,6 +232,7 @@ class Grenade(pygame.sprite.Sprite):
             AssetManager().get_sound('grenade').play()
             explosion = Explosion(self.rect.x, self.rect.y, EXPLOSION_SCALE)
             explosion_group.add(explosion)
+            effects.shake(12, 6)
             # Dano em área
             if (abs(self.rect.centerx - player.rect.centerx) < GRENADE_BLAST_RADIUS
                     and abs(self.rect.centery - player.rect.centery) < GRENADE_BLAST_RADIUS):
@@ -185,22 +240,32 @@ class Grenade(pygame.sprite.Sprite):
             for enemy in enemy_group:
                 if (abs(self.rect.centerx - enemy.rect.centerx) < GRENADE_BLAST_RADIUS
                         and abs(self.rect.centery - enemy.rect.centery) < GRENADE_BLAST_RADIUS):
-                    enemy.health -= GRENADE_DAMAGE
-                    if enemy.health <= 0:
-                        enemy.health = 0
-                        enemy.alive = False
-                        if hasattr(enemy, 'update_action'):
-                            enemy.update_action(3)
+                    if enemy.alive:
+                        enemy.health -= GRENADE_DAMAGE
+                        enemy.hit_flash = HIT_FLASH_FRAMES
+                        effects.damage_text(enemy.rect.centerx, enemy.rect.top, GRENADE_DAMAGE)
+                        if self.network_client and hasattr(enemy, 'target_id'):
+                            self.network_client.send_enemy_hit(enemy.target_id, GRENADE_DAMAGE)
+                        if enemy.health <= 0:
+                            enemy.health = 0
+                            enemy.alive = False
+                            if hasattr(enemy, 'update_action'):
+                                enemy.update_action(3)
             if boss_group:
                 for boss in boss_group:
                     if (abs(self.rect.centerx - boss.rect.centerx) < GRENADE_BLAST_RADIUS
                             and abs(self.rect.centery - boss.rect.centery) < GRENADE_BLAST_RADIUS):
-                        boss.health -= GRENADE_DAMAGE
-                        if boss.health <= 0:
-                            boss.health = 0
-                            boss.alive = False
-                            if hasattr(boss, 'update_action'):
-                                boss.update_action(3)
+                        if boss.alive and getattr(boss, 'activated', True) and not getattr(boss, 'invulnerable', False):
+                            boss.health -= GRENADE_DAMAGE
+                            boss.hit_flash = HIT_FLASH_FRAMES
+                            effects.damage_text(boss.rect.centerx, boss.rect.top, GRENADE_DAMAGE)
+                            if self.network_client and hasattr(boss, 'target_id'):
+                                self.network_client.send_enemy_hit(boss.target_id, GRENADE_DAMAGE)
+                            if boss.health <= 0:
+                                boss.health = 0
+                                boss.alive = False
+                                if hasattr(boss, 'update_action'):
+                                    boss.update_action(3)
 
 
 # ======================================================================
@@ -387,27 +452,48 @@ class Arrow(pygame.sprite.Sprite):
 #  DRAGON FIRE
 # ======================================================================
 class DragonFire(pygame.sprite.Sprite):
-    """Projétil animado disparado pelo DragonBoss."""
+    """Projétil animado disparado pelo DragonBoss (escala dano/velocidade na Fúria)."""
 
-    def __init__(self, x: float, y: float, target_x: float, target_y: float, scale: float = 1.5):
+    _frame_cache: dict[tuple[float, bool], list[pygame.Surface]] = {}
+
+    @classmethod
+    def _get_frames(cls, scale: float, enraged: bool) -> list[pygame.Surface]:
+        key = (round(scale, 2), enraged)
+        if key not in cls._frame_cache:
+            frames = []
+            for frame_number in range(1, 7):
+                image = pygame.image.load(
+                    f'img/enemy/Dragon/Fire_Attack{frame_number}.png'
+                ).convert_alpha()
+                image = image.subsurface(image.get_bounding_rect())
+                image = pygame.transform.scale(
+                    image,
+                    (int(image.get_width() * scale),
+                     int(image.get_height() * scale))
+                )
+                if enraged:
+                    tinted = image.copy()
+                    tinted.fill((110, 25, 0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+                    image = tinted
+                frames.append(image)
+            cls._frame_cache[key] = frames
+        return cls._frame_cache[key]
+
+    def __init__(self, x: float, y: float, target_x: float, target_y: float,
+                 scale: float = 1.5, damage: int | None = None,
+                 speed: float | None = None, enraged: bool = False):
         super().__init__()
+        self.enraged = enraged
+        # Fase normal: 20 de dano (20% de 100 HP) e vel 7.5
+        # Fase fúria:  32 de dano (+60%), vel 10.5 e tamanho 1.25x
+        self.damage = damage if damage is not None else (32 if enraged else 20)
+        self.speed = speed if speed is not None else (10.5 if enraged else 7.5)
+        eff_scale = scale * 1.25 if enraged else scale
 
-        self.animation_list = []
-        for frame_number in range(1, 7):
-            image = pygame.image.load(
-                f'img/enemy/Dragon/Fire_Attack{frame_number}.png'
-            ).convert_alpha()
-            image = image.subsurface(image.get_bounding_rect())
-            image = pygame.transform.scale(
-                image,
-                (int(image.get_width() * scale),
-                 int(image.get_height() * scale))
-            )
-            self.animation_list.append(image)
-
+        self.animation_list = self._get_frames(eff_scale, enraged)
         self.frame_index = 0
         self.animation_timer = pygame.time.get_ticks()
-        self.animation_cooldown = 80
+        self.animation_cooldown = 65 if enraged else 80
         self.image = self.animation_list[self.frame_index]
         self.rect = self.image.get_rect(center=(int(x), int(y)))
 
@@ -418,8 +504,8 @@ class DragonFire(pygame.sprite.Sprite):
             self.vel_x = 0.0
             self.vel_y = 0.0
         else:
-            self.vel_x = (target_x - x) / distance * 6
-            self.vel_y = (target_y - y) / distance * 6
+            self.vel_x = (target_x - x) / distance * self.speed
+            self.vel_y = (target_y - y) / distance * self.speed
 
     def update(self, screen_scroll: int, obstacle_list: list, player,
                bullet_group, enemy_group, boss_group=None):
@@ -446,6 +532,6 @@ class DragonFire(pygame.sprite.Sprite):
 
         if pygame.sprite.collide_rect(self, player):
             if player.alive and getattr(player, 'invincible', 0) == 0:
-                player.health -= BULLET_DAMAGE_TO_PLAYER
+                player.health -= self.damage
                 player.invincible = 60
             self.kill()

@@ -4,6 +4,9 @@ ui/screens/common.py — Funções utilitárias de renderização visual e texto
 
 from PIL import Image, ImageSequence
 import pygame
+from asset_manager import AssetManager
+from config import PLAYER_COLORS, PLAYER_SCALE, WHITE
+from core import progress
 
 
 def render_text_with_spacing(text: str, font: pygame.font.Font, color: tuple, spacing: int) -> pygame.Surface:
@@ -31,6 +34,29 @@ def draw_text_with_shadow(screen: pygame.Surface, text: str, font: pygame.font.F
     text_surf = font.render(text, True, text_color)
     text_rect = text_surf.get_rect(centerx=x, top=y)
     screen.blit(text_surf, text_rect)
+
+
+def draw_text_with_outline(screen: pygame.Surface, text: str, font: pygame.font.Font,
+                           text_color: tuple, x: int, y: int,
+                           outline_color: tuple = (0, 0, 0), thickness: int = 2) -> pygame.Rect:
+    """Desenha texto centralizado em x (topo em y) com contorno (stroke) sólido.
+
+    O contorno é feito desenhando o texto na cor do contorno deslocado
+    `thickness` px nas 4 direções cardeais (cima, baixo, esquerda, direita)
+    e nas 4 diagonais, que fecham os cantos das letras. Por fim, o texto
+    principal é desenhado por cima, sem deslocamento.
+    """
+    outline_surf = font.render(text, True, outline_color)
+    text_surf = font.render(text, True, text_color)
+    text_rect = text_surf.get_rect(centerx=x, top=y)
+
+    t = thickness
+    for dx, dy in ((-t, 0), (t, 0), (0, -t), (0, t),
+                   (-t, -t), (-t, t), (t, -t), (t, t)):
+        screen.blit(outline_surf, text_rect.move(dx, dy))
+
+    screen.blit(text_surf, text_rect)
+    return text_rect
 
 
 def draw_volume_bar(screen: pygame.Surface, x: int, y: int, current_vol: int, max_vol: int,
@@ -65,3 +91,68 @@ def load_gif_frames(filename: str, max_width: float = None) -> list[pygame.Surfa
 
         frames.append(pygame_image)
     return frames
+
+
+class ColorPicker:
+    """Seletor de cor do soldado reutilizável para menus (Multiplayer e Level Select)."""
+
+    def __init__(self, center: tuple[int, int], font_bold: pygame.font.Font, title: str = "COR DO BONECO"):
+        self.center = center
+        self.font_bold = font_bold
+        self.title = title
+        self.color = progress.carregar().get('cor_jogador', 0) % len(PLAYER_COLORS)
+
+        panel_x, panel_y = center
+        self.color_left = pygame.Rect(0, 0, 40, 40)
+        self.color_left.center = (panel_x - 65, panel_y)
+        self.color_right = pygame.Rect(0, 0, 40, 40)
+        self.color_right.center = (panel_x + 65, panel_y)
+
+        self._previews: dict[int, pygame.Surface] = {}
+
+    def reload(self) -> None:
+        """Relê a cor salva no progresso."""
+        self.color = progress.carregar().get('cor_jogador', 0) % len(PLAYER_COLORS)
+
+    def handle_click(self, pos: tuple[int, int]) -> bool:
+        """Processa clique nas setas esquerda/direita."""
+        if self.color_left.collidepoint(pos):
+            self.color = (self.color - 1) % len(PLAYER_COLORS)
+            progress.salvar_cor(self.color)
+            return True
+        elif self.color_right.collidepoint(pos):
+            self.color = (self.color + 1) % len(PLAYER_COLORS)
+            progress.salvar_cor(self.color)
+            return True
+        return False
+
+    def draw(self, screen: pygame.Surface) -> None:
+        """Desenha título, prévia do boneco, setas e nome da cor."""
+        panel_x, panel_y = self.center
+        if self.title:
+            draw_text_with_shadow(screen, self.title, self.font_bold, WHITE, panel_x, panel_y - 70)
+
+        if self.color not in self._previews:
+            anim = AssetManager().load_character_animations('player', PLAYER_SCALE * 1.5, self.color)
+            self._previews[self.color] = anim[0][0]
+
+        preview_surf = self._previews[self.color]
+        preview_rect = preview_surf.get_rect(center=(panel_x, panel_y))
+        screen.blit(preview_surf, preview_rect)
+
+        pygame.draw.rect(screen, (30, 35, 45), self.color_left, border_radius=6)
+        pygame.draw.rect(screen, (140, 140, 160), self.color_left, 2, border_radius=6)
+        lx, ly = self.color_left.center
+        left_tri = [(lx - 6, ly), (lx + 5, ly - 7), (lx + 5, ly + 7)]
+        pygame.draw.polygon(screen, (0, 0, 0), [(x + 1, y + 1) for x, y in left_tri])
+        pygame.draw.polygon(screen, WHITE, left_tri)
+
+        pygame.draw.rect(screen, (30, 35, 45), self.color_right, border_radius=6)
+        pygame.draw.rect(screen, (140, 140, 160), self.color_right, 2, border_radius=6)
+        rx, ry = self.color_right.center
+        right_tri = [(rx + 6, ry), (rx - 5, ry - 7), (rx - 5, ry + 7)]
+        pygame.draw.polygon(screen, (0, 0, 0), [(x + 1, y + 1) for x, y in right_tri])
+        pygame.draw.polygon(screen, WHITE, right_tri)
+
+        color_name = PLAYER_COLORS[self.color][0]
+        draw_text_with_shadow(screen, color_name, self.font_bold, WHITE, panel_x, panel_y + 70)

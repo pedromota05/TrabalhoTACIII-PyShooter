@@ -3,26 +3,83 @@
 import csv
 import os
 
-from config import COLS, LEVELS_DIR, ROWS
+import pygame
+
+from config import CHECKPOINT_TILE, CHECKPOINTS, COLS, LEVEL_BANNER_FRAMES, LEVELS_DIR, ROWS, SCREEN_WIDTH, TILE_SIZE, SIGN_TEXTS, SIGN_DEFAULT_TEXT
+from entities import effects
+from entities.castle import Castle, CASTLE_THEMES, FinishLine
+from entities.checkpoint import CheckpointFlag
+from entities.enemies import DragonBoss
+from entities.sign import Sign
 from world.level_builder import World
 
 
 def reset_groups(game) -> None:
     """Esvazia os grupos de sprites pertencentes à sessão atual."""
     game.enemy_group.empty()
+    if hasattr(game, 'spider_group'):
+        game.spider_group.empty()
     game.boss_group.empty()
+    if not hasattr(game, 'boss_reserve_group'):
+        game.boss_reserve_group = pygame.sprite.Group()
+    else:
+        game.boss_reserve_group.empty()
     game.bullet_group.empty()
     game.grenade_group.empty()
     game.explosion_group.empty()
     game.item_box_group.empty()
+    fx_grp = getattr(game, 'item_fx_group', None)
+    if fx_grp is not None:
+        fx_grp.empty()
+    if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+        game.fun_fx_group.empty()
     game.decoration_group.empty()
     game.water_group.empty()
     game.exit_group.empty()
+    if hasattr(game, 'checkpoint_group'):
+        game.checkpoint_group.empty()
+    if hasattr(game, 'remote_players_group'):
+        game.remote_players_group.empty()
+    if hasattr(game, 'remote_players_map'):
+        game.remote_players_map.clear()
 
 
-def load_level(game, level_number: int) -> None:
-    """Carrega o CSV solicitado e recria o mundo e suas entidades."""
+def checkpoints_enabled(game) -> bool:
+    """Checkpoints valem na campanha, solo ou em LAN (não no Desafio)."""
+    return not getattr(game, 'challenge_mode', False)
+
+
+def load_level(game, level_number: int, keep_checkpoint: bool = False) -> None:
+    """Carrega o CSV solicitado e recria o mundo e suas entidades.
+
+    Sem `keep_checkpoint`, o checkpoint salvo é descartado (troca de fase,
+    menu, reinício normal)."""
     reset_groups(game)
+    if hasattr(game, 'fun_fx_group') and game.fun_fx_group is not None:
+        game.fun_fx_group.empty()
+    else:
+        game.fun_fx_group = pygame.sprite.Group()
+    game.combo = 0
+    game.combo_timer = 0
+    game.level_score = 0
+    effects.reset_shake()
+    if not keep_checkpoint:
+        game.checkpoint = None
+    game.checkpoint_msg_frames = 0
+    # Aviso "FASE N" só quando a fase começa do zero (não ao renascer no checkpoint).
+    game.level_banner_frames = 0 if keep_checkpoint else LEVEL_BANNER_FRAMES
+    # Zera a câmera: sem isso, o screen_scroll do último quadro da fase
+    # anterior desloca o mundo novo no primeiro quadro (bg_scroll já é 0).
+    game.screen_scroll = 0
+    game.bg_scroll = 0
+    game.boss_clear_frames = 0
+    game.gate_opened = False
+    game.arena_msg = ''
+    game.arena_msg_frames = 0
+    game.arena_msg_color = (255, 255, 255)
+    game.arena_msg_big = True
+    game.respawn_pending = False
+    game.challenge_spectating = False
     world_data = [[-1] * COLS for _ in range(ROWS)]
 
     level_file = os.path.join(LEVELS_DIR, f'level{level_number}_data.csv')
@@ -46,3 +103,151 @@ def load_level(game, level_number: int) -> None:
         game.boss_group,
         level_number,
     )
+    from entities.spider import Spider
+    if hasattr(game.world, 'spider_spawns') and hasattr(game, 'spider_group'):
+        for sp_x, sp_y in game.world.spider_spawns:
+            game.spider_group.add(Spider(sp_x, sp_y))
+    # Início da fase (x do mundo, pé do jogador): ponto de renascer sem bandeira.
+    game.level_start = (game.player.rect.centerx, game.player.rect.bottom)
+
+    # Atribui IDs determinísticos para inimigos e chefes para sincronização em rede
+    target_id = 0
+    for enemy in game.enemy_group:
+        enemy.target_id = target_id
+        target_id += 1
+    for boss in game.boss_group:
+        boss.target_id = target_id
+        target_id += 1
+
+    # Boss Arena (Portão de Boss ou DragonBoss no mapa): todos os chefes ficam
+    # no boss_group desde o início — o DragonBoss permanece adormecido em Idle
+    # (activated=False) na Arena 2 até o Demônio morrer e o jogador se aproximar.
+    is_boss_arena = (bool(game.world.boss_gate_tiles)
+                     or any(isinstance(b, DragonBoss) for b in game.boss_group))
+
+    if len(game.boss_group) >= 2 and not is_boss_arena:
+        sorted_bosses = sorted(game.boss_group, key=lambda b: b.rect.x)
+        game.boss_group.empty()
+        game.boss_group.add(sorted_bosses[0])
+        game.boss_queue = list(sorted_bosses[1:])
+        for b in game.boss_queue:
+            game.boss_reserve_group.add(b)
+        game.boss_stage = 1
+        game.boss_stage_total = len(sorted_bosses)
+        game.boss_stage_frames = 0
+        game.boss_stage_banner = 0
+    else:
+        game.boss_queue = []
+        game.boss_stage = 1
+        game.boss_stage_total = len(game.boss_group)
+        game.boss_stage_frames = 0
+        game.boss_stage_banner = 0
+
+    if hasattr(game, 'checkpoint_group') and checkpoints_enabled(game):
+        cp_cols = sorted({c for row in world_data for c, val in enumerate(row) if val == CHECKPOINT_TILE})
+        if not cp_cols:
+            cp_cols = CHECKPOINTS.get(level_number, [])
+        for col in cp_cols:
+            game.checkpoint_group.add(CheckpointFlag(col, _ground_top(game.world, col)))
+
+    # Castelinho na saída (fases com tema). A Exit continua sendo o gatilho;
+    # a imagem dela fica invisível e o castelo é só desenho (decoração).
+    if level_number in CASTLE_THEMES:
+        for ex in game.exit_group:
+            game.decoration_group.add(Castle(level_number, ex.rect))
+            # Linha de chegada no chão, 6 blocos antes do castelo
+            game.decoration_group.add(FinishLine(ex.rect.centerx - 6 * TILE_SIZE, ex.rect.bottom))
+            ex.image = pygame.Surface(ex.rect.size, pygame.SRCALPHA)
+
+    # Placas: textos pela ordem da esquerda para a direita
+    signs = sorted((d for d in game.decoration_group if isinstance(d, Sign)), key=lambda s: s.rect.x)
+    texts = SIGN_TEXTS.get(level_number, [])
+    for i, sign in enumerate(signs):
+        sign.text = texts[i] if i < len(texts) else SIGN_DEFAULT_TEXT
+    game.signs = signs
+    game.near_sign = None
+    game.open_sign = None
+    game.sign_toggle = False
+
+    from config import HORDE_LEVEL
+    from core.horde import start_horde
+    if level_number == HORDE_LEVEL:
+        start_horde(game)
+    else:
+        game.horde_active = False
+
+
+def _ground_top(world, col: int) -> int:
+    """Topo do bloco sólido mais alto na coluna (mundo recém-carregado, bg_scroll = 0)."""
+    tops = [rect.top for _, rect in world.obstacle_list if rect.left // TILE_SIZE == col]
+    return min(tops) if tops else 0
+
+
+def shift_world(game, offset: int) -> None:
+    """Move a câmera `offset` px para a direita num mundo recém-carregado
+    (bg_scroll = 0): desloca blocos e sprites e ajusta bg_scroll."""
+    for _, rect in game.world.obstacle_list + game.world.ramp_list:
+        rect.x -= offset
+    groups = (game.enemy_group, game.boss_group, game.item_box_group,
+              game.decoration_group, game.water_group, game.exit_group,
+              game.checkpoint_group, game.boss_reserve_group,
+              getattr(game, 'spider_group', ()))
+    for group in groups:
+        for sprite in group:
+            sprite.rect.x -= offset
+    game.player.rect.x -= offset
+    game.bg_scroll = offset
+
+
+def respawn(game) -> None:
+    """Renasce no último checkpoint: recarrega a fase, remove inimigos já
+    mortos, posiciona a câmera e o jogador na bandeira com vida cheia e a
+    munição guardada. Sem checkpoint, apenas recarrega a fase."""
+    cp = getattr(game, 'checkpoint', None)
+    load_level(game, game.level, keep_checkpoint=cp is not None)
+    if cp is None:
+        return
+
+    for group in (game.enemy_group, game.boss_group):
+        for enemy in list(group):
+            if enemy.target_id in cp['inimigos_mortos']:
+                enemy.kill()
+    for flag in game.checkpoint_group:
+        if flag.col <= cp['col']:
+            flag.activate()
+
+    max_offset = max(0, game.world.level_length * TILE_SIZE - SCREEN_WIDTH)
+    offset = min(max(0, cp['x'] - SCREEN_WIDTH // 3), max_offset)
+    shift_world(game, offset)
+
+    player = game.player
+    player.rect.midbottom = (cp['x'] - offset, cp['y'])
+    player.vel_y = 0
+    player.in_air = False
+    player.health = player.max_health
+    player.ammo = cp['ammo']
+    player.grenades = cp['grenades']
+    player.invincible = 60
+
+
+def move_camera(game, world_x: float, level_px: int | None = None) -> None:
+    """Leva a câmera para mostrar `world_x` a 1/3 da tela, em qualquer ponto
+    da fase (diferente de shift_world, que exige bg_scroll = 0)."""
+    if level_px is None:
+        level_px = game.world.level_length * TILE_SIZE
+    new_bg = int(min(max(0, world_x - SCREEN_WIDTH // 3), max(0, level_px - SCREEN_WIDTH)))
+    delta = new_bg - game.bg_scroll
+    if delta == 0:
+        return
+    for _, rect in game.world.obstacle_list + game.world.ramp_list:
+        rect.x -= delta
+    groups = (game.enemy_group, game.boss_group, game.item_box_group,
+              game.decoration_group, game.water_group, game.exit_group,
+              game.checkpoint_group, game.bullet_group, game.grenade_group,
+              game.explosion_group, game.boss_reserve_group,
+              getattr(game, 'spider_group', ()))
+    for group in groups:
+        for sprite in group:
+            sprite.rect.x -= delta
+    game.player.rect.x -= delta
+    game.bg_scroll = new_bg

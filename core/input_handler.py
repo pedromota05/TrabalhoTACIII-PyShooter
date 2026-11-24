@@ -11,20 +11,42 @@ def handle_events(game) -> None:
         if event.type == pygame.QUIT:
             game.running = False
 
+        if game.state == GameState.EDITOR:
+            game.editor_screen.handle_event(event, game)
+            continue
+
+        if game.state == GameState.MULTIPLAYER_MENU:
+            game.multiplayer_screen.handle_event(event)
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and game.state == GameState.PLAYING:
+                game.shoot = True
+            if event.button == 3 and game.state == GameState.PLAYING:
+                game.melee_input = True
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                game.shoot = False
+
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_a, pygame.K_LEFT):
                 game.moving_left = True
             if event.key in (pygame.K_d, pygame.K_RIGHT):
                 game.moving_right = True
             if event.key == pygame.K_SPACE:
-                game.shoot = True
+                game.dash_input = True
             if event.key in (pygame.K_q, pygame.K_g):
                 game.grenade_input = True
+            if event.key == pygame.K_e and game.state == GameState.PLAYING:
+                game.sign_toggle = True
             if event.key in (pygame.K_w, pygame.K_UP) and game.player and game.player.alive:
                 game.player.jump = True
                 game.assets.get_sound('jump').play()
             if event.key == pygame.K_ESCAPE:
-                if game.state in (GameState.INSTRUCTIONS, GameState.LEVEL_SELECT):
+                if game.state == GameState.LEVEL_SELECT and getattr(game, 'mp_host_pick', False):
+                    game.mp_host_pick = False
+                    game.state = GameState.MULTIPLAYER_MENU
+                elif game.state in (GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.MULTIPLAYER_MENU):
                     game.state = GameState.MENU
                 elif game.state == GameState.OPTIONS:
                     game.state = game.previous_state if game.previous_state else GameState.MENU
@@ -40,8 +62,6 @@ def handle_events(game) -> None:
                 game.moving_left = False
             if event.key in (pygame.K_d, pygame.K_RIGHT):
                 game.moving_right = False
-            if event.key == pygame.K_SPACE:
-                game.shoot = False
             if event.key in (pygame.K_q, pygame.K_g):
                 game.grenade_input = False
                 game.grenade_thrown = False

@@ -14,3 +14,6 @@ class GameState(Enum):
     OPTIONS = "options"
     GAME_OVER = "game_over"
     LEVEL_TRANSITION = "level_transition"
+    VICTORY = "victory"
+    MULTIPLAYER_MENU = "multiplayer_menu"
+    EDITOR = "editor"

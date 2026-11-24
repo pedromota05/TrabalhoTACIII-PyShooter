@@ -7,6 +7,7 @@ as importações existentes no projeto.
 
 from .base import Character
 from .player import Player
+from .remote_player import RemotePlayer
 from .enemies import (
     Enemy,
     Sniper,
@@ -32,6 +33,7 @@ from ui.transitions import ScreenFade
 __all__ = [
     'Character',
     'Player',
+    'RemotePlayer',
     'Enemy',
     'Sniper',
     'RobotEnemy',
