@@ -1,0 +1,34 @@
+@startuml
+title Sequência de Mensagens do Multiplayer LAN (UDP)
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequence {
+  ParticipantBackgroundColor #EAF1FB
+  ParticipantBorderColor #2E5C9A
+  LifeLineBorderColor #2E5C9A
+}
+autonumber
+participant "Jogador 1\n(Host)" as H
+participant "GameServer\n(UDP :5555)" as S
+participant "Jogador 2\n(Cliente)" as C
+
+note over H,S : O Host inicia o GameServer em uma thread daemon e se conecta como P1
+C -> S : estado (x, y, action, dir, shoot, hp, aim)
+S -> H : retransmite o estado de P2
+H -> S : estado (x, y, action, dir, shoot, hp, aim)
+S -> C : retransmite o estado de P1
+note over H,C : Cada PC desenha o parceiro com interpolação linear (LERP, α = 0,20)
+H -> S : level (fase, vitória, desafio) a cada 0,5 s
+S -> C : level
+H -> S : enemies (lote com o estado dos inimigos)
+S -> C : enemies
+C -> S : hit (target_id, dano)
+S -> H : hit — o Host aplica o dano (autoridade)
+C -> S : death (seq) ×3
+S -> H : death
+H -> S : lives (vidas, reset)
+S -> C : lives
+C -> S : quit
+S -> H : remove (P2)
+note over H : Remove o sprite de P2 sem travar a partida
+@enduml

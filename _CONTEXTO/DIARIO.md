@@ -1,19 +1,34 @@
 # Diário — PyShooter
 
 ## Resumo
-- Situação (2026-11-22, noite): branch `melhorias-coop` em dia com o GitHub (último commit de código `c289acd`). Apresentação e relatório do T2 em 2026-11-24.
-- Jogo: campanha de 4 fases (vitória ao matar Demônio e depois Dragão, em etapas); Modo Desafio = fases 1 a 5, sendo a 5 uma arena de hordas (5 ondas, chefes na última; após 8 s sem matar aparece seta "Siga a seta!" para o inimigo mais próximo); multiplayer LAN para 2.
-- Combate: mira e tiro no mouse (só a arma gira, `entities/aim_pose.py`), ESPAÇO = dash, botão direito = golpe com a arma (quebra caixas de madeira: item, coração +1 vida ou aranha), granada Q/G.
-- Vidas (normal): 3 compartilhadas, "-1 VIDA" e renasce no início da fase ou logo depois da última bandeira (também em dupla). Desafio: uma vida por jogador (regras em DECISOES).
-- Diversão: pontos, combo até x5, drops, piscar e dano flutuando, tremor; músicas CC0 do MintoDog por tela/fase (`core/music.py`, `audio/musicas/`, créditos em `audio/CREDITOS.md`); tela cheia com F11.
-- Editor: Modo Mover (M), desfazer/refazer (Ctrl+Z/Ctrl+Y), checkpoint (tile 88), castelo na saída, aranha (tile 89).
-- Documentação: GDD (md/html/pdf, gerados por `tools/gerar_gdd.py`), slides `docs/apresentacao/2026-11-22_slides-pyshooter_v3.pptx`, guia de estudo atualizado.
-- Testes (2026-11-22, noite): bot campanha 1-4 OK; Desafio 1-4 OK; fase 5 conferida por script (5 ondas e vitória OK), o bot não termina a 5 sozinho (limite do bot); teste_multiplayer 6/7 nas duas rodadas, falhas de medição no limite. Atalhos de teste: `python main.py --fase5` e, com recorde salvo, botões "Treino: começar na fase" 1-5 na seleção (2-5 não gravam recorde). Guilherme testou e disse "tudo ok".
-- Multiplayer pelo Radmin VPN: Host passa o IP 26.x; liberar UDP 5555 no Firewall do Host; os dois com `git pull origin melhorias-coop`.
-- Forma de trabalho: delegar ao Gemini (`ponte-agy`) as edições grandes, com roteiros em `docs/tarefas/`; correções pequenas (até ~20-30 linhas) o Claude faz direto; commits sem Co-Authored-By, só quando o Guilherme pede.
-- Próximos passos: testar na mão a seta e o treino do Desafio; teste em dupla com o Pedro pelo Radmin; revisar slides v3 (sem a seta e o treino ainda); ver se há coração demais nas caixas; "fase 2 não terminou" segue sem descrição.
+- Situação (2026-11-24, manhã): branch `melhorias-coop`; apresentação e relatório do T2 hoje (2026-11-24).
+- GDD completo (T1 + T2) no estilo do GDD 1: `docs/gdd_completo/GDD_PyShooter_completo.pdf` (20 páginas), gerado de `GDD_PyShooter_completo.md` por `python tools/gerar_gdd_completo.py`. Diagramas PlantUML atualizados em `docs/uml/` (pacotes, classes em 2 partes, telas, sequência do multiplayer) e exportados em SVG em `docs/gdd_completo/diagramas/`.
+- Jogo: campanha de 4 fases; fase 4 = arena dos chefes com portão (Demônio, depois Dragão com Fúria). Desafio = fases 1 a 5 (5 = hordas), treino e `--fase5`. Multiplayer LAN para 2.
+- Outros documentos: `docs/GDD_Trabalho2.md/.pdf` (versão anterior, mais longa), slides `docs/apresentacao/2026-11-23_slides-pyshooter_v4.pptx`, guia `docs/2026-11-19_guia-de-estudo-apresentacao.md`.
+- Multiplayer pelo Radmin VPN: Host passa o IP 26.x; liberar UDP 5555 no Firewall do Host.
+- Forma de trabalho: delegar ao Gemini (`ponte-agy`) só edições grandes e simples; commits sem Co-Authored-By, só quando o Guilherme pede.
+- Versão editável: `docs/gdd_completo/GDD_PyShooter_completo.docx` (`python tools/gerar_gdd_docx.py`, pandoc + python-docx; equações nativas do Word).
+- Próximos passos: Guilherme editar o DOCX (as edições feitas no Word não voltam para o .md); commit/push da documentação; ensaiar com o Pedro; teste em dupla pelo Radmin.
 
 ---
+
+### 2026-11-24 — GDD completo (parte 1 + parte 2) em PDF com diagramas
+- Pedido: o Guilherme mandou o PDF do GDD 1 (`docs/GDD - PyShoter (1).pdf`) e pediu o GDD da parte 2 em PDF englobando o GDD 1, no mesmo estilo de escrita e diagramas, bem direto e sintético; diagramas certinhos.
+- Feito: texto do GDD 1 extraído com PyMuPDF (instalado nesta sessão); novo `docs/gdd_completo/GDD_PyShooter_completo.md` na estrutura do GDD 1 (conceito, estilo, plataforma, controles, habilidades, inimigos, modos de jogo, assets, telas, editor, multiplayer, padrões, fórmulas; RF-01 a RF-37 no formato "O sistema deve..."; RNF-01 a 07; pacotes e classes com tabela de relacionamentos). Diagramas PlantUML: `docs/uml/pacotes.puml` e `classes.puml` atualizados (VICTORY, horde, progress, music, VictoryScreen, ColorPicker), novos `classes_entidades.puml`, `telas.puml` e `sequencia_multiplayer.puml`; renderizados com plantuml.jar 1.2026.9 (baixado com autorização no scratchpad, hash SHA-1 conferido; layout smetana, sem Graphviz). `tools/gerar_gdd_completo.py` gera HTML e PDF pelo Edge headless: tabelas com cabeçalho azul, fórmulas pelo KaTeX (CDN) em caixa preta como no GDD 1, diagramas grandes em páginas paisagem.
+- Resultados: PDF de 20 páginas conferido página a página por miniaturas. Nada commitado. O `docs/GDD_Trabalho2.*` antigo continua na pasta.
+- Depois: o Guilherme pediu em DOCX para editar. Instalados `pypandoc_binary` (pandoc 3.9) e `python-docx`; novo `tools/gerar_gdd_docx.py` lê o mesmo .md, gera `docs/gdd_completo/GDD_PyShooter_completo.docx` com 26 equações nativas do Word, tabelas com cabeçalho azul, Arial e diagramas em PNG 200 dpi (`docs/gdd_completo/diagramas/*.png`, com `-DPLANTUML_LIMIT_SIZE=16384` para não cortar) em páginas paisagem. Conferido exportando pelo Word (18 páginas).
+- Próximos passos: Guilherme revisar o PDF; para regerar diagramas é preciso o plantuml.jar (comando no topo de `tools/gerar_gdd_completo.py`).
+
+---
+
+### 2026-11-23 — GDD, slides v4 enxutos e guia em dia com a arena dos chefes
+- Pedido: o Guilherme perguntou se slides e GDD estavam atualizados; não estavam (última revisão `570382a`, 2026-11-22). Pediu para atualizar os dois e depois disse que os slides estavam grandes demais: só o essencial, sem muitas capturas.
+- Feito: `docs/GDD_Trabalho2.md` com "Arena dos Chefes (Fase 4)" no lugar de "Chefes em Etapas" (portão tile 90, Dragão adormecido, Fúria com leque/rajada/mergulho, saída trancada com chefe vivo), paleta com 91 tiles, `dragon_fury` no protocolo, seta das hordas, botões de Treino e `--fase5` na seleção de fase, RF-26 reescrito e RF-37 novo; HTML e PDF regerados. `docs/apresentacao/2026-11-23_slides-pyshooter_v4.pptx`: 13 slides tirados do v3 (capa, o jogo, o que entrou no T2, demo, arquitetura, estados, padrões, editor, multiplayer, protocolo, arena dos chefes, Desafio, obrigado), textos dos slides 2, 4, 11 e 12 atualizados e a imagem do slide 11 trocada por `docs/capturas/v4_arena_passagem_liberada.png`; conferido exportando os slides pelo PowerPoint. Guia de estudo: arena dos chefes, seta/treino e divisão da fala para o v4. Captura feita por script no scratchpad da sessão (`captura_v4.py`, SDL dummy + bot); o Guilherme commitou as duas capturas (`1df158f`).
+- Resultados: nada commitado da documentação; o v3 continua na pasta.
+- Próximos passos: commit/push; ensaiar a apresentação.
+
+---
+
 ### 2026-11-22 — Rodada de testes automáticos e bot nas hordas
 - Pedido: o Guilherme perguntou se faltou rodar testes; pediu para delegar ao Gemini o que der.
 - Feito: compilação OK; `python tools/bot_fases.py 1 2 3 4` = 4 fases "passou"; `--desafio --god` passa fases 1-4 e estoura 900 s na 5. Causa: o bot não sabia jogar hordas (sem saída, só atirava para frente). Gemini (`ponte-agy`, roteiro `docs/tarefas/2026-11-22_bot-hordas.md`, 2 rodadas) mudou `tools/bot_fases.py`: caça inimigos/aranhas na fase 5, mira para os dois lados, e no `--god` resgata o jogador que cai na água (conta `quedas_god`). Agora o bot vence as ondas 1-2 e trava na 3 (não sobe na plataforma alta da esquerda, munição acaba). Script de conferência (scratch) matando os inimigos à força: ondas 1-5 nascem certas (5ª com Boss e DragonBoss) e a fase termina (`horde_done`).

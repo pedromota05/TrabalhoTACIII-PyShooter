@@ -23,10 +23,12 @@ Acadêmico
 - `save/progresso.json`: Progresso do jogador (gerado ao jogar; não vai para o git).
 - `docs/`: Documentação do Trabalho 2:
   - `T2.pdf`: enunciado (apresentação e relatório em 2026-11-24).
-  - `GDD_Trabalho2.md` / `.pdf`: GDD atualizado.
-  - `uml/`: diagramas PlantUML.
+  - `gdd_completo/GDD_PyShooter_completo.pdf` (+ `.md`, `diagramas/`): GDD final, T1 + T2 no estilo do GDD 1, gerado por `tools/gerar_gdd_completo.py`; versão Word editável `.docx` por `tools/gerar_gdd_docx.py`.
+  - `GDD_Trabalho2.md` / `.pdf`: versão anterior do GDD do T2 (mais longa).
+  - `GDD - PyShoter (1).pdf`: GDD do Trabalho 1.
+  - `uml/`: diagramas PlantUML (pacotes, classes em 2 partes, telas, sequência do multiplayer).
   - `checklist_teste_multiplayer.md`: teste manual em 2 PCs.
-  - `apresentacao/2026-11-22_slides-pyshooter_v3.pptx`: slides atuais (com as novidades de 2026-11-21/22); `_v2` e o sem sufixo são versões antigas.
+  - `apresentacao/2026-11-23_slides-pyshooter_v4.pptx`: slides atuais, versão enxuta de 13 slides (pedido do Guilherme em 2026-11-23: só o essencial do enunciado + arena dos chefes e Desafio); `_v3` (28 slides), `_v2` e o sem sufixo são versões antigas.
   - `2026-11-19_guia-de-estudo-apresentacao.md`: guia para explicar o código na aula.
 
 ## Como rodar

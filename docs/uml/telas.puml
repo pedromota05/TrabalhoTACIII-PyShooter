@@ -1,0 +1,54 @@
+@startuml
+!pragma layout smetana
+title Fluxo de Telas — PyShooter (GameState)
+skinparam shadowing false
+skinparam state {
+  BackgroundColor #EAF1FB
+  BorderColor #2E5C9A
+  FontName Arial
+}
+hide empty description
+
+[*] --> MENU
+state "Menu Principal\nMENU" as MENU
+state "Seleção de Fase\nLEVEL_SELECT" as SEL
+state "Menu Multiplayer LAN\nMULTIPLAYER_MENU" as MULTI
+state "Editor de Fases\nEDITOR" as EDITOR
+state "Instruções\nINSTRUCTIONS" as INSTR
+state "Configurações\nOPTIONS" as OPT
+state "Partida\nPLAYING" as PLAY {
+  state "Campanha (fases 1 a 4)" as CAMP
+  state "Modo Desafio (fases 1 a 5)" as DES
+  state "Cooperativo LAN" as COOP
+}
+state "Transição de Fase\nLEVEL_TRANSITION" as TRANS
+state "Pausa\nPAUSE" as PAUSE
+state "Game Over\nGAME_OVER" as GO
+state "Vitória\nVICTORY" as WIN
+
+MENU --> SEL : Novo Jogo
+MENU --> MULTI : Multiplayer
+MENU --> EDITOR : Editor
+MENU --> INSTR : Instruções
+MENU --> OPT : Configurações
+MENU --> [*] : Sair
+
+SEL --> CAMP : escolhe fase 1-4
+SEL --> DES : Modo Desafio / Treino
+MULTI --> COOP : Criar Servidor (Host)\nou Conectar via IP
+
+PLAY --> TRANS : chegou à saída
+TRANS --> PLAY : próxima fase (fade)
+PLAY --> PAUSE : ESC
+PAUSE --> PLAY : Continuar
+PAUSE --> MENU : Menu
+PLAY --> GO : vidas esgotadas
+GO --> PLAY : Restart
+GO --> MENU : Menu
+PLAY --> WIN : chefes da fase 4 mortos\nou fase 5 do Desafio vencida
+WIN --> MENU
+
+EDITOR --> MENU : ESC / <- Menu
+INSTR --> MENU
+OPT --> MENU
+@enduml

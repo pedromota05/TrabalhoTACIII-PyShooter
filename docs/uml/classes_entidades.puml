@@ -1,0 +1,131 @@
+@startuml
+!pragma layout smetana
+title Diagrama de Classes (2/2) — Entidades, Combate e Cenário
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam class {
+  BackgroundColor #EAF1FB
+  BorderColor #2E5C9A
+}
+
+class "pygame.sprite.Sprite" as Sprite <<external>>
+class World <<Factory Method>> {
+  +process_data(data, ...)
+}
+
+package "Personagens" {
+  class Character {
+    +health: int
+    +alive: bool
+    +move()
+    +shoot(bullet_group)
+    +update()
+    +draw(screen)
+  }
+  class Player {
+    +aim_angle: float
+    +face_point(x, y)
+    +start_dash()
+    +start_melee()
+  }
+  class RemotePlayer <<Proxy>> {
+    +player_id: str
+    +update_from_network(data, scroll, bullets)
+    +draw(screen)
+  }
+}
+
+package "Inimigos" {
+  class Enemy {
+    +ai()
+  }
+  class Sniper
+  class RobotEnemy {
+    +ai()
+  }
+  class SkeletonEnemy {
+    +ai()
+  }
+  class Spider {
+    +update(scroll, player, obstacles)
+  }
+  class Boss {
+    +update(player, obstacles, g)
+  }
+  class DragonBoss {
+    +try_activate(player)
+    +set_arena_bounds(min_x, max_x)
+    +update(player, ...)
+  }
+}
+
+package "Combate" {
+  class Bullet
+  class SniperBullet
+  class RobotBullet
+  class Arrow
+  class DragonFire
+  class Grenade
+  class Explosion
+}
+
+package "Cenário e Itens" {
+  class ItemBox
+  class Decoration
+  class Water
+  class Exit
+  class Castle
+  class FinishLine
+  class Sign
+  class CheckpointFlag {
+    +activate()
+  }
+}
+
+package "Efeitos" {
+  class FloatingText
+  class Debris
+  class PickupText
+}
+
+Sprite <|-- Character
+Sprite <|-- RemotePlayer
+Character <|-- Player
+Character <|-- Enemy
+Enemy <|-- Sniper
+Character <|-- RobotEnemy
+Character <|-- SkeletonEnemy
+Sprite <|-- Spider
+Sprite <|-- Boss
+Sprite <|-- DragonBoss
+Sprite <|-- Bullet
+Sprite <|-- Grenade
+Sprite <|-- ItemBox
+Sprite <|-- Decoration
+Decoration <|-- Castle
+Decoration <|-- FinishLine
+Decoration <|-- Sign
+Sprite <|-- CheckpointFlag
+Sprite <|-- FloatingText
+
+World ..> Player : cria
+World ..> Enemy : cria
+World ..> Spider : cria
+World ..> Boss : cria
+World ..> DragonBoss : cria
+World ..> ItemBox : cria
+World ..> CheckpointFlag : cria
+World ..> Castle : cria
+
+Player ..> Bullet : dispara
+RemotePlayer ..> Bullet : dispara (visual)
+Player ..> Grenade : lança
+Enemy ..> Bullet : dispara
+Sniper ..> SniperBullet : dispara
+RobotEnemy ..> RobotBullet : dispara
+SkeletonEnemy ..> Arrow : dispara
+DragonBoss ..> DragonFire : dispara
+Grenade ..> Explosion : gera
+@enduml

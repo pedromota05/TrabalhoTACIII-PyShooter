@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>GDD TAC III - PyShooter</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+@page { size: A4; margin: 2cm 2.2cm; }
+@page paisagem { size: A4 landscape; margin: 1.2cm; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #000;
+       line-height: 1.38; }
+h1 { text-align: center; font-size: 20pt; margin: 0 0 4pt; }
+p.sub { text-align: center; color: #555; font-size: 9pt; margin-top: 0; }
+h2 { font-size: 16pt; font-weight: normal; margin: 22pt 0 8pt; }
+h3 { font-size: 13pt; font-weight: normal; margin: 16pt 0 6pt; break-after: avoid; }
+h4 { font-size: 11pt; font-weight: normal; margin: 12pt 0 4pt; break-after: avoid; }
+p { text-align: justify; margin: 4pt 0 8pt; }
+code { font-family: Consolas, monospace; font-size: 9.5pt; }
+table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 9.5pt; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { background: #2f6ab5; color: #fff; text-align: left; padding: 7pt 6pt; }
+td { border: 1px solid #9e9e9e; padding: 5pt 6pt; vertical-align: top; }
+td:first-child { font-weight: bold; }
+td strong { font-weight: bold; }
+.formula { display: block; width: fit-content; background: #000; color: #fff;
+           padding: 4pt 14pt; margin: 4pt 0 10pt 36pt; font-size: 10pt; break-inside: avoid; }
+.formula .katex-display { margin: 0; }
+.diagrama { text-align: center; margin: 10pt 0; break-inside: avoid; }
+.diagrama img { max-width: 100%; max-height: 22cm; }
+.diagrama.paisagem { page: paisagem; break-before: page; break-after: page; margin: 0; }
+.diagrama.paisagem img { width: 100%; max-height: 18.2cm; object-fit: contain; }
+a { color: #1155cc; }
+</style>
+</head>
+<body>
+<h1>GDD TAC III - PyShooter</h1>
+<p class="sub">Trabalho 1 + Trabalho 2 · Tópicos Avançados em Computação III · UFGD/FAEN · Prof. Vanderson Hafemann Fragal</p>
+
+<p>Desenvolvedores:<br />
+<strong>Guilherme Silva Sampaio:</strong> Correções de arquitetura, multiplayer LAN (UDP/threads), editor de fases integrado, padrões de projeto, criação e revisão do GDD, geração UML, refatoração e testes.<br />
+<strong>Pedro Henrique Gonçalves Mota:</strong> Criação do projeto base, obtenção dos assets para o jogo, mecânicas de gameplay, chefes e fases, criação e revisão do GDD.</p>
+<h2>1. Game Design Document (GDD)</h2>
+<h3>1.1 Conceito Principal</h3>
+<p>PyShooter é um jogo de ação 2D side-scrolling onde o jogador assume o papel de um soldado em uma missão de combate através de terrenos naturais hostis: florestas de pinheiros, pântanos e montanhas nevadas. O jogador avança horizontalmente por fases, enfrentando soldados, snipers, robôs, esqueletos, aranhas e dois chefes (Demônio e Dragão), coletando suprimentos (munição, granadas, kits médicos e vidas extras) e superando obstáculos como plataformas elevadas, corpos d'água e caixas de madeira. O objetivo é sobreviver e chegar à saída de cada fase até derrotar os chefes da fase 4.</p>
+<p>No Trabalho 2 o jogo ganhou: navegação completa por menus, editor de fases integrado, multiplayer cooperativo em LAN (UDP + threads), padrões de projeto formalizados, mira com o mouse, dash, golpe, sistema de vidas, checkpoints, pontuação com combo, Modo Desafio com arena de hordas, tela cheia e trilha sonora por fase.</p>
+<h3>1.2 Estilo / Gênero</h3>
+<table>
+<thead>
+<tr>
+<th>Aspecto</th>
+<th>Classificação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gênero primário</strong></td>
+<td>Run and Gun / Platformer Shooter 2D</td>
+</tr>
+<tr>
+<td><strong>Subgênero</strong></td>
+<td>Side-scrolling Action / Cooperativo em LAN</td>
+</tr>
+<tr>
+<td><strong>Perspectiva</strong></td>
+<td>Vista lateral (side-view)</td>
+</tr>
+<tr>
+<td><strong>Referências clássicas</strong></td>
+<td>Metal Slug, Contra, Ghosts 'n Goblins</td>
+</tr>
+</tbody>
+</table>
+<p>O jogo se encaixa no gênero Run and Gun 2D: o jogador se move horizontalmente, pula entre plataformas e dispara contra inimigos enquanto avança. Não há elementos de puzzle significativos, reforçando o foco na ação direta.</p>
+<h3>1.3 Plataforma Alvo</h3>
+<table>
+<thead>
+<tr>
+<th>Requisito</th>
+<th>Especificação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sistema Operacional</strong></td>
+<td>Windows (compatível com qualquer SO que suporte Python + Pygame)</td>
+</tr>
+<tr>
+<td><strong>Python</strong></td>
+<td>3.10+</td>
+</tr>
+<tr>
+<td><strong>Dependências</strong></td>
+<td>pygame-ce, Pillow</td>
+</tr>
+<tr>
+<td><strong>Resolução de tela</strong></td>
+<td>1200 × 640 pixels (editor: 1200 × 740); tela cheia opcional (F11)</td>
+</tr>
+<tr>
+<td><strong>Periféricos</strong></td>
+<td>Teclado e Mouse (mira, tiro, golpe, menus e editor)</td>
+</tr>
+<tr>
+<td><strong>Rede</strong></td>
+<td>LAN (Ethernet, Wi-Fi ou VPN), UDP porta 5555</td>
+</tr>
+<tr>
+<td><strong>Hardware mínimo</strong></td>
+<td>Qualquer PC capaz de rodar Python; sem exigências de GPU dedicada</td>
+</tr>
+</tbody>
+</table>
+<h3>1.4 Mecânicas e Física</h3>
+<h4>1.4.1 Mapa Completo de Controles</h4>
+<p><strong>Controles de Jogo (In-Game)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Tecla</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A ou ←</td>
+<td>Mover para a esquerda</td>
+</tr>
+<tr>
+<td>D ou →</td>
+<td>Mover para a direita</td>
+</tr>
+<tr>
+<td>W ou ↑</td>
+<td>Pular</td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td>Mirar (a arma gira acompanhando o cursor)</td>
+</tr>
+<tr>
+<td>Botão esquerdo</td>
+<td>Atirar na direção da mira (segurar para tiro contínuo)</td>
+</tr>
+<tr>
+<td>Botão direito</td>
+<td>Golpe com a arma (curto alcance; quebra caixas)</td>
+</tr>
+<tr>
+<td>Espaço</td>
+<td>Dash (impulso rápido com invencibilidade)</td>
+</tr>
+<tr>
+<td>Q ou G</td>
+<td>Lançar granada</td>
+</tr>
+<tr>
+<td>E</td>
+<td>Ler placa próxima</td>
+</tr>
+<tr>
+<td>F11</td>
+<td>Ligar/desligar tela cheia</td>
+</tr>
+<tr>
+<td>ESC</td>
+<td>Pausar</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Controles de Menu</strong></p>
+<table>
+<thead>
+<tr>
+<th>Periférico</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mouse (clique esquerdo)</td>
+<td>Botões dos menus, seleção de fase, seletor de cor, campo de IP e sliders de volume</td>
+</tr>
+<tr>
+<td>Ctrl+V</td>
+<td>Colar o IP do Host no Menu Multiplayer</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Controles do Level Editor</strong></p>
+<table>
+<thead>
+<tr>
+<th>Tecla</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>← / →</td>
+<td>Scroll do mapa no editor</td>
+</tr>
+<tr>
+<td>↑ / ↓</td>
+<td>Mudar número do nível</td>
+</tr>
+<tr>
+<td>Shift</td>
+<td>Aumentar velocidade do scroll (5x)</td>
+</tr>
+<tr>
+<td>Mouse esquerdo</td>
+<td>Pintar tile selecionado</td>
+</tr>
+<tr>
+<td>Mouse direito</td>
+<td>Apagar tile</td>
+</tr>
+<tr>
+<td>M</td>
+<td>Modo Mover (arrasta um objeto; troca de lugar se a célula estiver ocupada)</td>
+</tr>
+<tr>
+<td>Ctrl+Z / Ctrl+Y</td>
+<td>Desfazer / Refazer (até 100 passos)</td>
+</tr>
+<tr>
+<td>Botões Salvar / Carregar</td>
+<td>Grava ou lê <code>levels/levelN_data.csv</code></td>
+</tr>
+<tr>
+<td>ESC</td>
+<td>Voltar ao menu</td>
+</tr>
+</tbody>
+</table>
+<h4>1.4.2 Habilidades do Personagem Principal</h4>
+<table>
+<thead>
+<tr>
+<th>Habilidade</th>
+<th>Descrição</th>
+<th>Parâmetros</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Movimento</strong></td>
+<td>Caminhar em ambas as direções</td>
+<td>Velocidade: 5 px/frame</td>
+</tr>
+<tr>
+<td><strong>Pulo</strong></td>
+<td>Pulo simples (sem pulo duplo)</td>
+<td>Impulso: -14; gravidade: 0.75</td>
+</tr>
+<tr>
+<td><strong>Tiro</strong></td>
+<td>Projétil na direção da mira do mouse</td>
+<td>Cooldown: 20 frames; dano: 25 HP (inimigos), 5 HP (jogador); munição inicial: 20</td>
+</tr>
+<tr>
+<td><strong>Granada</strong></td>
+<td>Arremesso em arco parabólico</td>
+<td>Dano: 50 HP em área; raio: 2 tiles; timer: 100 frames; estoque inicial: 5</td>
+</tr>
+<tr>
+<td><strong>Dash</strong></td>
+<td>Impulso horizontal sem gravidade e invencível</td>
+<td>16 px/frame por 10 frames; recarga: 50 frames</td>
+</tr>
+<tr>
+<td><strong>Golpe</strong></td>
+<td>Ataque corpo a corpo com a arma</td>
+<td>Alcance: 60 px; dano: 35; recarga: 24 frames</td>
+</tr>
+<tr>
+<td><strong>Coleta de itens</strong></td>
+<td>Pegar caixas de suprimentos</td>
+<td>Vida: +25 HP, Munição: +15, Granadas: +3, Coração: +1 vida</td>
+</tr>
+<tr>
+<td><strong>Vidas</strong></td>
+<td>Equipe com vidas compartilhadas</td>
+<td>3 vidas (máx. 5); renasce em 1 s no início ou na última bandeira</td>
+</tr>
+</tbody>
+</table>
+<h4>1.4.3 Inimigos e Chefes</h4>
+<table>
+<thead>
+<tr>
+<th>Inimigo</th>
+<th>Comportamento</th>
+<th>Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Soldado</strong></td>
+<td>Patrulha e atira em linha reta ao ver o jogador</td>
+<td>100</td>
+</tr>
+<tr>
+<td><strong>Sniper</strong></td>
+<td>Tiro de longo alcance</td>
+<td>200</td>
+</tr>
+<tr>
+<td><strong>Robô</strong></td>
+<td>Disparo de energia vetorial</td>
+<td>150</td>
+</tr>
+<tr>
+<td><strong>Esqueleto</strong></td>
+<td>Flechas teleguiadas (trigonometria)</td>
+<td>150</td>
+</tr>
+<tr>
+<td><strong>Aranha</strong></td>
+<td>Desenhada pelo código; persegue e fere por contato (10 de dano)</td>
+<td>50</td>
+</tr>
+<tr>
+<td><strong>Demônio (chefe)</strong></td>
+<td>Terrestre de curto alcance; Arena 1 da fase 4</td>
+<td>1500</td>
+</tr>
+<tr>
+<td><strong>Dragão (chefe)</strong></td>
+<td>Voador; dorme na Arena 2 e acorda com o jogador perto; leque de 5 tiros e rajada de 3; com metade da vida entra em Fúria (mais rápido, mergulho rasante)</td>
+<td>2000</td>
+</tr>
+</tbody>
+</table>
+<h4>1.4.4 Modos de Jogo e Progressão</h4>
+<table>
+<thead>
+<tr>
+<th>Elemento</th>
+<th>Regra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Campanha</strong></td>
+<td>Fases 1 a 4. As fases 1 a 3 terminam em um castelo; a fase 4 termina ao matar os dois chefes (tela de Vitória). Fases vencidas ficam salvas em <code>save/progresso.json</code>.</td>
+</tr>
+<tr>
+<td><strong>Arena dos Chefes (fase 4)</strong></td>
+<td>Um portão (tile 90) divide a fase: o Demônio na Arena 1; ao morrer, o portão explode ("PASSAGEM LIBERADA!") e o Dragão desperta na Arena 2.</td>
+</tr>
+<tr>
+<td><strong>Checkpoints</strong></td>
+<td>Bandeira (tile 88) salva posição, munição e granadas; ao perder vida o jogador renasce nela.</td>
+</tr>
+<tr>
+<td><strong>Modo Desafio</strong></td>
+<td>Liberado após zerar a campanha: fases 1 a 5 seguidas, uma vida, sem checkpoints, cronômetro e recorde de tempo. Treino a partir de qualquer fase (sem recorde).</td>
+</tr>
+<tr>
+<td><strong>Arena de Hordas (fase 5)</strong></td>
+<td>5 ondas pelos dois lados, 3 s de pausa e suprimentos entre elas, os dois chefes na última. Após 8 s sem matar, uma seta aponta o inimigo mais próximo.</td>
+</tr>
+<tr>
+<td><strong>Cooperativo LAN</strong></td>
+<td>2 jogadores, vidas compartilhadas, colisão entre os soldados (um sobe na cabeça do outro), cores diferentes.</td>
+</tr>
+<tr>
+<td><strong>Pontuação</strong></td>
+<td>Pontos por inimigo × combo (até x5); o combo continua se a próxima morte for em até 2,5 s.</td>
+</tr>
+<tr>
+<td><strong>Drops</strong></td>
+<td>Inimigos soltam munição (25%), vida (10%) e granada (8%); caixas de madeira soltam munição, granada, vida, coração ou aranha. Sorteio determinístico (igual nos dois PCs).</td>
+</tr>
+</tbody>
+</table>
+<h3>1.5 Assets (Arte e Som)</h3>
+<h4>1.5.1 Sprites Mapeados</h4>
+<p><strong>Personagens (Spritesheet por frames individuais)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Entidade</th>
+<th>Animações</th>
+<th>Frames por animação</th>
+<th>Escala</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Player</strong> (img/player/)</td>
+<td>Idle, Run, Jump, Death</td>
+<td>5, 6, 1, 8</td>
+<td>1.55x (5 cores)</td>
+</tr>
+<tr>
+<td><strong>Enemy</strong> (img/enemy/)</td>
+<td>Idle, Run, Jump, Death</td>
+<td>Mesma estrutura</td>
+<td>1.65x</td>
+</tr>
+<tr>
+<td><strong>SkeletonEnemy</strong> (img/skeleton/)</td>
+<td>Idle, Run, Shoot, Death</td>
+<td>7, 8, 14, 5</td>
+<td>1.65x</td>
+</tr>
+<tr>
+<td><strong>RobotEnemy</strong> (img/robot/)</td>
+<td>Idle, Walk, Attack, Death, Hurt</td>
+<td>4, 4, 4, 4, 2</td>
+<td>1.55x</td>
+</tr>
+<tr>
+<td><strong>SniperEnemy</strong> (img/sniper/)</td>
+<td>Idle, Walk, Shot_1, Dead, Hurt</td>
+<td>7, 8, 4, 5, 4</td>
+<td>1.2x</td>
+</tr>
+<tr>
+<td><strong>DemonBoss</strong> (img/enemy/Demon/)</td>
+<td>Idle, Walk, Attack, Death</td>
+<td>3, 6, 4, 6</td>
+<td>1.5x</td>
+</tr>
+<tr>
+<td><strong>DragonBoss</strong> (img/enemy/Dragon/)</td>
+<td>Idle, Walk, Attack, Hurt, Death</td>
+<td>3, 5, 4, 2, 5</td>
+<td>1.5x</td>
+</tr>
+<tr>
+<td><strong>Spider</strong></td>
+<td>Desenhada pelo código (sem sprite)</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cenário e Tiles</strong></p>
+<table>
+<thead>
+<tr>
+<th>ID do Tile</th>
+<th>Tipo</th>
+<th>Função no jogo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0–8, 24–35, 47–48, 50, 58–61, 65–66, 73–77, 83–84</td>
+<td>Obstáculos sólidos</td>
+<td>Plataformas e paredes (terra, neve, pedra e grama)</td>
+</tr>
+<tr>
+<td>9–10, 37–39, 42–46, 51–57, 62–64, 67–68</td>
+<td>Água</td>
+<td>Mata o jogador/inimigo ao contato</td>
+</tr>
+<tr>
+<td>11, 13–14, 36, 40, 49, 71–72, 78–82</td>
+<td>Decoração</td>
+<td>Elementos visuais sem colisão</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Caixa de madeira</td>
+<td>Sólida até levar um golpe; solta um item sorteado</td>
+</tr>
+<tr>
+<td>15 / 16</td>
+<td>Spawn do jogador / soldado</td>
+<td>Posição inicial</td>
+</tr>
+<tr>
+<td>17 / 18 / 19</td>
+<td>Caixas de munição / granada / vida</td>
+<td>+15 munição / +3 granadas / +25 HP</td>
+</tr>
+<tr>
+<td>20, 41</td>
+<td>Saída (castelo)</td>
+<td>Fim da fase, com linha de chegada</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Speed Boost</td>
+<td>Aumenta a velocidade</td>
+</tr>
+<tr>
+<td>23</td>
+<td>Placa</td>
+<td>Mostra uma dica (tecla E)</td>
+</tr>
+<tr>
+<td>69 / 70</td>
+<td>Spawn de Robô / Esqueleto</td>
+<td>Posição inicial</td>
+</tr>
+<tr>
+<td>85</td>
+<td>Rampa</td>
+<td>Colisão diagonal</td>
+</tr>
+<tr>
+<td>86 / 87</td>
+<td>Spawn do Demônio / Dragão</td>
+<td>Posição inicial dos chefes</td>
+</tr>
+<tr>
+<td>88</td>
+<td>Bandeira de checkpoint</td>
+<td>Ponto de renascimento</td>
+</tr>
+<tr>
+<td>89</td>
+<td>Spawn de Aranha</td>
+<td>Posição inicial</td>
+</tr>
+<tr>
+<td>90</td>
+<td>Portão da arena</td>
+<td>Sólido até o Demônio morrer</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Background (Parallax)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sky_cloud.png / back.png</td>
+<td>Céu (camada mais distante)</td>
+</tr>
+<tr>
+<td>mountain.png</td>
+<td>Silhueta de montanhas</td>
+</tr>
+<tr>
+<td>pine1.png / pine2.png</td>
+<td>Pinheiros distantes e próximos</td>
+</tr>
+<tr>
+<td>background4.png</td>
+<td>Floresta e pântano (fase 4 / arena dos chefes)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ícones, Projéteis e UI</strong></p>
+<table>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bullet.png / grenade.png</td>
+<td>Projéteis e indicadores do HUD</td>
+</tr>
+<tr>
+<td>health_box.png / ammo_box.png / grenade_box.png / speed_box.png</td>
+<td>Caixas de itens</td>
+</tr>
+<tr>
+<td>heartDisplay.png</td>
+<td>Coração (+1 vida) e marcador de vidas</td>
+</tr>
+<tr>
+<td>Ball1.png / Ball2.png</td>
+<td>Projétil de energia do Robô</td>
+</tr>
+<tr>
+<td>Fire_Attack1–6.png</td>
+<td>Projétil de fogo do Dragão</td>
+</tr>
+<tr>
+<td>exp1.png – exp5.png</td>
+<td>Animação de explosão</td>
+</tr>
+<tr>
+<td>gamepad1–4.png</td>
+<td>Botões da Seleção de Fase</td>
+</tr>
+<tr>
+<td>slider_base.png / slider_knob.png</td>
+<td>Sliders de volume</td>
+</tr>
+<tr>
+<td>*_button_new.png, pause_button.png</td>
+<td>Botões dos menus e de pausa</td>
+</tr>
+<tr>
+<td>save_btn.png / load_btn.png</td>
+<td>Botões do Level Editor</td>
+</tr>
+</tbody>
+</table>
+<h4>1.5.2 Efeitos Sonoros e Música</h4>
+<table>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Tipo</th>
+<th>Volume</th>
+<th>Uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>shot.wav</td>
+<td>SFX</td>
+<td>0.05</td>
+<td>Disparo</td>
+</tr>
+<tr>
+<td>jump.wav</td>
+<td>SFX</td>
+<td>0.05</td>
+<td>Pulo</td>
+</tr>
+<tr>
+<td>grenade.wav</td>
+<td>SFX</td>
+<td>0.05</td>
+<td>Explosão de granada</td>
+</tr>
+<tr>
+<td>robot_shoot.wav</td>
+<td>SFX</td>
+<td>0.05</td>
+<td>Disparo do Robô</td>
+</tr>
+<tr>
+<td>skeleton_bow.wav</td>
+<td>SFX</td>
+<td>0.05</td>
+<td>Flecha do Esqueleto</td>
+</tr>
+<tr>
+<td>audio/musicas/*.ogg (14 faixas)</td>
+<td>Música</td>
+<td>slider</td>
+<td>Uma por tela/fase (menu, fases 1-3, chefes e versão Climax, hordas, vitória, Game Over) e vinhetas; troca com fade</td>
+</tr>
+</tbody>
+</table>
+<p>Músicas: MintoDog (OpenGameArt), licença CC0. Créditos em <code>audio/CREDITOS.md</code>.</p>
+<h3>1.6 Telas e Menus</h3>
+<p>A navegação usa o padrão State: o enum <code>GameState</code> define a tela atual e cada tela de <code>ui/screens/</code> trata seus eventos e seu desenho.</p>
+<div class="diagrama paisagem"><img src="diagramas/telas.svg" alt="Fluxo de telas"></div>
+
+<table>
+<thead>
+<tr>
+<th>Tela</th>
+<th>Função</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Menu Principal</strong></td>
+<td>Novo Jogo, Multiplayer, Editor, Instruções, Configurações e Sair</td>
+</tr>
+<tr>
+<td><strong>Seleção de Fase</strong></td>
+<td>Fases 1 a 4 (concluídas em verde), seletor de cor, Modo Desafio e Treino</td>
+</tr>
+<tr>
+<td><strong>Menu Multiplayer</strong></td>
+<td>Criar Servidor (Host) ou Conectar via IP; seletor de cor</td>
+</tr>
+<tr>
+<td><strong>Configurações</strong></td>
+<td>Volume da música e dos efeitos (sliders) e tela cheia</td>
+</tr>
+<tr>
+<td><strong>HUD</strong></td>
+<td>Vida, munição, granadas, vidas, pontos, combo, mira e recarga do dash</td>
+</tr>
+<tr>
+<td><strong>Pausa / Game Over / Vitória</strong></td>
+<td>Continuar ou sair; Restart; tempo da partida e recorde</td>
+</tr>
+</tbody>
+</table>
+<h3>1.7 Editor de Fases</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Especificação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Classe</strong></td>
+<td><code>LevelEditorScreen</code> (<code>ui/screens/level_editor.py</code>), integrada ao menu</td>
+</tr>
+<tr>
+<td><strong>Mapa</strong></td>
+<td>Matriz 16 linhas × 200 colunas, tiles de 40 × 40 px</td>
+</tr>
+<tr>
+<td><strong>Paleta</strong></td>
+<td>91 tiles em 7 colunas</td>
+</tr>
+<tr>
+<td><strong>Ferramentas</strong></td>
+<td>Pintar, apagar, Modo Mover, Desfazer/Refazer (100 passos)</td>
+</tr>
+<tr>
+<td><strong>Arquivos</strong></td>
+<td>Salva e carrega <code>levels/levelN_data.csv</code></td>
+</tr>
+</tbody>
+</table>
+<h3>1.8 Multiplayer em LAN</h3>
+<p>Arquitetura cliente/servidor com sockets UDP e threads em segundo plano, baseada nos exemplos da disciplina. O Host roda o <code>GameServer</code> (porta 5555) e é a autoridade sobre inimigos, fase e vidas; cada PC desenha o parceiro com interpolação linear (LERP).</p>
+<div class="diagrama"><img src="diagramas/sequencia_multiplayer.svg" alt="Sequência do multiplayer"></div>
+
+<table>
+<thead>
+<tr>
+<th>Mensagem</th>
+<th>Sentido</th>
+<th>Conteúdo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>estado</td>
+<td>todos</td>
+<td><code>id,x,y,action,dir,shoot,hp,aim</code></td>
+</tr>
+<tr>
+<td>quit / remove</td>
+<td>cliente → servidor → todos</td>
+<td>Saída voluntária / expulsão por timeout de 5 s</td>
+</tr>
+<tr>
+<td>hit</td>
+<td>quem acertou → Host</td>
+<td><code>target_id, dano</code> (o Host aplica o dano)</td>
+</tr>
+<tr>
+<td>enemies / eshoot</td>
+<td>Host → cliente</td>
+<td>Lote com o estado dos inimigos / tiro de inimigo</td>
+</tr>
+<tr>
+<td>level / levelreq</td>
+<td>Host → cliente / cliente → Host</td>
+<td>Fase atual, vitória e desafio / pedido de troca de fase</td>
+</tr>
+<tr>
+<td>item / crate</td>
+<td>todos</td>
+<td>Item coletado / caixa quebrada</td>
+</tr>
+<tr>
+<td>color</td>
+<td>todos</td>
+<td>Cor escolhida pelo jogador</td>
+</tr>
+<tr>
+<td>death / lives / lifeup</td>
+<td>cliente → Host / Host → cliente</td>
+<td>Morte, saldo de vidas e vida extra</td>
+</tr>
+<tr>
+<td>wave</td>
+<td>Host → cliente</td>
+<td>Início de cada onda da fase 5</td>
+</tr>
+</tbody>
+</table>
+<h3>1.9 Padrões de Projeto</h3>
+<table>
+<thead>
+<tr>
+<th>Padrão</th>
+<th>Onde</th>
+<th>Para quê</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Singleton</strong></td>
+<td><code>AssetManager</code></td>
+<td>Carregar imagens e sons uma única vez</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td><code>GameState</code> + telas de <code>ui/screens/</code></td>
+<td>Separar menus, partida, editor e pausa</td>
+</tr>
+<tr>
+<td><strong>Factory Method</strong></td>
+<td><code>World.process_data()</code></td>
+<td>Criar entidades a partir dos IDs da matriz CSV</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>Game</code> + <code>core/</code></td>
+<td>Orquestrar entrada, gameplay, renderização e carregamento de fases</td>
+</tr>
+<tr>
+<td><strong>Observer</strong></td>
+<td>Laço de eventos e <code>NetworkClient._receive_loop</code></td>
+<td>Tratar eventos e pacotes sem travar os 60 FPS</td>
+</tr>
+<tr>
+<td><strong>Remote Proxy</strong></td>
+<td><code>RemotePlayer</code></td>
+<td>Representar o jogador remoto como um sprite local</td>
+</tr>
+</tbody>
+</table>
+<h3>1.10 Fórmulas e Mecânicas Matemáticas</h3>
+<h4>1.10.1 Física de Movimentação e Gravidade</h4>
+<p>Aplicada ao Jogador, Inimigos, Caixas e Granadas: a cada frame a gravidade é somada à velocidade vertical, limitada à velocidade terminal.</p>
+<ul>
+<li><strong>Fórmula da Gravidade (por frame):</strong></li>
+</ul>
+<div class="formula">\[ V_y = \min(V_y + 0{,}75,\; 10) \]</div>
+
+<ul>
+<li><strong>Fórmula do Pulo:</strong></li>
+</ul>
+<div class="formula">\[ V_y = -14 \]</div>
+
+<h4>1.10.2 Visão da Inteligência Artificial (Cálculo de Distância)</h4>
+<p>Os inimigos decidem atirar ou seguir medindo a distância entre os centros do jogador e do inimigo (<code>math.hypot</code>).</p>
+<div class="formula">\[ d = \sqrt{(X_{\text{jogador}} - X_{\text{inimigo}})^2 + (Y_{\text{jogador}} - Y_{\text{inimigo}})^2} \]</div>
+
+<h4>1.10.3 Mira e Tiros Teleguiados (Trigonometria)</h4>
+<p>Usada nas flechas dos Esqueletos, no fogo do Dragão e no tiro do jogador (mira no mouse).</p>
+<ul>
+<li><strong>Cálculo do Ângulo de Tiro:</strong></li>
+</ul>
+<div class="formula">\[ \theta = \operatorname{atan2}(Y_{\text{alvo}} - Y_{\text{origem}},\; X_{\text{alvo}} - X_{\text{origem}}) \]</div>
+
+<ul>
+<li><strong>Decomposição da Velocidade nos Eixos:</strong></li>
+</ul>
+<div class="formula">\[ dx = \cos(\theta) \times \text{Velocidade} \qquad dy = \sin(\theta) \times \text{Velocidade} \]</div>
+
+<h4>1.10.4 Giro da Arma do Jogador</h4>
+<p>Só a arma gira (o corpo fica parado), limitada a ±89°. A ponta do cano, de onde sai a bala, é obtida pela rotação 2D em torno da empunhadura:</p>
+<div class="formula">\[ P_{\text{cano}} = P_{\text{pivô}} + \begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{pmatrix} (P^0_{\text{cano}} - P^0_{\text{pivô}}) \]</div>
+
+<h4>1.10.5 Proporção da Interface de Usuário (Barra de Vida)</h4>
+<ul>
+<li><strong>Razão de Vida:</strong></li>
+</ul>
+<div class="formula">\[ \text{Razão} = \frac{\text{Vida Atual}}{\text{Vida Máxima}} \]</div>
+
+<ul>
+<li><strong>Fórmula de Renderização:</strong></li>
+</ul>
+<div class="formula">\[ \text{Largura Exibida} = \text{Razão} \times \text{Largura Total da Barra} \]</div>
+
+<h4>1.10.6 Física Parabólica e Reflexão (Granada)</h4>
+<ul>
+<li><strong>Movimento do Arco Parabólico:</strong> deslocamento fixo em X e acelerado em Y.</li>
+</ul>
+<div class="formula">\[ dx = \text{Direção} \times 7 \qquad dy = V_y \;\; (V_y \mathrel{+}= 0{,}75) \]</div>
+
+<ul>
+<li><strong>Reflexão Horizontal (Quique em Paredes):</strong></li>
+</ul>
+<div class="formula">\[ \text{Direção} = \text{Direção} \times (-1) \]</div>
+
+<h4>1.10.7 Interpolação Linear (LERP) do Multiplayer</h4>
+<p>A posição exibida do parceiro anda 20% em direção à posição recebida a cada frame, evitando "teleportes":</p>
+<div class="formula">\[ P_{\text{atual}} = P_{\text{atual}} + (P_{\text{alvo}} - P_{\text{atual}}) \times 0{,}20 \]</div>
+
+<h4>1.10.8 Dash</h4>
+<div class="formula">\[ \Delta x = 10\ \text{frames} \times 16\ \text{px} = 160\ \text{px} \;(\approx 4\ \text{tiles}) \]</div>
+
+<h4>1.10.9 Pontuação com Combo</h4>
+<div class="formula">\[ \text{Pontos} = \text{Pontos}_{\text{base}} \times \min(5,\; c) \]</div>
+
+<p>O multiplicador c sobe 1 a cada morte feita em até 150 frames (2,5 s) da anterior e volta a 1 quando o tempo acaba.</p>
+<h2>2. Engenharia de Requisitos</h2>
+<h3>2.1 Requisitos Funcionais (RF)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requisito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-01</strong></td>
+<td>O sistema deve permitir que o jogador se mova horizontalmente utilizando as teclas A/D ou setas direcionais.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-02</strong></td>
+<td>O sistema deve permitir que o jogador pule ao pressionar W ou seta para cima, aplicando gravidade simulada.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-03</strong></td>
+<td>O sistema deve permitir que o jogador dispare projéteis na direção da mira com o botão esquerdo do mouse, com cooldown de 20 frames e consumo de munição.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-04</strong></td>
+<td>O sistema deve permitir que o jogador lance granadas (Q/G) em trajetória parabólica, que explodem após um timer e causam dano em área.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-05</strong></td>
+<td>O sistema deve detectar colisão entre projéteis e personagens, aplicando dano diferenciado (25 HP em inimigos, 5 HP no jogador).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-06</strong></td>
+<td>O sistema deve carregar fases a partir de arquivos CSV (<code>levelN_data.csv</code>), interpretando uma matriz 16×200 de IDs de tiles.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-07</strong></td>
+<td>O sistema deve implementar IA para inimigos com patrulha, detecção do jogador e ataque.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-08</strong></td>
+<td>O sistema deve permitir a coleta de itens (vida +25, munição +15, granadas +3, coração +1 vida).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-09</strong></td>
+<td>O sistema deve exibir HUD com vida, munição, granadas, vidas, pontos e combo.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-10</strong></td>
+<td>O sistema deve transicionar entre as fases ao jogador alcançar a saída, com efeito de fade.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-11</strong></td>
+<td>O sistema deve oferecer menus de Novo Jogo, Multiplayer, Editor, Instruções, Configurações e Sair.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-12</strong></td>
+<td>O sistema deve permitir ajustar o volume da música e dos efeitos por sliders.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-13</strong></td>
+<td>O sistema deve oferecer um editor de fases para pintar, apagar, mover, desfazer/refazer e salvar/carregar CSV.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-14</strong></td>
+<td>O sistema deve permitir criar um servidor LAN UDP na porta 5555 (modo Host).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-15</strong></td>
+<td>O sistema deve permitir conectar a uma partida pelo IP do Host (modo Cliente).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-16</strong></td>
+<td>O sistema deve sincronizar posição, ação, direção, mira e tiros entre os jogadores, suavizando com LERP.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-17</strong></td>
+<td>O sistema deve encerrar a campanha com tela de Vitória ao derrotar os dois chefes da fase 4.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-18</strong></td>
+<td>O sistema deve salvar fases concluídas, campanha zerada, cor, tela cheia e recorde em <code>save/progresso.json</code>.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-19</strong></td>
+<td>O sistema deve registrar checkpoints (tile 88) e renascer o jogador na última bandeira ativada.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-20</strong></td>
+<td>O sistema deve oferecer o Modo Desafio (fases 1 a 5, uma vida, cronômetro e recorde).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-21</strong></td>
+<td>O sistema deve manter Host e Cliente na mesma fase e levá-los juntos à Vitória.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-22</strong></td>
+<td>O sistema deve girar a arma do jogador acompanhando o cursor do mouse.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-23</strong></td>
+<td>O sistema deve permitir o dash (Espaço) com invencibilidade e recarga de 50 frames.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-24</strong></td>
+<td>O sistema deve controlar 3 vidas compartilhadas (até 5), com renascimento em 1 s sem recarregar a fase.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-25</strong></td>
+<td>O sistema deve permitir o Modo Desafio em dupla, com espectador para quem cair e fim quando os dois caírem.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-26</strong></td>
+<td>O sistema deve dividir a fase 4 em duas arenas por um portão, que abre quando o Demônio morre; o Dragão acorda com a aproximação e entra em Fúria com metade da vida.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-27</strong></td>
+<td>O sistema deve pontuar cada inimigo com multiplicador de combo (até x5) e soltar suprimentos de forma determinística.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-28</strong></td>
+<td>O sistema deve permitir escolher a cor do soldado, sem cores repetidas na dupla.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-29</strong></td>
+<td>O sistema deve permitir ler placas (E) e ter colisão entre os dois jogadores.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-30</strong></td>
+<td>O sistema deve terminar as fases 1 a 3 em um castelo com linha de chegada.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-31</strong></td>
+<td>O sistema deve permitir o golpe com a arma (botão direito), que fere inimigos e quebra caixas.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-32</strong></td>
+<td>O sistema deve ter caixas de madeira quebráveis com conteúdo sorteado igual nos dois PCs.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-33</strong></td>
+<td>O sistema deve ter o inimigo Aranha (tile 89, caixas e hordas).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-34</strong></td>
+<td>O sistema deve ter a arena de hordas na fase 5 do Desafio (5 ondas, chefes na última).</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-35</strong></td>
+<td>O sistema deve mostrar uma seta para o inimigo mais próximo após 8 s sem matar na arena de hordas.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-36</strong></td>
+<td>O sistema deve permitir treinar o Desafio a partir de qualquer fase, sem gravar recorde.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RF-37</strong></td>
+<td>O sistema deve oferecer tela cheia (F11) e música por tela/fase com fade.</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 Requisitos Não Funcionais (RNF)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requisito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-01</strong></td>
+<td>Desempenho: O jogo deve manter taxa de quadros estável de 60 FPS.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-02</strong></td>
+<td>Portabilidade: O jogo deve rodar em qualquer sistema operacional com Python 3.10+ e Pygame.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-03</strong></td>
+<td>Usabilidade: O carregamento de uma fase deve ser imperceptível (&lt; 1 segundo), com assets carregados na inicialização.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-04</strong></td>
+<td>Manutenibilidade: Os níveis devem ser editáveis pelo editor sem alterar código-fonte; responsabilidades separadas por módulo.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-05</strong></td>
+<td>Consumo de Memória: Assets carregados uma única vez (Singleton) e sprites limpos via kill() e Group.empty().</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-06</strong></td>
+<td>Rede: Pacotes UDP pequenos (&lt; 128 bytes) para baixa latência em LAN.</td>
+</tr>
+<tr>
+<td style="white-space: nowrap;"><strong>RNF-07</strong></td>
+<td>Tolerância a falhas: Desconexão por timeout após 5 s sem travar o jogo.</td>
+</tr>
+</tbody>
+</table>
+<h2>3. Arquitetura do Sistema e UML</h2>
+<h3>3.1 Diagrama de Módulos (Pacotes)</h3>
+<p><strong>Descrição da Estrutura:</strong><br />
+O projeto adota uma arquitetura modularizada, separando ciclo de vida, rede, lógica de mundo, entidades e interface gráfica:</p>
+<ul>
+<li><strong>Aplicação:</strong> ponto de entrada (<code>main.py</code>), fachada <code>Game</code> (<code>game.py</code>), máquina de estados <code>GameState</code>, configurações (<code>config.py</code>), <code>AssetManager</code> e <code>Button</code>.</li>
+<li><strong>Rede:</strong> <code>network/</code> com <code>GameServer</code>, <code>NetworkClient</code> e o módulo <code>protocol</code> (codificação dos pacotes).</li>
+<li><strong>Core &amp; World:</strong><ul>
+<li><code>core/</code>: entrada (<code>input_handler</code>), regras (<code>gameplay</code>), carregamento de níveis (<code>level_loader</code>), renderização (<code>renderer</code>), hordas (<code>horde</code>), progresso salvo (<code>progress</code>) e música (<code>music</code>).</li>
+<li><code>world/</code>: <code>World</code> (<code>level_builder</code>), que processa as matrizes CSV.</li>
+</ul>
+</li>
+<li><strong>Entities:</strong> <code>base</code> (Character), <code>player</code>, <code>remote_player</code>, <code>enemies</code> (standard, robot, skeleton, bosses), <code>spider</code>, <code>combat</code> (projectiles), <code>items</code>, <code>environment</code>, <code>castle</code>, <code>sign</code>, <code>checkpoint</code>, <code>effects</code> e <code>aim_pose</code>.</li>
+<li><strong>UI:</strong> <code>hud</code>, <code>transitions</code> e <code>screens</code> (menu, level_select, multiplayer_menu, level_editor, instructions, options, pause, game_over, victory, common).</li>
+<li><strong>Recursos externos:</strong> <code>levels/</code> (CSV), <code>img/</code>, <code>audio/</code> e <code>save/</code>.</li>
+</ul>
+<div class="diagrama paisagem"><img src="diagramas/pacotes.svg" alt="Diagrama de pacotes"></div>
+
+<h3>3.2 Diagrama de Dependências (Classes UML)</h3>
+<p><strong>Análise da Orientação a Objetos:</strong><br />
+A classe <code>Game</code> gerencia o <code>GameState</code>, o <code>AssetManager</code>, o <code>World</code>, o <code>Player</code>, as telas, a música e, no multiplayer, o <code>GameServer</code> e o <code>NetworkClient</code>. Todas as entidades derivam de <code>pygame.sprite.Sprite</code>; <code>Character</code> é a base de <code>Player</code> e dos inimigos comuns.</p>
+<p><strong>Relacionamentos-Chave:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Relacionamento</th>
+<th>Tipo</th>
+<th>Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Game → GameState</strong></td>
+<td>Composição</td>
+<td>Estado atual da aplicação (telas e partida).</td>
+</tr>
+<tr>
+<td><strong>Game → AssetManager</strong></td>
+<td>Composição</td>
+<td>Carregamento centralizado de imagens e sons.</td>
+</tr>
+<tr>
+<td><strong>Game → World</strong></td>
+<td>Composição</td>
+<td>Nível atual do jogo.</td>
+</tr>
+<tr>
+<td><strong>Game → Telas</strong></td>
+<td>Agregação</td>
+<td>Uma tela de <code>ui/screens/</code> para cada estado.</td>
+</tr>
+<tr>
+<td><strong>Game → GameServer / NetworkClient</strong></td>
+<td>Agregação</td>
+<td>Existem só no multiplayer.</td>
+</tr>
+<tr>
+<td><strong>NetworkClient / GameServer → protocol</strong></td>
+<td>Uso</td>
+<td>Codificam e decodificam os pacotes.</td>
+</tr>
+<tr>
+<td><strong>Character → pygame.sprite.Sprite</strong></td>
+<td>Herança</td>
+<td>Base das entidades vivas.</td>
+</tr>
+<tr>
+<td><strong>Player / Enemy / RobotEnemy / SkeletonEnemy → Character</strong></td>
+<td>Herança</td>
+<td>Jogador e inimigos comuns (Sniper herda de Enemy).</td>
+</tr>
+<tr>
+<td><strong>RemotePlayer → Sprite</strong></td>
+<td>Herança (Proxy)</td>
+<td>Representa o jogador remoto.</td>
+</tr>
+<tr>
+<td><strong>Castle / FinishLine / Sign → Decoration</strong></td>
+<td>Herança</td>
+<td>Elementos de cenário especializados.</td>
+</tr>
+<tr>
+<td><strong>World → Entidades do jogo</strong></td>
+<td>Criação (Factory)</td>
+<td><code>process_data()</code> lê o CSV e instancia jogador, inimigos, chefes, aranhas, itens, bandeiras e cenário.</td>
+</tr>
+<tr>
+<td><strong>Player / Inimigos → Projéteis</strong></td>
+<td>Associação Dinâmica</td>
+<td>Bullet, SniperBullet, RobotBullet, Arrow, DragonFire e Grenade.</td>
+</tr>
+<tr>
+<td><strong>Grenade → Explosion</strong></td>
+<td>Composição Dinâmica</td>
+<td>A granada gera a explosão ao fim do timer.</td>
+</tr>
+<tr>
+<td><strong>Telas → Button / ColorPicker</strong></td>
+<td>Uso</td>
+<td>Botões e seletor de cor.</td>
+</tr>
+</tbody>
+</table>
+<div class="diagrama paisagem"><img src="diagramas/classes.svg" alt="Diagrama de classes 1"></div>
+
+<div class="diagrama paisagem"><img src="diagramas/classes_entidades.svg" alt="Diagrama de classes 2"></div>
+
+<h3>Link do github com o código-fonte</h3>
+<p><a href="https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git">https://github.com/pedromota05/TrabalhoTACIII-PyShooter.git</a></p>
+
+<script>
+document.querySelectorAll('.formula').forEach(function (el) {
+  var tex = el.textContent.trim().replace(/^\\\[/, '').replace(/\\\]$/, '');
+  katex.render(tex, el, {displayMode: true, throwOnError: true});
+});
+</script>
+
+</body>
+</html>

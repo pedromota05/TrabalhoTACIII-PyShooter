@@ -1,20 +1,25 @@
 @startuml
-title Diagrama de Classes — PyShooter (Atualizado Trabalho 2)
+!pragma layout smetana
+title Diagrama de Classes (1/2) — Aplicação, Rede, Mundo e Interface
 skinparam classAttributeIconSize 0
 skinparam packageStyle rectangle
-skinparam linetype ortho
-top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam class {
+  BackgroundColor #EAF1FB
+  BorderColor #2E5C9A
+}
 
 package "Aplicação" {
   class Game <<Facade>> {
     +is_multiplayer: bool
+    +challenge_mode: bool
     +run()
     +start_multiplayer_host(port)
     +start_multiplayer_client(ip, port)
+    +start_challenge(start_index)
     +clean_multiplayer()
-    -_load_level(level_number)
   }
-
   enum GameState <<State>> {
     MENU
     INSTRUCTIONS
@@ -24,190 +29,106 @@ package "Aplicação" {
     OPTIONS
     GAME_OVER
     LEVEL_TRANSITION
+    VICTORY
     MULTIPLAYER_MENU
     EDITOR
   }
-
   class AssetManager <<Singleton>> {
     -_instance: AssetManager
     +load_all()
     +get_image(name)
     +get_sound(name)
-    +load_character_animations(char_type, scale)
+    +load_character_animations(tipo, escala)
   }
   class Button
+  class MusicPlayer {
+    +tocar(caminho, game)
+    +vinheta(chave, game)
+    +update(game)
+  }
 }
 
 package "Rede (Multiplayer LAN)" {
   class GameServer {
-    +host: str
     +port: int
-    +running: bool
     +start(): bool
     +stop()
     -_run_loop()
   }
-
   class NetworkClient {
     +player_id: str
-    +server_ip: str
-    +server_port: int
-    +running: bool
     +connect(): bool
-    +send_state(x, y, action, dir, shooting, hp)
+    +send_state(...)
     +update_interpolation()
-    +get_remote_players_snapshot()
     +disconnect()
+    -_receive_loop()
   }
-
-  class Protocol {
+  class "protocol" as Protocol <<módulo>> {
     +encode_player_state(...)
-    +encode_disconnect(...)
-    +encode_remove(...)
-    +parse_packet(...)
+    +encode_enemies_state(...)
+    +encode_level(...)
+    +encode_wave(...)
+    +parse_packet(msg)
   }
 }
 
 package "Mundo" {
   class World <<Factory Method>> {
     +obstacle_list
-    +ramp_list
-    +level_length
-    +process_data(data, ..., level)
-    +draw(screen, screen_scroll)
-  }
-}
-
-package "Entidades" {
-  class "pygame.sprite.Sprite" as Sprite <<external>>
-
-  package "Personagens" {
-    class Character {
-      +health: int
-      +alive: bool
-      +move()
-      +shoot(bullet_group)
-      +update()
-      +draw(screen)
-    }
-    class Player {
-      +invincible: int
-      +jump()
-      +move()
-      +update()
-    }
-    class RemotePlayer <<Proxy>> {
-      +player_id: str
-      +world_x: float
-      +world_y: float
-      +update_from_network(data, bg_scroll, bullet_group)
-      +draw(screen)
-    }
-  }
-
-  package "Inimigos" {
-    class Enemy { +ai() }
-    class Sniper
-    class RobotEnemy { +ai() }
-    class SkeletonEnemy { +ai() }
-    class DragonBoss { +update() }
-    class Boss { +update() }
-  }
-
-  package "Combate" {
-    class Bullet
-    class SniperBullet
-    class RobotBullet
-    class Arrow
-    class Grenade
-    class Explosion
-    class DragonFire
-  }
-
-  package "Cenário" {
-    class ItemBox
-    class Decoration
-    class Water
-    class Exit
+    +crates
+    +boss_gate_tiles
+    +process_data(data, ...)
+    +open_boss_gate()
+    +draw(screen, scroll)
   }
 }
 
 package "Interface" {
-  class HealthBar { +draw(screen, health) }
-  class ScreenFade { +fade(screen) }
-
-  package "Telas" {
-    class MainMenuScreen { +update(screen, game) }
-    class MultiplayerMenuScreen { +update(screen, game); +handle_event(event) }
-    class LevelEditorScreen { +update(screen, game); +handle_event(event, game); +save_level_data(); +load_level_data(level) }
-    class InstructionsScreen { +update(screen, game) }
-    class OptionsScreen { +update(screen, game) }
-    class LevelSelectScreen { +update(screen, game) }
-    class PauseOverlay { +update(screen, game) }
-    class GameOverScreen { +update(screen, game) }
+  class HealthBar {
+    +draw(screen, health)
+  }
+  class ScreenFade {
+    +fade(screen)
+  }
+  class ColorPicker {
+    +handle_click(pos)
+  }
+  package "Telas (ui/screens)" {
+    class MainMenuScreen
+    class LevelSelectScreen
+    class MultiplayerMenuScreen
+    class LevelEditorScreen {
+      +handle_event(event, game)
+      +save_level_data()
+      +load_level_data(level)
+    }
+    class InstructionsScreen
+    class OptionsScreen
+    class PauseOverlay
+    class GameOverScreen
+    class VictoryScreen
   }
 }
 
-' Heranças
-Sprite <|-- Character
-Sprite <|-- RemotePlayer
-Character <|-- Player
-Character <|-- Enemy
-Enemy <|-- Sniper
-Character <|-- RobotEnemy
-Character <|-- SkeletonEnemy
-
-Sprite <|-- DragonBoss
-Sprite <|-- Boss
-Sprite <|-- Bullet
-Sprite <|-- SniperBullet
-Sprite <|-- RobotBullet
-Sprite <|-- Arrow
-Sprite <|-- Grenade
-Sprite <|-- Explosion
-Sprite <|-- DragonFire
-Sprite <|-- ItemBox
-Sprite <|-- Decoration
-Sprite <|-- Water
-Sprite <|-- Exit
-
-' Orquestração da sessão
-Game *-- AssetManager : assets
-Game *-- GameState : state
-Game *-- World : world
-Game *-- Player : player
-Game *-- HealthBar : health_bar
-Game *-- ScreenFade : intro_fade
-Game *-- "0..*" Sprite : grupos
-Game o-- GameServer : network_server
-Game o-- NetworkClient : network_client
-Game o-- "telas" MainMenuScreen
-Game o-- "telas" MultiplayerMenuScreen
-Game o-- "telas" LevelEditorScreen
-
-' Rede
+Game *-- AssetManager
+Game *-- GameState
+Game *-- World
+Game *-- HealthBar
+Game *-- ScreenFade
+Game *-- MusicPlayer
+Game o-- GameServer
+Game o-- NetworkClient
+Game o-- MainMenuScreen : telas (uma por GameState)
+MainMenuScreen -[hidden]down- LevelSelectScreen
+LevelSelectScreen -[hidden]down- MultiplayerMenuScreen
+InstructionsScreen -[hidden]down- OptionsScreen
+OptionsScreen -[hidden]down- PauseOverlay
+GameOverScreen -[hidden]down- VictoryScreen
+VictoryScreen -[hidden]down- LevelEditorScreen
 NetworkClient ..> Protocol
 GameServer ..> Protocol
-Game ..> RemotePlayer : instancia ao receber pacotes
-
-note right of World
-  Factory Method: process_data cria Player,
-  HealthBar, inimigos, chefes, itens e elementos
-  de cenário a partir da matriz CSV da fase.
-end note
-
-' Relações de combate
-Player ..> Bullet : dispara
-RemotePlayer ..> Bullet : dispara
-Player ..> Grenade : lança
-Enemy ..> Bullet : dispara
-Sniper ..> SniperBullet : dispara
-RobotEnemy ..> RobotBullet : dispara
-SkeletonEnemy ..> Arrow : dispara
-DragonBoss ..> DragonFire : dispara
-Grenade ..> Explosion : gera
-
-' Telas que usam botões
+LevelSelectScreen ..> ColorPicker
+MultiplayerMenuScreen ..> ColorPicker
 MainMenuScreen ..> Button
 MultiplayerMenuScreen ..> Button
 LevelEditorScreen ..> Button

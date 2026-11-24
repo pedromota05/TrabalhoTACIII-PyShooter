@@ -1,24 +1,26 @@
 @startuml
 title Arquitetura de Pacotes — PyShooter (Atualizado Trabalho 2)
 top to bottom direction
+!pragma layout smetana
+skinparam defaultFontName Arial
 skinparam packageStyle rectangle
 skinparam nodesep 40
 skinparam ranksep 50
 
 package "Aplicação" {
-    ["main.py"] as main
-    ["game.py\nGame <<Facade>>"] as game
-    ["game_state.py\nGameState <<State>>"] as game_state
-    ["config.py"] as config
-    ["asset_manager.py\nAssetManager <<Singleton>>"] as assets
-    ["button.py\nButton"] as button
+    [main.py] as main
+    [game.py\nGame <<Facade>>] as game
+    [game_state.py\nGameState <<State>>] as game_state
+    [config.py] as config
+    [asset_manager.py\nAssetManager <<Singleton>>] as assets
+    [button.py\nButton] as button
 }
 
 package "Rede (Multiplayer LAN)" {
     package "network" {
-        ["protocol\nSerialização UDP"] as net_proto
-        ["server\nGameServer"] as net_server
-        ["client\nNetworkClient"] as net_client
+        [protocol\nSerialização UDP] as net_proto
+        [server\nGameServer] as net_server
+        [client\nNetworkClient] as net_client
     }
 }
 
@@ -28,38 +30,44 @@ package "Core & World" {
         [gameplay] as gameplay
         [level_loader] as loader
         [renderer] as renderer
+        [horde\nOndas da fase 5] as horde
+        [progress\nsave/progresso.json] as progress
+        [music\nMusicPlayer] as music
     }
     package "world" {
-        ["level_builder\nWorld <<Factory Method>>"] as world_comp
+        [level_builder\nWorld <<Factory Method>>] as world_comp
     }
 }
 
 package "Entities" {
     package "entities" {
-        ["base\nCharacter"] as entity_base
-        ["player\nPlayer"] as player
-        ["remote_player\nRemotePlayer <<Proxy>>"] as remote_player
+        [base\nCharacter] as entity_base
+        [player\nPlayer] as player
+        [remote_player\nRemotePlayer <<Proxy>>] as remote_player
 
         package "enemies" {
-            ["standard\nEnemy, Sniper"] as enemy_standard
-            ["robot\nRobotEnemy"] as enemy_robot
-            ["skeleton\nSkeletonEnemy"] as enemy_skeleton
-            ["bosses\nBoss, DragonBoss"] as enemy_bosses
+            [standard\nEnemy, Sniper] as enemy_standard
+            [robot\nRobotEnemy] as enemy_robot
+            [skeleton\nSkeletonEnemy] as enemy_skeleton
+            [bosses\nBoss, DragonBoss] as enemy_bosses
         }
 
         package "combat" {
             [projectiles] as projectiles
         }
 
-        ["items\nItemBox"] as items
-        ["environment\nDecoration, Water, Exit"] as environment
+        [items\nItemBox] as items
+        [environment\nDecoration, Water, Exit] as environment
+        [castle, sign, checkpoint\nCastle, FinishLine, Sign, CheckpointFlag] as scenery
+        [spider\nSpider] as spider
+        [effects, aim_pose\nFloatingText, Debris, giro da arma] as effects
     }
 }
 
 package "UI" {
     package "ui" {
-        ["hud\nHealthBar"] as hud
-        ["transitions\nScreenFade"] as transitions
+        [hud\nHealthBar] as hud
+        [transitions\nScreenFade] as transitions
 
         package "screens" {
             [menu] as menu
@@ -70,6 +78,7 @@ package "UI" {
             [level_select] as level_select
             [pause] as pause
             [game_over] as game_over
+            [victory] as victory
             [common] as common
         }
     }
@@ -102,6 +111,11 @@ game --> options
 game --> level_select
 game --> pause
 game --> game_over
+game --> victory
+game --> music
+gameplay --> horde
+gameplay --> progress
+level_select ..> progress : lê recorde
 
 ' Editor de Fases
 editor_screen ..> levels : salva/carrega CSV
@@ -117,6 +131,10 @@ world_comp --> enemy_bosses
 world_comp --> items
 world_comp --> environment
 world_comp --> hud
+world_comp --> scenery
+world_comp --> spider
+horde --> spider
+player --> effects
 
 ' Entidades e Combate
 player --> entity_base
